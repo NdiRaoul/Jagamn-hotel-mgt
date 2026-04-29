@@ -7,9 +7,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --color-jagamn-primary: #0F2A44;
+  --color-jagamn-secondary: #6F7885;
+  --color-jagamn-tertiary: #D9822B;
+  --color-jagamn-neutral: #F8FAFC;
+  --font-sans: var(--font-manrope), var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-manrope), var(--font-sans);
+  --font-manrope: var(--font-manrope);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -127,4 +132,47 @@
   html {
     @apply font-sans;
   }
+}
+
+@layer utilities {
+  .manrope-extralight {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 200;
+  }
+  .manrope-light {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 300;
+  }
+  .manrope-regular {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 400;
+  }
+  .manrope-medium {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 500;
+  }
+  .manrope-semibold {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 600;
+  }
+  .manrope-bold {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 700;
+  }
+  .manrope-extrabold {
+    font-family: var(--font-manrope), sans-serif;
+    font-weight: 800;
+  }
+
+  /* Custom Jagamn Colors Utilities */
+  .text-jagamn-primary { color: var(--color-jagamn-primary); }
+  .bg-jagamn-primary { background-color: var(--color-jagamn-primary); }
+
+  .text-jagamn-secondary { color: var(--color-jagamn-secondary); }
+  .bg-jagamn-secondary { background-color: var(--color-jagamn-secondary); }
+
+  .text-jagamn-tertiary { color: var(--color-jagamn-tertiary); }
+  .bg-jagamn-tertiary { background-color: var(--color-jagamn-tertiary); }
+
+  .bg-jagamn-neutral { background-color: var(--color-jagamn-neutral); }
 }
