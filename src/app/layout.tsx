@@ -4,7 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 const manrope = localFont({
-  src: "../../public/Manrope-VariableFont_wght.ttf",
+  src: "../../public/fonts/Manrope-VariableFont_wght.ttf",
   variable: "--font-manrope",
   display: "swap",
 });
@@ -34,7 +34,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${manrope.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-manrope">{children}</body>
     </html>
   );
 }

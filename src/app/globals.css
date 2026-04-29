@@ -7,10 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-jagamn-primary: #0F2A44;
-  --color-jagamn-secondary: #6F7885;
-  --color-jagamn-tertiary: #D9822B;
-  --color-jagamn-neutral: #F8FAFC;
+  --color-jagamn-primary: #0f2a44;
+  --color-jagamn-secondary: #6f7885;
+  --color-jagamn-tertiary: #d9822b;
+  --color-jagamn-neutral: #f8fafc;
   --font-sans: var(--font-manrope), var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-manrope), var(--font-sans);
@@ -51,6 +51,13 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --font-manrope-extralight: .manrope-extralight;
+  --font-manrope-light: .manrope-light;
+  --font-manrope-regular: .manrope-regular;
+  --font-manrope-medium: .manrope-medium;
+  --font-manrope-semibold: .manrope-semibold;
+  --font-manrope-bold: .manrope-bold;
+  --font-manrope-extrabold: .manrope-extrabold;
 }
 
 :root {
@@ -165,14 +172,28 @@
   }
 
   /* Custom Jagamn Colors Utilities */
-  .text-jagamn-primary { color: var(--color-jagamn-primary); }
-  .bg-jagamn-primary { background-color: var(--color-jagamn-primary); }
+  .text-jagamn-primary {
+    color: var(--color-jagamn-primary);
+  }
+  .bg-jagamn-primary {
+    background-color: var(--color-jagamn-primary);
+  }
 
-  .text-jagamn-secondary { color: var(--color-jagamn-secondary); }
-  .bg-jagamn-secondary { background-color: var(--color-jagamn-secondary); }
+  .text-jagamn-secondary {
+    color: var(--color-jagamn-secondary);
+  }
+  .bg-jagamn-secondary {
+    background-color: var(--color-jagamn-secondary);
+  }
 
-  .text-jagamn-tertiary { color: var(--color-jagamn-tertiary); }
-  .bg-jagamn-tertiary { background-color: var(--color-jagamn-tertiary); }
+  .text-jagamn-tertiary {
+    color: var(--color-jagamn-tertiary);
+  }
+  .bg-jagamn-tertiary {
+    background-color: var(--color-jagamn-tertiary);
+  }
 
-  .bg-jagamn-neutral { background-color: var(--color-jagamn-neutral); }
+  .bg-jagamn-neutral {
+    background-color: var(--color-jagamn-neutral);
+  }
 }
