@@ -46,19 +46,14 @@ export default async function RoomDetailPage({ params }: Props) {
       <div className="h-24"></div>
 
       <div className="max-w-7xl mx-auto w-full px-8 py-10">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-jagamn-secondary mb-8">
-          <Link href="/" className="hover:text-jagamn-primary transition-colors">Home</Link>
-          <span>/</span>
-          <Link href="/rooms" className="hover:text-jagamn-primary transition-colors">Rooms & Suites</Link>
-          <span>/</span>
-          <span className="text-jagamn-primary font-medium">{room.name}</span>
-        </div>
-
         {/* ── Gallery ── */}
-        <div className="grid grid-cols-2 gap-2 mb-10 h-[420px]">
-          {/* Main large image */}
-          <div className="relative rounded-md overflow-hidden col-span-1 row-span-2">
+        {/* Both columns use h-[420px]; the right column fills its height with a 2×2 grid */}
+        <div
+          className="grid grid-cols-2 gap-2 mb-10"
+          style={{ height: "420px" }}
+        >
+          {/* Main large image — left column, full height */}
+          <div className="relative rounded-md overflow-hidden h-full">
             <Image
               src={room.images.main}
               alt={room.name}
@@ -68,19 +63,29 @@ export default async function RoomDetailPage({ params }: Props) {
             />
           </div>
 
-          {/* Smaller images */}
-          <div className="grid grid-cols-2 grid-rows-2 gap-2">
+          {/* Right column — 2×2 grid, full height */}
+          <div className="grid grid-cols-2 grid-rows-2 gap-2 h-full">
             {room.images.gallery.slice(0, 3).map((img, i) => (
               <div key={i} className="relative rounded-md overflow-hidden">
-                <Image src={img} alt={`${room.name} photo ${i + 2}`} fill className="object-cover" />
+                <Image
+                  src={img}
+                  alt={`${room.name} photo ${i + 2}`}
+                  fill
+                  className="object-cover"
+                />
               </div>
             ))}
-            {/* +More badge on 4th image slot */}
-            <div className="relative rounded-md overflow-hidden">
+            {/* +More badge on 4th slot */}
+            <div className="relative rounded-md overflow-hidden cursor-pointer">
               {room.images.gallery[3] && (
-                <Image src={room.images.gallery[3]} alt={`${room.name} more`} fill className="object-cover" />
+                <Image
+                  src={room.images.gallery[3]}
+                  alt={`${room.name} more`}
+                  fill
+                  className="object-cover"
+                />
               )}
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer hover:bg-black/40 transition-colors">
+              <div className="absolute inset-0 bg-black/50 hover:bg-black/40 transition-colors flex items-center justify-center">
                 <span className="text-white font-bold text-sm">+8 More</span>
               </div>
             </div>
@@ -95,7 +100,9 @@ export default async function RoomDetailPage({ params }: Props) {
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-jagamn-tertiary mb-2">
               {room.collectionLabel}
             </p>
-            <h1 className="manrope-extrabold text-4xl text-jagamn-primary mb-4">{room.name}</h1>
+            <h1 className="manrope-extrabold text-4xl text-jagamn-primary mb-4">
+              {room.name}
+            </h1>
             <div className="flex items-center gap-6 text-sm text-jagamn-secondary mb-8">
               <span className="flex items-center gap-1.5">
                 <Maximize className="w-4 h-4" />
@@ -113,19 +120,30 @@ export default async function RoomDetailPage({ params }: Props) {
 
             {/* Description */}
             <div className="mb-10">
-              <h2 className="manrope-bold text-xl text-jagamn-primary mb-3">The Palace Experience</h2>
-              <p className="text-sm text-jagamn-secondary leading-relaxed">{room.description}</p>
-              <p className="text-sm text-jagamn-secondary leading-relaxed mt-3">{room.longDescription}</p>
+              <h2 className="manrope-bold text-xl text-jagamn-primary mb-3">
+                The Palace Experience
+              </h2>
+              <p className="text-sm text-jagamn-secondary leading-relaxed">
+                {room.description}
+              </p>
+              <p className="text-sm text-jagamn-secondary leading-relaxed mt-3">
+                {room.longDescription}
+              </p>
             </div>
 
             {/* Premium Amenities */}
             <div className="mb-10">
-              <h2 className="manrope-bold text-xl text-jagamn-primary mb-5">Premium Amenities</h2>
+              <h2 className="manrope-bold text-xl text-jagamn-primary mb-5">
+                Premium Amenities
+              </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {room.amenities.map((amenity) => {
                   const Icon = ICON_MAP[amenity.icon] ?? Sparkles;
                   return (
-                    <div key={amenity.label} className="flex items-center gap-3 text-sm text-jagamn-primary">
+                    <div
+                      key={amenity.label}
+                      className="flex items-center gap-3 text-sm text-jagamn-primary"
+                    >
                       <div className="w-8 h-8 rounded-full bg-jagamn-neutral border border-gray-100 flex items-center justify-center flex-shrink-0">
                         <Icon className="w-4 h-4 text-jagamn-secondary" />
                       </div>
@@ -137,11 +155,15 @@ export default async function RoomDetailPage({ params }: Props) {
             </div>
 
             {/* Cancellation Policy */}
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-md p-4 mb-12">
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 bg-[#ECEEF0] border border-amber-100 rounded-md p-4 mb-12">
+              <AlertCircle className="w-5 h-5 text-jagamn-primary flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-jagamn-primary mb-1">Flexible Cancellation</p>
-                <p className="text-xs text-jagamn-secondary">{room.cancellationPolicy}</p>
+                <p className="text-sm font-semibold text-jagamn-primary mb-1">
+                  Flexible Cancellation
+                </p>
+                <p className="text-xs text-jagamn-secondary">
+                  {room.cancellationPolicy}
+                </p>
               </div>
             </div>
 
@@ -149,9 +171,12 @@ export default async function RoomDetailPage({ params }: Props) {
             <div>
               <div className="flex items-end justify-between mb-6">
                 <div>
-                  <h2 className="manrope-bold text-2xl text-jagamn-primary">You May Also Like</h2>
+                  <h2 className="manrope-bold text-2xl text-jagamn-primary">
+                    You May Also Like
+                  </h2>
                   <p className="text-sm text-jagamn-secondary mt-1">
-                    Explore other exceptional sanctuaries within the Palace grounds.
+                    Explore other exceptional sanctuaries within the Palace
+                    grounds.
                   </p>
                 </div>
                 <Link
@@ -165,7 +190,11 @@ export default async function RoomDetailPage({ params }: Props) {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {similarRooms.map((similar) => (
-                  <Link key={similar.slug} href={`/rooms/${similar.slug}`} className="group">
+                  <Link
+                    key={similar.slug}
+                    href={`/rooms/${similar.slug}`}
+                    className="group"
+                  >
                     <div className="relative h-44 rounded-md overflow-hidden mb-3">
                       <Image
                         src={similar.images.main}
@@ -185,7 +214,9 @@ export default async function RoomDetailPage({ params }: Props) {
                     <h3 className="manrope-bold text-sm text-jagamn-primary group-hover:text-jagamn-tertiary transition-colors">
                       {similar.name}
                     </h3>
-                    <p className="text-xs text-jagamn-secondary mt-0.5">From ${similar.price} / night</p>
+                    <p className="text-xs text-jagamn-secondary mt-0.5">
+                      From ${similar.price} / night
+                    </p>
                   </Link>
                 ))}
               </div>

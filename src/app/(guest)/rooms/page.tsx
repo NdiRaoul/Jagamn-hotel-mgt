@@ -35,7 +35,9 @@ export default function RoomsCollectionPage() {
               </p>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-[10px] text-jagamn-secondary uppercase tracking-wider block mb-1">Min</label>
+                  <label className="text-[10px] text-jagamn-secondary uppercase tracking-wider block mb-1">
+                    Min
+                  </label>
                   <input
                     type="number"
                     defaultValue={250}
@@ -43,7 +45,9 @@ export default function RoomsCollectionPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] text-jagamn-secondary uppercase tracking-wider block mb-1">Max</label>
+                  <label className="text-[10px] text-jagamn-secondary uppercase tracking-wider block mb-1">
+                    Max
+                  </label>
                   <input
                     type="number"
                     defaultValue={999}
@@ -59,7 +63,10 @@ export default function RoomsCollectionPage() {
                 Location
               </p>
               {["Palace Gardens", "City Skyline", "Oceanfront"].map((loc) => (
-                <label key={loc} className="flex items-center gap-2 mb-2 cursor-pointer group">
+                <label
+                  key={loc}
+                  className="flex items-center gap-2 mb-2 cursor-pointer group"
+                >
                   <input
                     type="checkbox"
                     defaultChecked={loc === "Palace Gardens"}
@@ -78,20 +85,24 @@ export default function RoomsCollectionPage() {
                 Signature Amenities
               </p>
               <div className="flex flex-wrap gap-2">
-                {["Plunge Pool", "Butler Service", "Terrace", "Fireplace", "Spa Access"].map(
-                  (amenity, i) => (
-                    <button
-                      key={amenity}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        i < 2
-                          ? "bg-jagamn-primary text-white border-jagamn-primary"
-                          : "border-gray-200 text-jagamn-secondary hover:border-jagamn-primary hover:text-jagamn-primary"
-                      }`}
-                    >
-                      {amenity}
-                    </button>
-                  )
-                )}
+                {[
+                  "Plunge Pool",
+                  "Butler Service",
+                  "Terrace",
+                  "Fireplace",
+                  "Spa Access",
+                ].map((amenity, i) => (
+                  <button
+                    key={amenity}
+                    className={`text-xs px-3 py-1.5 rounded-sm border transition-colors ${
+                      i < 2
+                        ? "bg-jagamn-primary text-white border-jagamn-primary"
+                        : "border-gray-200 text-jagamn-secondary hover:border-jagamn-primary hover:text-jagamn-primary"
+                    }`}
+                  >
+                    {amenity}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -105,7 +116,9 @@ export default function RoomsCollectionPage() {
               JAGAMN PALACE
             </p>
             <div className="flex items-end justify-between">
-              <h1 className="manrope-bold text-4xl text-jagamn-primary">The Collection</h1>
+              <h1 className="manrope-bold text-4xl text-jagamn-primary">
+                The Collection
+              </h1>
               <div className="flex items-center gap-4">
                 <p className="text-sm text-jagamn-secondary hidden md:block">
                   Showing {ROOMS.length} Suites & Rooms
@@ -144,10 +157,12 @@ export default function RoomsCollectionPage() {
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-xs text-jagamn-tertiary font-semibold uppercase tracking-wider mb-1">
+                      {/* <p className="text-xs text-jagamn-tertiary font-semibold uppercase tracking-wider mb-1">
                         {room.collectionLabel}
-                      </p>
-                      <h2 className="manrope-bold text-xl text-jagamn-primary">{room.name}</h2>
+                      </p> */}
+                      <h2 className="manrope-bold text-xl text-jagamn-primary">
+                        {room.name}
+                      </h2>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="manrope-bold text-2xl text-jagamn-primary">
@@ -172,7 +187,7 @@ export default function RoomsCollectionPage() {
 
                   <Link
                     href={`/rooms/${room.slug}`}
-                    className="w-full flex items-center justify-center gap-2 bg-jagamn-tertiary hover:bg-jagamn-tertiary/90 text-white py-3 rounded-md text-sm font-semibold transition-colors"
+                    className="w-full flex items-center justify-center gap-2 bg-transparent hover:bg-[#FFB77A] text-jagamn-primary hover:text-[#412000] border border-jagamn-primary hover:border-none py-3 rounded-md text-sm font-semibold transition-colors"
                   >
                     Reserve {room.name.split(" ")[0]}
                     <ArrowRight className="w-4 h-4" />
