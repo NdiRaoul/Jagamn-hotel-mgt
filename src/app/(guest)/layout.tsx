@@ -44,13 +44,13 @@ export default function GuestLayout({
 
         <div className="flex items-center gap-6 text-sm font-medium">
           <Link
-            href="/(staff)/login"
+            href="/login"
             className="hover:text-jagamn-tertiary transition-colors"
           >
             Sign In
           </Link>
           <Link
-            href="/register"
+            href="/login?tab=signup"
             className="hover:text-jagamn-tertiary transition-colors"
           >
             Register
