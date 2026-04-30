@@ -12,7 +12,7 @@ export default function RoomsCollectionPage() {
 
       <div className="flex flex-1 max-w-7xl mx-auto w-full px-8 py-12 gap-10">
         {/* ───── Sidebar ───── */}
-        <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-8">
+        <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-8 bg-[#F4F6F8] border-l-4 border-[#00152A] p-6 rounded-md">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-jagamn-secondary mb-4">
               Refine Collection

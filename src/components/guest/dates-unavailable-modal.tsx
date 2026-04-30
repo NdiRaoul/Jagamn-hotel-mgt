@@ -83,7 +83,7 @@ export function DatesUnavailableModal({
       />
 
       {/* Modal panel */}
-      <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4 z-10 overflow-hidden">
+      <div className="relative bg-white rounded-lg border-l-4 border-[#00152A] shadow-2xl w-full max-w-lg mx-4 z-10 overflow-hidden">
         {/* Close button */}
         <button
           onClick={onClose}

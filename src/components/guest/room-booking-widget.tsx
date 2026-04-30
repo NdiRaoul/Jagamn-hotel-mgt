@@ -111,12 +111,12 @@ export function RoomBookingWidget({ room }: Props) {
       guests,
       room: room.slug,
     });
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(`/booking?${params.toString()}`);
   }
 
   return (
     <>
-      <div className="bg-white rounded-md shadow-lg border border-gray-100 p-6 space-y-5">
+      <div className="bg-white rounded-md shadow-lg border border-gray-100 border-t-4 border-t-[#BA722E] p-6 space-y-5">
       {/* ── Price ─────────────────────────────────── */}
       <div className="flex items-end gap-2 border-b border-gray-100 pb-5">
         <p className="manrope-extrabold text-3xl text-jagamn-primary">
@@ -308,7 +308,7 @@ export function RoomBookingWidget({ room }: Props) {
     {/* ── Stately Alternatives — rendered OUTSIDE the white card ── */}
     {conflict && conflictRange && (
       <div
-        className="rounded-md p-4 space-y-3 mt-2"
+        className="rounded-md border-l-4 border-[#BA1A1A] p-4 space-y-3 mt-2"
         style={{ backgroundColor: "rgba(186,26,26,0.10)" }}
       >
         {/* Header */}

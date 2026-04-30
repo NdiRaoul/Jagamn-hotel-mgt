@@ -119,7 +119,7 @@ export default async function RoomDetailPage({ params }: Props) {
             </div>
 
             {/* Description */}
-            <div className="mb-10">
+            <div className="mb-10 bg-[#F4F6F8] border-l-4 border-[#00152A] p-8 rounded-r-md">
               <h2 className="manrope-bold text-xl text-jagamn-primary mb-3">
                 The Palace Experience
               </h2>
@@ -155,7 +155,7 @@ export default async function RoomDetailPage({ params }: Props) {
             </div>
 
             {/* Cancellation Policy */}
-            <div className="flex items-start gap-3 bg-[#ECEEF0] border border-amber-100 rounded-md p-4 mb-12">
+            <div className="flex items-start gap-3 bg-[#ECEEF0] border border-amber-100 rounded-md p-4 mb-4">
               <AlertCircle className="w-5 h-5 text-jagamn-primary flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-jagamn-primary mb-1">
@@ -166,61 +166,6 @@ export default async function RoomDetailPage({ params }: Props) {
                 </p>
               </div>
             </div>
-
-            {/* You May Also Like */}
-            <div>
-              <div className="flex items-end justify-between mb-6">
-                <div>
-                  <h2 className="manrope-bold text-2xl text-jagamn-primary">
-                    You May Also Like
-                  </h2>
-                  <p className="text-sm text-jagamn-secondary mt-1">
-                    Explore other exceptional sanctuaries within the Palace
-                    grounds.
-                  </p>
-                </div>
-                <Link
-                  href="/rooms"
-                  className="flex items-center gap-1 text-sm text-jagamn-primary hover:text-jagamn-tertiary transition-colors font-semibold"
-                >
-                  View All Rooms
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {similarRooms.map((similar) => (
-                  <Link
-                    key={similar.slug}
-                    href={`/rooms/${similar.slug}`}
-                    className="group"
-                  >
-                    <div className="relative h-44 rounded-md overflow-hidden mb-3">
-                      <Image
-                        src={similar.images.main}
-                        alt={similar.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
-                      {similar.badge && (
-                        <div className="absolute top-2 left-2 bg-jagamn-tertiary text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
-                          {similar.badge}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-jagamn-tertiary font-semibold uppercase tracking-wider mb-0.5">
-                      {similar.collectionLabel}
-                    </p>
-                    <h3 className="manrope-bold text-sm text-jagamn-primary group-hover:text-jagamn-tertiary transition-colors">
-                      {similar.name}
-                    </h3>
-                    <p className="text-xs text-jagamn-secondary mt-0.5">
-                      From ${similar.price} / night
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Right: Booking Widget */}
@@ -228,6 +173,63 @@ export default async function RoomDetailPage({ params }: Props) {
             <div className="sticky top-28">
               <RoomBookingWidget room={room} />
             </div>
+          </div>
+        </div>
+
+        {/* ── You May Also Like — full-width below both columns ── */}
+        <div className="mt-16 pt-12 border-t border-gray-200">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="manrope-bold text-2xl text-jagamn-primary">
+                You May Also Like
+              </h2>
+              <p className="text-sm text-jagamn-secondary mt-1">
+                Explore other exceptional sanctuaries within the Palace grounds.
+              </p>
+            </div>
+            <Link
+              href="/rooms"
+              className="flex items-center gap-1 text-sm text-jagamn-primary hover:text-jagamn-tertiary transition-colors font-semibold"
+            >
+              View All Rooms
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {similarRooms.map((similar) => (
+              <Link
+                key={similar.slug}
+                href={`/rooms/${similar.slug}`}
+                className="group"
+              >
+                <div className="relative h-52 rounded-md overflow-hidden mb-4">
+                  <Image
+                    src={similar.images.main}
+                    alt={similar.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  {similar.badge && (
+                    <div className="absolute top-2 left-2 bg-jagamn-tertiary text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
+                      {similar.badge}
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-white/90 text-jagamn-primary text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
+                    From ${similar.price}
+                  </div>
+                </div>
+                <p className="text-xs text-jagamn-tertiary font-semibold uppercase tracking-wider mb-0.5">
+                  {similar.collectionLabel}
+                </p>
+                <h3 className="manrope-bold text-base text-jagamn-primary group-hover:text-jagamn-tertiary transition-colors">
+                  {similar.name}
+                </h3>
+                <p className="text-xs text-jagamn-secondary mt-0.5">
+                  {similar.description.slice(0, 60)}...
+                </p>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
