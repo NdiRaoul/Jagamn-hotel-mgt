@@ -33,14 +33,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { getArrivalById } from "@/lib/mock-data";
 import { notFound } from "next/navigation";
@@ -81,93 +73,12 @@ export default function CheckInPage(props: { params: Promise<{ id: string }> }) 
         </div>
 
         <div className="flex items-center gap-4">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-12 px-8 bg-[#E6E8EA] border-gray-200 text-[#00152A] font-bold hover:bg-gray-50"
-              >
-                Edit Booking
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px] bg-[#F4F6F8] overflow-y-auto">
-              <SheetHeader className="mb-8">
-                <SheetTitle className="manrope-bold text-3xl text-[#00152A]">Edit Booking</SheetTitle>
-                <SheetDescription className="text-gray-500">
-                  Update reservation details for {guestData.guest}.
-                </SheetDescription>
-              </SheetHeader>
-              
-              <div className="space-y-8">
-                {/* Guest Details */}
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100 space-y-6">
-                  <h3 className="text-[10px] font-bold text-[#00152A] uppercase tracking-widest border-b border-gray-50 pb-2">Guest Details</h3>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Full Name</Label>
-                      <Input defaultValue={guestData.guest} className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Address</Label>
-                      <Input defaultValue={`${guestData.id}@example.com`} className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phone Number</Label>
-                      <Input defaultValue="+1 (555) 000-0000" className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stay Details */}
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100 space-y-6">
-                  <h3 className="text-[10px] font-bold text-[#00152A] uppercase tracking-widest border-b border-gray-50 pb-2">Stay Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Check-In</Label>
-                      <Input type="date" defaultValue="2023-10-24" className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Check-Out</Label>
-                      <Input type="date" defaultValue="2023-10-28" className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium" />
-                    </div>
-                    <div className="space-y-2 col-span-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Room Type</Label>
-                      <Select defaultValue={guestData.room}>
-                        <SelectTrigger className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Maharaja Suite">Maharaja Suite</SelectItem>
-                          <SelectItem value="Standard King">Standard King</SelectItem>
-                          <SelectItem value="Deluxe King">Deluxe King</SelectItem>
-                          <SelectItem value="Ocean View Suite">Ocean View Suite</SelectItem>
-                          <SelectItem value="Penthouse">Penthouse</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2 col-span-2">
-                      <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Guests</Label>
-                      <Select defaultValue="2">
-                        <SelectTrigger className="h-12 bg-[#E6E8EA] border-[#6B7280] text-[#00152A] font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 Adult</SelectItem>
-                          <SelectItem value="2">2 Adults</SelectItem>
-                          <SelectItem value="3">3 Adults</SelectItem>
-                          <SelectItem value="4">4 Adults</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <Button className="w-full h-14 bg-[#BA722E] hover:bg-[#A36328] text-white font-bold shadow-lg text-lg rounded-xl">
-                  Save Changes
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <Button
+            variant="outline"
+            className="h-12 px-8 bg-[#E6E8EA] border-gray-200 text-[#00152A] font-bold hover:bg-gray-50"
+          >
+            Edit Booking
+          </Button>
           <Link href="/reception/check-in/success">
             <Button className="h-12 px-8 bg-[#BA722E] hover:bg-[#A36328] text-white font-bold shadow-lg shadow-[#BA722E]/20">
               Confirm Check-In
