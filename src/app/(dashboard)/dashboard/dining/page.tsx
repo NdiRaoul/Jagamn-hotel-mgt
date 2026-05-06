@@ -137,7 +137,6 @@ export default function DiningPage() {
   const [selectedCategory, setSelectedCategory] = useState("Breakfast");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recentOrder, setRecentOrder] = useState<CartItem[] | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState("Charge to Room");
 
   const subtotal = useMemo(
     () => cart.reduce((acc, item) => acc + item.price * item.quantity, 0),
@@ -500,43 +499,12 @@ export default function DiningPage() {
                   Payment Method
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setSelectedPayment("Charge to Room")}
-                    className={cn(
-                      "border-2 rounded-md p-3 flex flex-col items-center gap-2 group transition-all",
-                      selectedPayment === "Charge to Room"
-                        ? "border-jagamn-tertiary bg-orange-50/30"
-                        : "border-gray-100 hover:border-gray-300",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 flex items-center justify-center self-end",
-                        selectedPayment === "Charge to Room"
-                          ? "border-jagamn-tertiary bg-white"
-                          : "border-gray-100 bg-transparent",
-                      )}
-                    >
-                      {selectedPayment === "Charge to Room" && (
-                        <div className="w-2 h-2 rounded-full bg-jagamn-tertiary" />
-                      )}
+                  <button className="border-2 border-jagamn-tertiary bg-orange-50/30 rounded-md p-3 flex flex-col items-center gap-2 group transition-all">
+                    <div className="w-4 h-4 rounded-full border-2 border-jagamn-tertiary bg-white flex items-center justify-center self-end">
+                      <div className="w-2 h-2 rounded-full bg-jagamn-tertiary" />
                     </div>
-                    <Smartphone
-                      className={cn(
-                        "w-4 h-4",
-                        selectedPayment === "Charge to Room"
-                          ? "text-jagamn-tertiary"
-                          : "text-gray-400",
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "text-[9px] font-bold uppercase",
-                        selectedPayment === "Charge to Room"
-                          ? "text-jagamn-primary"
-                          : "text-gray-400",
-                      )}
-                    >
+                    <Smartphone className="w-4 h-4 text-jagamn-tertiary" />
+                    <span className="text-[9px] font-bold text-jagamn-primary uppercase">
                       Charge to Room
                     </span>
                   </button>
@@ -547,42 +515,11 @@ export default function DiningPage() {
                   ].map((method) => (
                     <button
                       key={method.label}
-                      onClick={() => setSelectedPayment(method.label)}
-                      className={cn(
-                        "border-2 rounded-md p-3 flex flex-col items-center gap-2 transition-all",
-                        selectedPayment === method.label
-                          ? "border-jagamn-tertiary bg-orange-50/30"
-                          : "border-gray-100 hover:border-gray-300",
-                      )}
+                      className="border border-gray-100 hover:border-gray-300 rounded-md p-3 flex flex-col items-center gap-2 transition-all"
                     >
-                      <div
-                        className={cn(
-                          "w-4 h-4 rounded-full border-2 flex items-center justify-center self-end",
-                          selectedPayment === method.label
-                            ? "border-jagamn-tertiary bg-white"
-                            : "border-gray-100 bg-transparent",
-                        )}
-                      >
-                        {selectedPayment === method.label && (
-                          <div className="w-2 h-2 rounded-full bg-jagamn-tertiary" />
-                        )}
-                      </div>
-                      <method.icon
-                        className={cn(
-                          "w-4 h-4",
-                          selectedPayment === method.label
-                            ? "text-jagamn-tertiary"
-                            : "text-gray-400",
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          "text-[9px] font-bold uppercase",
-                          selectedPayment === method.label
-                            ? "text-jagamn-primary"
-                            : "text-gray-400",
-                        )}
-                      >
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-100 self-end" />
+                      <method.icon className="w-4 h-4 text-gray-400" />
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">
                         {method.label}
                       </span>
                     </button>
@@ -631,13 +568,6 @@ export default function DiningPage() {
 
   return (
     <div className="space-y-12 max-w-6xl pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* ── Overview Header ────────────────────────── */}
-      {/* <div className="flex items-center justify-between">
-        <h1 className="manrope-bold text-2xl text-jagamn-primary">
-          In-Room Dining
-        </h1>
-      </div> */}
-
       {/* ── Top Summary Cards ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Activity Card */}

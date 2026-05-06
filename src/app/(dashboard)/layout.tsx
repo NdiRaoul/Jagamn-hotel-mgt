@@ -16,6 +16,7 @@ import {
   Bell,
   Crown,
   ChevronDown,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,20 +64,28 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">
+      {/* ── Mobile Overlay ───────────────────────── */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar ────────────────────────────────── */}
       <aside
         className={cn(
-          "bg-[#00152A] text-white flex flex-col transition-all duration-300 z-50",
-          isSidebarOpen ? "w-[280px]" : "w-[80px]",
+          "bg-[#00152A] text-white flex flex-col transition-all duration-300 z-50 fixed inset-y-0 left-0 md:relative md:h-full",
+          isSidebarOpen ? "w-[280px] translate-x-0" : "w-[280px] -translate-x-full md:w-[80px] md:translate-x-0",
         )}
       >
         {/* Logo */}
-        <div className="p-8 flex items-center gap-4">
+        <div className="p-8 flex items-center gap-4 flex-shrink-0">
           <div className="w-10 h-10 rounded-lg bg-[#BA722E] flex items-center justify-center flex-shrink-0">
             <Crown className="w-6 h-6 text-white" />
           </div>
-          {isSidebarOpen && (
-            <div className="min-w-0">
+          {(isSidebarOpen || !isSidebarOpen) && (
+            <div className={cn("min-w-0 transition-opacity", isSidebarOpen ? "opacity-100" : "opacity-0 md:hidden")}>
               <h2 className="manrope-bold text-lg leading-tight truncate">
                 The Palace
               </h2>
@@ -88,18 +97,18 @@ export default function DashboardLayout({
         </div>
 
         {/* Primary Action */}
-        <div className="px-6 mb-8">
-          <Button className="w-full bg-[#1A2E42] hover:bg-[#253D55] border-0 h-12 rounded-md flex items-center justify-center gap-2 group transition-all">
+        <div className="px-6 mb-8 flex-shrink-0">
+          <Button className="w-full bg-[#1A2E42] hover:bg-[#253D55] border-0 h-12 rounded-md flex items-center justify-center gap-2 group transition-all overflow-hidden">
             <Plus className="w-4 h-4 text-jagamn-tertiary" />
 
             {isSidebarOpen && (
-              <span className="text-sm font-bold">Request Service</span>
+              <span className="text-sm font-bold whitespace-nowrap">Request Service</span>
             )}
           </Button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto scrollbar-hide">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -110,6 +119,9 @@ export default function DashboardLayout({
                   ? "bg-[#1A2E42] text-[#FFB77A]"
                   : "text-gray-400 hover:text-white hover:bg-white/5",
               )}
+              onClick={() => {
+                if (window.innerWidth < 768) setIsSidebarOpen(false);
+              }}
             >
               <item.icon
                 className={cn(
@@ -120,23 +132,26 @@ export default function DashboardLayout({
                 )}
               />
               {isSidebarOpen && (
-                <span className="text-sm font-bold">{item.label}</span>
+                <span className="text-sm font-bold whitespace-nowrap">{item.label}</span>
               )}
             </Link>
           ))}
         </nav>
 
         {/* Bottom Nav */}
-        <div className="p-4 border-t border-white/5 space-y-2">
+        <div className="p-4 border-t border-white/5 space-y-2 flex-shrink-0">
           {BOTTOM_NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className="flex items-center gap-4 px-4 py-3 rounded-md text-gray-500 hover:text-white hover:bg-white/5 transition-all"
+              onClick={() => {
+                if (window.innerWidth < 768) setIsSidebarOpen(false);
+              }}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               {isSidebarOpen && (
-                <span className="text-sm font-bold">{item.label}</span>
+                <span className="text-sm font-bold whitespace-nowrap">{item.label}</span>
               )}
             </Link>
           ))}
@@ -148,6 +163,12 @@ export default function DashboardLayout({
         {/* Header */}
         <header className="h-[80px] bg-white border-b border-gray-100 px-10 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-12 flex-1">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden text-gray-500 mr-4"
+            >
+              <Menu className="w-6 h-6" /> 
+            </button>
             <h2 className="manrope-bold text-xl text-[#00152A] whitespace-nowrap">
               {getPageTitle()}
             </h2>
