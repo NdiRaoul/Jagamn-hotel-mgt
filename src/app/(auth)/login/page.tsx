@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,16 +11,24 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
-export default function LoginPage() {
-  const router = useRouter();
+/** Reads ?tab= from the URL and syncs the active tab — must be inside <Suspense>. */
+function TabSync({
+  onTab,
+}: {
+  onTab: (tab: "signin" | "signup") => void;
+}) {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "signup") setActiveTab("signup");
-  }, [searchParams]);
+    if (tab === "signup") onTab("signup");
+  }, [searchParams, onTab]);
+  return null;
+}
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +41,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-stretch bg-white">
+      <Suspense fallback={null}>
+        <TabSync onTab={setActiveTab} />
+      </Suspense>
       {/* ── Left Side: Brand Imagery ────────────────── */}
       <div className="hidden lg:flex w-[45%] relative overflow-hidden">
         <Image
