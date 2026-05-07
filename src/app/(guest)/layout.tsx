@@ -1,12 +1,34 @@
+"use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Earth, EarthIcon, Share, Share2 } from "lucide-react";
+import {
+  BadgeCheckIcon,
+  BellIcon,
+  CreditCardIcon,
+  Earth,
+  EarthIcon,
+  LogOutIcon,
+  Menu,
+  Share,
+  Share2,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useState } from "react";
 
 export default function GuestLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isSignedIn, setIsSignedIn] = useState(false);
   return (
     <div className="guest-layout flex flex-col min-h-screen relative">
       {/* Navbar overlaying the hero section */}
@@ -42,7 +64,7 @@ export default function GuestLayout({
           </Link>
         </nav>
 
-        <div className="flex items-center gap-6 text-sm font-medium">
+        <div className="hidden lg:flex items-center gap-6 text-sm font-medium">
           <Link
             href="/login"
             className="hover:text-jagamn-tertiary transition-colors"
@@ -58,6 +80,36 @@ export default function GuestLayout({
           <Button className="bg-jagamn-tertiary hover:bg-jagamn-tertiary/90 text-white border-0 rounded-sm px-6">
             Book Now
           </Button>
+        </div>
+
+        <div className="lg:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Menu />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem>
+                  <Link href="/login">
+                    {isSignedIn ? "Account" : "Sign in"}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link href="/rooms">Rooms & Suites</Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link href="/rooms">
+                  <Button className="bg-jagamn-tertiary hover:bg-jagamn-tertiary/90 text-white border-0 rounded-sm px-6">
+                    Book Now
+                  </Button>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

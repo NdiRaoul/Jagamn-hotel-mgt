@@ -43,10 +43,14 @@ export default function GuestLandingPage() {
           </p>
         </div>
 
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-20 w-full max-w-5xl px-4">
+        <div className="hidden lg:block absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-20 w-full max-w-5xl px-4">
           <SearchBar />
         </div>
       </section>
+
+      <div className="lg:hidden w-full max-w-5xl px-4">
+        <SearchBar />
+      </div>
 
       <div className="h-24 md:h-32" />
 
@@ -58,7 +62,8 @@ export default function GuestLandingPage() {
               Our Rooms & Suites
             </h2>
             <p className="manrope-regular text-jagamn-secondary">
-              Curated sanctuaries of rest designed with bespoke textures and historic motifs.
+              Curated sanctuaries of rest designed with bespoke textures and
+              historic motifs.
             </p>
           </div>
           <Link
@@ -98,7 +103,9 @@ export default function GuestLandingPage() {
 
                 <div className="absolute bottom-4 left-4 right-4 bg-white p-4 rounded shadow-md flex justify-between items-center transition-transform group-hover:-translate-y-2 duration-300">
                   <div>
-                    <h3 className="manrope-bold text-lg text-jagamn-primary">{room.name}</h3>
+                    <h3 className="manrope-bold text-lg text-jagamn-primary">
+                      {room.name}
+                    </h3>
                     <p className="text-xs text-jagamn-secondary mt-1">
                       Starting from ${room.price} / Night
                     </p>
@@ -126,7 +133,9 @@ export default function GuestLandingPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
             <div className="absolute bottom-8 left-8">
-              <h3 className="manrope-bold text-3xl text-white mb-2">The Celestial Spa</h3>
+              <h3 className="manrope-bold text-3xl text-white mb-2">
+                The Celestial Spa
+              </h3>
               <p className="text-sm text-white/80 max-w-xs">
                 Rejuvenation programs rooted in ancient Ayurvedic wisdom.
               </p>
@@ -145,7 +154,9 @@ export default function GuestLandingPage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
               <div className="absolute bottom-6 left-6">
-                <h3 className="manrope-bold text-xl text-white mb-1">Saffron & Silk</h3>
+                <h3 className="manrope-bold text-xl text-white mb-1">
+                  Saffron & Silk
+                </h3>
                 <p className="text-xs text-white/80">
                   Award-winning fine dining under the desert stars.
                 </p>
@@ -164,7 +175,9 @@ export default function GuestLandingPage() {
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors pointer-events-none" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <Waves className="w-8 h-8 text-white" />
-                  <h3 className="manrope-bold text-sm text-white">Royal Pool</h3>
+                  <h3 className="manrope-bold text-sm text-white">
+                    Royal Pool
+                  </h3>
                 </div>
               </div>
 
@@ -178,7 +191,9 @@ export default function GuestLandingPage() {
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors pointer-events-none" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <BookOpen className="w-8 h-8 text-white" />
-                  <h3 className="manrope-bold text-sm text-white">The Library</h3>
+                  <h3 className="manrope-bold text-sm text-white">
+                    The Library
+                  </h3>
                 </div>
               </div>
             </div>
