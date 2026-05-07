@@ -19,7 +19,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DatesUnavailableModal } from "@/components/guest/dates-unavailable-modal";
-import { ROOMS, isDateRangeUnavailable, type UnavailableDateRange } from "@/lib/data/rooms";
+import {
+  ROOMS,
+  isDateRangeUnavailable,
+  type UnavailableDateRange,
+} from "@/lib/data/rooms";
 import { useRouter } from "next/navigation";
 
 export function SearchBar() {
@@ -82,14 +86,24 @@ export function SearchBar() {
               </span>
               <div className="flex items-center gap-2 text-jagamn-primary">
                 <CalendarIcon className="w-4 h-4 text-[#00152A]" />
-                <span className={cn("font-semibold text-sm", !checkIn && "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "font-semibold text-sm",
+                    !checkIn && "text-muted-foreground",
+                  )}
+                >
                   {checkIn ? format(checkIn, "dd MMM yyyy") : "Select date"}
                 </span>
               </div>
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={checkIn} onSelect={setCheckIn} initialFocus />
+            <Calendar
+              mode="single"
+              selected={checkIn}
+              onSelect={setCheckIn}
+              initialFocus
+            />
           </PopoverContent>
         </Popover>
 
@@ -102,14 +116,24 @@ export function SearchBar() {
               </span>
               <div className="flex items-center gap-2 text-jagamn-primary">
                 <CalendarIcon className="w-4 h-4 text-[#00152A]" />
-                <span className={cn("font-semibold text-sm", !checkOut && "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "font-semibold text-sm",
+                    !checkOut && "text-muted-foreground",
+                  )}
+                >
                   {checkOut ? format(checkOut, "dd MMM yyyy") : "Select date"}
                 </span>
               </div>
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={checkOut} onSelect={setCheckOut} initialFocus />
+            <Calendar
+              mode="single"
+              selected={checkOut}
+              onSelect={setCheckOut}
+              initialFocus
+            />
           </PopoverContent>
         </Popover>
 
@@ -121,7 +145,7 @@ export function SearchBar() {
           <Select value={roomType} onValueChange={setRoomType}>
             <SelectTrigger className="border-0 p-0 h-auto w-full focus:ring-0 shadow-none bg-transparent hover:bg-transparent">
               <div className="flex items-center gap-2 text-jagamn-primary">
-                <Building className="w-4 h-4 text-jagamn-tertiary" />
+                <Building className="w-4 h-4 text-[#00152A]" />
                 <SelectValue placeholder="Select room type" />
               </div>
             </SelectTrigger>
@@ -129,7 +153,9 @@ export function SearchBar() {
               <SelectItem value="all">All Rooms</SelectItem>
               <SelectItem value="classic-heritage">Classic Heritage</SelectItem>
               <SelectItem value="palace-deluxe">Palace Deluxe</SelectItem>
-              <SelectItem value="royal-grand-suite">Royal Grand Suite</SelectItem>
+              <SelectItem value="royal-grand-suite">
+                Royal Grand Suite
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

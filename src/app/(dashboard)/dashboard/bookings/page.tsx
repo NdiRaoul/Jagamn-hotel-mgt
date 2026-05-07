@@ -24,7 +24,12 @@ const SUMMARY_STATS = [
     subtext: "Checkout: Oct 24, 2023",
     primary: true,
   },
-  { label: "Upcoming", value: "02", subtext: "Next: Nov 12, 2023" },
+  {
+    label: "Upcoming",
+    value: "02",
+    subtext: "Next: Nov 12, 2023",
+    border: true,
+  },
   {
     label: "Past History",
     value: "14",
@@ -144,8 +149,8 @@ export default function MyBookingsPage() {
           </Badge>
         </div>
 
-        <div className="bg-white rounded-md border-l-4 border-jagamn-primary shadow-sm overflow-hidden flex flex-col lg:flex-row border-r border-t border-b border-gray-100">
-          <div className="lg:w-1/3 relative h-[250px] lg:h-auto">
+        <div className="bg-white rounded-md border-l-4 border-l-jagamn-primary shadow-sm overflow-hidden flex flex-col lg:flex-row gap-5 border-r border-t border-b border-gray-100 p-8">
+          <div className="lg:w-1/4 relative h-[250px] lg:h-[250px] rounded overflow-hidden shrink-0">
             <Image
               src="/images/Royal Palace Suite.png"
               alt="Regency Panoramic Suite"
@@ -153,7 +158,7 @@ export default function MyBookingsPage() {
               className="object-cover"
             />
           </div>
-          <div className="flex-1 p-8 space-y-10">
+          <div className="flex-1 space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start gap-4">
               <div className="space-y-1">
                 <h3 className="manrope-bold text-2xl text-jagamn-primary">
@@ -173,7 +178,7 @@ export default function MyBookingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-6 border-t border-gray-50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-6 border-t border-[#ECEEF0]">
               {[
                 { label: "Check-in", value: "Oct 20, 2023" },
                 { label: "Check-out", value: "Oct 24, 2023" },
@@ -226,7 +231,7 @@ export default function MyBookingsPage() {
               )}
             >
               <div className="flex items-center gap-6 w-full md:w-auto">
-                <div className="w-24 h-16 relative rounded overflow-hidden flex-shrink-0">
+                <div className="w-24 h-16 relative rounded overflow-hidden shrink-0">
                   <Image
                     src={booking.image}
                     alt={booking.title}
