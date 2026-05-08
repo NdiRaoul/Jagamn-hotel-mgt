@@ -9,7 +9,8 @@ import {
   User, 
   CreditCard,
   XCircle,
-  FileText
+  FileText,
+  PartyPopper
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,17 +36,16 @@ export default function ActiveReservationsPage() {
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
-        {/* ── Left Column: Reservation List ──────────────── */}
         <div className="lg:col-span-1 overflow-y-auto pr-2 space-y-4 pb-10">
           {ACTIVE_RESERVATIONS_DATA.map((res) => (
             <div
               key={res.id}
               onClick={() => setSelectedId(res.id)}
               className={cn(
-                "bg-white rounded-lg p-6 cursor-pointer border-l-4 transition-all relative",
+                "bg-white rounded-lg p-6 cursor-pointer border-l-4 transition-all relative shadow-sm",
                 selectedId === res.id 
-                  ? "border-l-[#00152A] shadow-md border-y border-r border-gray-100" 
-                  : "border-l-transparent border border-gray-100 hover:border-gray-200 shadow-sm"
+                  ? "border-l-[#00152A]" 
+                  : "border-l-transparent hover:border-gray-200"
               )}
             >
               <div className="flex justify-between items-start mb-6">
@@ -54,31 +54,43 @@ export default function ActiveReservationsPage() {
                     {res.initials}
                   </div>
                   <div className="space-y-0.5">
-                    <h3 className="text-[#00152A] font-bold">{res.guest}</h3>
+                    <h3 className="text-[#00152A] font-bold text-base">{res.guest}</h3>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                       CONFIRM: #{res.confirmation}
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-gray-100 text-[#00152A] border-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 whitespace-nowrap">
-                  ROOM {res.room}
+                <Badge 
+                  className={cn(
+                    "text-[#00152A] border-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 whitespace-nowrap flex items-center gap-1.5 transition-colors",
+                    selectedId === res.id ? "bg-[#DAE3F2] hover:bg-[#DAE3F2]" : "bg-[#E6E8EA] hover:bg-[#E6E8EA]"
+                  )}
+                >
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    selectedId === res.id ? "bg-[#004E8A]" : "bg-gray-400"
+                  )}></span> ROOM {res.room}
                 </Badge>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-xs font-bold text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <ArrowRightIcon className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
+                  <div className="flex items-center gap-1.5">
+                    <ArrowRightIcon className="w-3.5 h-3.5 text-gray-400" />
                     {res.checkIn}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <ArrowLeftIcon className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5">
+                    <ArrowLeftIcon className="w-3.5 h-3.5 text-gray-400" />
                     {res.checkOut}
                   </div>
                 </div>
                 {res.badge && (
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#BA722E] uppercase tracking-widest">
-                    <StarIcon className="w-3 h-3 fill-current" />
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-widest">
+                    {res.badge === "VIP Status" ? (
+                      <StarIcon className="w-3.5 h-3.5 text-[#F59E0B] fill-[#F59E0B]" />
+                    ) : (
+                      <PartyPopper className="w-3.5 h-3.5 text-blue-500" />
+                    )}
                     {res.badge}
                   </div>
                 )}
