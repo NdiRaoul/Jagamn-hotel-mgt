@@ -8,19 +8,25 @@ import { Star, Download, Plus, Edit3 } from "lucide-react";
 import Image from "next/image";
 
 // ── Toggle Switch ──────────────────────────────────────────────────────────
-function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
+function ToggleSwitch({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: () => void;
+}) {
   return (
     <button
       onClick={onChange}
       className={cn(
         "relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center flex-shrink-0",
-        enabled ? "bg-[#BA722E]" : "bg-gray-300"
+        enabled ? "bg-[#BA722E]" : "bg-gray-300",
       )}
     >
       <span
         className={cn(
           "absolute w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200",
-          enabled ? "left-[26px]" : "left-[4px]"
+          enabled ? "left-[26px]" : "left-[4px]",
         )}
       />
     </button>
@@ -40,76 +46,83 @@ function LargeMenuCard({
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm overflow-hidden flex transition-all duration-300 border-y border-r",
+        "bg-white rounded-xl shadow-sm flex transition-all duration-300 p-5 gap-6",
         isAvailable
-          ? "border-l-4 border-l-jagamn-primary border-gray-100"
-          : "border-l-4 border-l-[#94A3B8] border-gray-100"
+          ? "border-l-4 border-l-jagamn-primary"
+          : "border-l-4 border-l-[#94A3B8]",
       )}
     >
-      {/* Image */}
-      <div className="relative w-44 flex-shrink-0 self-stretch min-h-[180px]">
-        <Image
-          src={item.image}
-          alt={item.name}
-          fill
-          className={cn(
-            "object-cover transition-all duration-300",
-            !isAvailable && "grayscale opacity-60"
+      {/* Image Container with Padding */}
+      <div className="relative w-44 h-44 flex-shrink-0">
+        <div className="w-full h-full rounded-xl overflow-hidden relative shadow-inner bg-gray-50">
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            className={cn(
+              "object-cover transition-all duration-300",
+              !isAvailable && "grayscale opacity-60",
+            )}
+          />
+          {/* Out of Stock overlay */}
+          {!isAvailable && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+              <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                Out of Stock
+              </span>
+            </div>
           )}
-        />
-        {/* Out of Stock overlay — shown when unavailable */}
-        {!isAvailable && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-md">
-              Out of Stock
-            </span>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Content */}
       <div
         className={cn(
-          "flex-1 p-6 flex flex-col justify-between transition-opacity duration-300",
-          !isAvailable && "opacity-60"
+          "flex-1 flex flex-col justify-between transition-opacity duration-300 py-1",
+          !isAvailable && "opacity-60",
         )}
       >
         <div className="space-y-3">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-bold text-[#BA722E] uppercase tracking-widest mb-1">
+              <p className="text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest mb-1">
                 {item.category}
               </p>
-              <h3 className="manrope-bold text-2xl text-[#00152A]">{item.name}</h3>
+              <h3 className="manrope-bold text-3xl text-jagamn-primary">
+                {item.name}
+              </h3>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <ToggleSwitch enabled={isAvailable} onChange={() => onToggle(item.id)} />
+            <div className="flex flex-col items-end gap-1.5">
+              <ToggleSwitch
+                enabled={isAvailable}
+                onChange={() => onToggle(item.id)}
+              />
               <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
                 {isAvailable ? "Available" : "Unavailable"}
               </span>
             </div>
           </div>
-          <p className="text-sm text-gray-500 leading-relaxed">{item.description}</p>
+          <p className="text-sm text-gray-500 leading-relaxed max-w-md">
+            {item.description}
+          </p>
         </div>
 
-        {/* Ingredient Tags */}
-        {item.ingredients.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {item.ingredients.map((ing, i) => (
-              <span
-                key={i}
-                className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-              >
-                {ing.label} (INVENTORY: {ing.amount})
-              </span>
-            ))}
-            {item.id === "wagyu-ribeye" && (
-              <span className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-                +3 MORE
-              </span>
-            )}
-          </div>
-        )}
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {item.ingredients.map((ing, i) => (
+            <span
+              key={i}
+              className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-gray-200"
+            >
+              {ing.label} (INVENTORY: {ing.amount})
+            </span>
+          ))}
+          {item.id === "wagyu-ribeye" && (
+            <span className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-gray-200">
+              +3 MORE
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -128,29 +141,33 @@ function SmallMenuCard({
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm overflow-hidden flex gap-4 p-4 items-start border-y border-r transition-all duration-300",
+        "bg-white rounded-xl shadow-sm flex gap-4 p-4 items-start transition-all duration-300",
         item.inventoryOk
-          ? "border-l-4 border-l-jagamn-primary border-gray-100"
-          : "border-l-4 border-l-[#EA580C] border-gray-100",
-        !isAvailable && "opacity-60"
+          ? "border-l-[4px] border-l-jagamn-primary"
+          : "border-l-[4px] border-l-[#EA580C]",
+        !isAvailable && "opacity-60",
       )}
     >
       {/* Image */}
-      <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+      <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-gray-50">
         <Image
           src={item.image}
           alt={item.name}
           fill
           className={cn(
             "object-cover transition-all duration-300",
-            !isAvailable && "grayscale"
+            !isAvailable && "grayscale",
           )}
         />
       </div>
 
       <div className="flex-1 space-y-2 min-w-0">
-        <h3 className="font-bold text-[#00152A]">{item.name}</h3>
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{item.description}</p>
+        <h3 className="manrope-bold text-lg text-jagamn-primary">
+          {item.name}
+        </h3>
+        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
+          {item.description}
+        </p>
         <div className="flex items-center justify-between pt-1">
           <div>
             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
@@ -159,13 +176,16 @@ function SmallMenuCard({
             <p
               className={cn(
                 "text-xs font-bold",
-                item.inventoryOk ? "text-[#00152A]" : "text-[#EA580C]"
+                item.inventoryOk ? "text-jagamn-primary" : "text-[#EA580C]",
               )}
             >
               {item.inventoryStatus}
             </p>
           </div>
-          <ToggleSwitch enabled={isAvailable} onChange={() => onToggle(item.id)} />
+          <ToggleSwitch
+            enabled={isAvailable}
+            onChange={() => onToggle(item.id)}
+          />
         </div>
       </div>
     </div>
@@ -186,8 +206,8 @@ export default function MenuManagementPage() {
               // When toggling off, set outOfStock; when toggling on, clear it
               outOfStock: item.available ? true : false,
             }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
@@ -200,9 +220,12 @@ export default function MenuManagementPage() {
       {/* ── Header ────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div>
-          <h1 className="manrope-bold text-4xl text-[#00152A]">Menu Management</h1>
+          <h1 className="manrope-bold text-4xl text-[#00152A]">
+            Menu Management
+          </h1>
           <p className="text-gray-500 text-sm mt-1 max-w-md">
-            Curating the season's finest ingredients for the Palace's signature dining experience.
+            Curating the season's finest ingredients for the Palace's signature
+            dining experience.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -230,7 +253,11 @@ export default function MenuManagementPage() {
           {smallItems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {smallItems.map((item) => (
-                <SmallMenuCard key={item.id} item={item} onToggle={handleToggle} />
+                <SmallMenuCard
+                  key={item.id}
+                  item={item}
+                  onToggle={handleToggle}
+                />
               ))}
             </div>
           )}
