@@ -106,13 +106,20 @@ function LoginContent() {
       return;
     }
 
-    // If session is immediately available (email confirmation disabled), create profile and redirect
+    // Insert guest_profile row
+    if (data.user) {
+      await supabase.from("guest_profiles").upsert(
+        {
+          id: data.user.id,
+          full_name: fullName,
+          email: signUpEmail,
+        },
+        { onConflict: "id", ignoreDuplicates: true },
+      );
+    }
+
+    // If session is immediately available (email confirmation disabled), redirect
     if (data.session) {
-      await fetch("/api/auth/create-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email: signUpEmail }),
-      });
       router.push(redirectTo);
       router.refresh();
       return;
@@ -129,7 +136,7 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
   };
@@ -142,7 +149,6 @@ function LoginContent() {
           src="/images/login-image.png"
           alt="Jagamn Palace Lobby"
           fill
-          sizes="45vw"
           className="object-cover"
           priority
         />

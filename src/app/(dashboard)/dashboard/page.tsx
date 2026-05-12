@@ -21,13 +21,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { Booking } from "@/types/database";
 
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
-}
-
 const UPCOMING_ACTIVITIES = [
   {
     title: "Signature Massage",
@@ -57,75 +50,64 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
 
-      // Get user name via users table
+      // Get user name
       const { data: profile } = await supabase
-        .from("users")
-        .select("id, full_name")
-        .eq("auth_user_id", user.id)
+        .from("guest_profiles")
+        .select("full_name")
+        .eq("id", user.id)
         .single();
 
       setUserName(
         profile?.full_name ||
-          user.user_metadata?.full_name ||
-          user.email?.split("@")[0] ||
-          "Guest",
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Guest"
       );
 
-      const userRowId = profile?.id;
       const today = new Date().toISOString().split("T")[0];
 
-      if (userRowId) {
-        // Current stay
-        const { data: current } = await supabase
-          .from("bookings")
-          .select("*, room_types(*)")
-          .eq("app_user_id", userRowId)
-          .eq("status", "confirmed")
-          .lte("check_in", today)
-          .gte("check_out", today)
-          .limit(1)
-          .single();
+      // Current stay
+      const { data: current } = await supabase
+        .from("bookings")
+        .select("*, room_types(*)")
+        .eq("user_id", user.id)
+        .eq("status", "confirmed")
+        .lte("check_in", today)
+        .gte("check_out", today)
+        .limit(1)
+        .single();
 
-        setCurrentStay(current as Booking | null);
+      setCurrentStay(current as Booking | null);
 
-        // Upcoming count
-        const { count: upcoming } = await supabase
-          .from("bookings")
-          .select("id", { count: "exact", head: true })
-          .eq("app_user_id", userRowId)
-          .eq("status", "confirmed")
-          .gt("check_in", today);
+      // Upcoming count
+      const { count: upcoming } = await supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "confirmed")
+        .gt("check_in", today);
 
-        setUpcomingCount(upcoming || 0);
+      setUpcomingCount(upcoming || 0);
 
-        // Past count
-        const { count: past } = await supabase
-          .from("bookings")
-          .select("id", { count: "exact", head: true })
-          .eq("app_user_id", userRowId)
-          .lt("check_out", today);
+      // Past count
+      const { count: past } = await supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .lt("check_out", today);
 
-        setPastCount(past || 0);
-      }
-
+      setPastCount(past || 0);
       setLoading(false);
     }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dbRoomType = currentStay?.room_types as any;
   const currentRoomName = dbRoomType?.name || "—";
-  const currentRoomImage =
-    dbRoomType?.main_image || "/images/palace-deluxe.png";
+  const currentRoomImage = dbRoomType?.main_image || "/images/palace-deluxe.png";
   const currentCheckOut = currentStay?.check_out
     ? format(new Date(currentStay.check_out), "MMM d, h:mm a")
     : "—";
@@ -135,7 +117,7 @@ export default function DashboardOverviewPage() {
       {/* Welcome Header */}
       <div className="space-y-1">
         <h1 className="manrope-bold text-4xl text-jagamn-primary">
-          {getGreeting()}, {userName}.
+          Welcome Back, {userName}.
         </h1>
         <p className="text-gray-400 font-medium uppercase tracking-widest text-[10px]">
           Jagamn Palace Hotel
@@ -143,9 +125,9 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* Top Widgets Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Current Stay Widget */}
-        <div className="md:col-span-2 lg:col-span-2 bg-white rounded-md border-l-4 border-l-jagamn-primary overflow-hidden flex shadow-sm border-r border-t border-b border-gray-100 group">
+        <div className="lg:col-span-2 bg-white rounded-md border-l-4 border-l-jagamn-primary overflow-hidden flex shadow-sm border-r border-t border-b border-gray-100 group">
           <div className="flex-1 p-8 flex flex-col justify-between">
             {loading ? (
               <div className="space-y-3 animate-pulse">
@@ -163,9 +145,7 @@ export default function DashboardOverviewPage() {
                     {currentRoomName}
                   </h3>
                   {currentStay.room_id && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Unit: {(currentStay as any).rooms?.unit_code || "—"}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Unit: {(currentStay as any).rooms?.unit_code || "—"}</p>
                   )}
                 </div>
 
@@ -175,12 +155,8 @@ export default function DashboardOverviewPage() {
                       <Calendar className="w-5 h-5 text-jagamn-tertiary" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        Check-out
-                      </p>
-                      <p className="text-sm font-bold text-jagamn-primary">
-                        {currentCheckOut}
-                      </p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Check-out</p>
+                      <p className="text-sm font-bold text-jagamn-primary">{currentCheckOut}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -188,27 +164,17 @@ export default function DashboardOverviewPage() {
                       <BedDouble className="w-5 h-5 text-jagamn-tertiary" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        Booking Ref
-                      </p>
-                      <p className="text-sm font-bold text-jagamn-primary font-mono">
-                        {currentStay.booking_ref}
-                      </p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Booking Ref</p>
+                      <p className="text-sm font-bold text-jagamn-primary font-mono">{currentStay.booking_ref}</p>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Current Stay
-                </p>
-                <h3 className="manrope-bold text-2xl text-jagamn-primary">
-                  No active stay
-                </h3>
-                <p className="text-sm text-gray-400">
-                  You don&apos;t have a current booking at the palace.
-                </p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Current Stay</p>
+                <h3 className="manrope-bold text-2xl text-jagamn-primary">No active stay</h3>
+                <p className="text-sm text-gray-400">You don&apos;t have a current booking at the palace.</p>
               </div>
             )}
 
@@ -234,7 +200,6 @@ export default function DashboardOverviewPage() {
               src={currentStay ? currentRoomImage : "/images/palace-deluxe.png"}
               alt="Current Stay"
               fill
-              sizes="40vw"
               className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
           </div>
@@ -247,12 +212,8 @@ export default function DashboardOverviewPage() {
               <CalendarDays className="w-6 h-6 text-jagamn-primary" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                Upcoming Stays
-              </p>
-              <p className="manrope-bold text-3xl text-jagamn-primary">
-                {loading ? "—" : upcomingCount}
-              </p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming Stays</p>
+              <p className="manrope-bold text-3xl text-jagamn-primary">{loading ? "—" : upcomingCount}</p>
             </div>
           </div>
 
@@ -261,12 +222,8 @@ export default function DashboardOverviewPage() {
               <History className="w-6 h-6 text-jagamn-primary" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                Past Stays
-              </p>
-              <p className="manrope-bold text-3xl text-jagamn-primary">
-                {loading ? "—" : pastCount}
-              </p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Past Stays</p>
+              <p className="manrope-bold text-3xl text-jagamn-primary">{loading ? "—" : pastCount}</p>
             </div>
           </div>
 
@@ -275,9 +232,7 @@ export default function DashboardOverviewPage() {
               <UtensilsCrossed className="w-6 h-6 text-jagamn-primary" />
             </div>
             <div className="space-y-2 mb-4">
-              <h3 className="manrope-bold text-lg text-jagamn-primary">
-                In-Room Dining
-              </h3>
+              <h3 className="manrope-bold text-lg text-jagamn-primary">In-Room Dining</h3>
               <p className="text-xs text-gray-500 leading-relaxed">
                 Explore our culinary offerings delivered to your suite.
               </p>
@@ -295,14 +250,9 @@ export default function DashboardOverviewPage() {
       {/* Recent & Upcoming Activities (static) */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="manrope-bold text-xl text-jagamn-primary">
-            Recent & Upcoming
-          </h2>
+          <h2 className="manrope-bold text-xl text-jagamn-primary">Recent & Upcoming</h2>
           <Link href="/dashboard/bookings">
-            <Button
-              variant="ghost"
-              className="text-xs font-bold text-gray-400 hover:text-jagamn-primary uppercase tracking-widest gap-1"
-            >
+            <Button variant="ghost" className="text-xs font-bold text-gray-400 hover:text-jagamn-primary uppercase tracking-widest gap-1">
               See All <ChevronRight className="w-3 h-3" />
             </Button>
           </Link>
@@ -319,26 +269,15 @@ export default function DashboardOverviewPage() {
                   <activity.icon className="w-6 h-6 text-gray-400" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-jagamn-primary">
-                    {activity.title}
-                  </h4>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    {activity.location}
-                  </p>
+                  <h4 className="text-sm font-bold text-jagamn-primary">{activity.title}</h4>
+                  <p className="text-[10px] text-gray-400 font-medium">{activity.location}</p>
                   <div className="flex items-center gap-1.5 pt-1">
                     <Clock className="w-3 h-3 text-jagamn-tertiary" />
-                    <span className="text-[10px] font-bold text-jagamn-primary">
-                      {activity.time}
-                    </span>
+                    <span className="text-[10px] font-bold text-jagamn-primary">{activity.time}</span>
                   </div>
                 </div>
               </div>
-              <Badge
-                className={cn(
-                  "border-0 text-[9px] font-bold uppercase tracking-wider px-3 py-1",
-                  activity.statusColor,
-                )}
-              >
+              <Badge className={cn("border-0 text-[9px] font-bold uppercase tracking-wider px-3 py-1", activity.statusColor)}>
                 {activity.status}
               </Badge>
             </div>

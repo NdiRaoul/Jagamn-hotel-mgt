@@ -6,8 +6,6 @@ import Link from "next/link";
 import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
 import { ROOMS } from "@/lib/data/rooms";
 import { Badge } from "@/components/ui/badge";
-import { SearchBar } from "@/components/guest/search-bar";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type RoomDisplay = {
   slug: string;
@@ -36,8 +34,6 @@ const COLLECTIONS = [
 export default function RoomsCollectionPage() {
   const [rooms, setRooms] = useState<RoomDisplay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const supabase = createSupabaseBrowserClient();
 
   // Filters
   const [search, setSearch] = useState("");
@@ -47,11 +43,6 @@ export default function RoomsCollectionPage() {
   const [minGuests, setMinGuests] = useState(1);
 
   useEffect(() => {
-    // Check auth state
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsLoggedIn(!!user);
-    });
-
     async function fetchRooms() {
       try {
         const res = await fetch("/api/rooms");
@@ -72,7 +63,7 @@ export default function RoomsCollectionPage() {
               maxGuests: rt.max_guests || 1,
               mainImage: rt.main_image || "/images/classic-heritage.png",
               availableCount: rt.available_count ?? null,
-            })),
+            }))
           );
         } else {
           // Static fallback
@@ -90,7 +81,7 @@ export default function RoomsCollectionPage() {
               maxGuests: r.maxGuests,
               mainImage: r.images.main,
               availableCount: null,
-            })),
+            }))
           );
         }
       } catch {
@@ -109,7 +100,7 @@ export default function RoomsCollectionPage() {
             maxGuests: r.maxGuests,
             mainImage: r.images.main,
             availableCount: null,
-          })),
+          }))
         );
       } finally {
         setLoading(false);
@@ -133,19 +124,7 @@ export default function RoomsCollectionPage() {
     <div className="flex flex-col min-h-screen">
       <div className="h-24" />
 
-      {/* ── Search / Date Picker Bar ── */}
-      <div className="bg-jagamn-primary py-8 px-4 sm:px-8">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">
-            {isLoggedIn ? "Find your next stay" : "Browse & Book"}
-          </p>
-          <SearchBar
-            roomTypes={rooms.map((r) => ({ slug: r.slug, name: r.name }))}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-12 gap-10">
+      <div className="flex flex-1 max-w-7xl mx-auto w-full px-8 py-12 gap-10">
         {/* ───── Sidebar ───── */}
         <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-8 bg-[#F4F6F8] border-l-4 border-[#00152A] p-6 rounded-md">
           <div>
@@ -263,7 +242,7 @@ export default function RoomsCollectionPage() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
@@ -279,7 +258,7 @@ export default function RoomsCollectionPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {filtered.map((room) => (
                 <div
                   key={room.slug}
@@ -290,7 +269,6 @@ export default function RoomsCollectionPage() {
                       src={room.mainImage}
                       alt={room.name}
                       fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     {room.badge && (
@@ -335,9 +313,9 @@ export default function RoomsCollectionPage() {
 
                     <Link
                       href={`/rooms/${room.slug}`}
-                      className="w-full flex items-center justify-center gap-2 bg-jagamn-primary hover:bg-jagamn-primary/90 text-white py-3 rounded-md text-sm font-semibold transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-transparent hover:bg-[#FFB77A] text-jagamn-primary hover:text-[#412000] border border-jagamn-primary hover:border-none py-3 rounded-md text-sm font-semibold transition-colors"
                     >
-                      {isLoggedIn ? "Book Now" : "View & Reserve"}
+                      View & Reserve
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
@@ -346,9 +324,7 @@ export default function RoomsCollectionPage() {
 
               {filtered.length === 0 && (
                 <div className="col-span-2 text-center py-20 text-jagamn-secondary">
-                  <p className="text-lg font-semibold">
-                    No rooms match your filters.
-                  </p>
+                  <p className="text-lg font-semibold">No rooms match your filters.</p>
                   <button
                     onClick={() => {
                       setSearch("");
