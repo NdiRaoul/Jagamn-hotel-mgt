@@ -12,8 +12,6 @@ import {
   isSameDay,
   isWithinInterval,
   isBefore,
-  isAfter,
-  addDays,
 } from "date-fns";
 import {
   CalendarIcon,
@@ -269,8 +267,9 @@ export function RoomBookingWidget({ room }: Props) {
 
             const inRange = isDayInRange(day);
             const unavail = isDayUnavailable(day);
-            const isStart = checkIn && isSameDay(day, checkIn);
-            const isEnd = checkOut && isSameDay(day, checkOut);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isPast = day < today;
 
             return (
               <div
@@ -280,14 +279,29 @@ export function RoomBookingWidget({ room }: Props) {
                   inRange
                     ? "bg-jagamn-primary text-white"
                     : unavail
-                    ? "text-gray-300 line-through cursor-not-allowed"
+                    ? "bg-red-50 text-red-500 line-through cursor-not-allowed"
+                    : isPast
+                    ? "text-gray-300 cursor-not-allowed"
                     : "text-jagamn-primary hover:bg-jagamn-primary/10 cursor-pointer"
                 )}
+                title={unavail ? "Unavailable" : undefined}
               >
                 {format(day, "d")}
               </div>
             );
           })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-jagamn-primary" />
+            <span className="text-[9px] text-jagamn-secondary uppercase tracking-wider">Selected</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-red-50 border border-red-200" />
+            <span className="text-[9px] text-red-500 uppercase tracking-wider">Unavailable</span>
+          </div>
         </div>
       </div>
 
