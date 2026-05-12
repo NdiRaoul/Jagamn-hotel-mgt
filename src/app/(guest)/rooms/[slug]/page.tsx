@@ -14,11 +14,20 @@ import {
   Sparkles,
   ChevronLeft,
   AlertCircle,
+  TreePine,
+  Bath,
+  Waves,
+  Utensils,
+  Library,
+  Car,
+  Dumbbell,
+  Music,
 } from "lucide-react";
 import { getRoomBySlug, ROOMS } from "@/lib/data/rooms";
 import { RoomBookingWidget } from "@/components/guest/room-booking-widget";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import type { RoomTypeWithDetails, RoomAvailabilitySummary } from "@/types/database";
 
-// Map icon name strings from data to actual lucide components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Wifi,
   Wine,
@@ -26,61 +35,183 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Coffee,
   Thermometer,
   Sparkles,
+  TreePine,
+  Bath,
+  Waves,
+  Utensils,
+  Library,
+  Car,
+  Dumbbell,
+  Music,
 };
 
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
+async function getRoomData(slug: string) {
+  const isConfigured =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!isConfigured) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("room_types")
+      .select("*, room_amenities(*), room_type_unavailable_dates(*)")
+      .eq("slug", slug)
+      .single();
+
+    if (error || !data) return null;
+    return data as RoomTypeWithDetails;
+  } catch {
+    return null;
+  }
+}
+
+async function getAvailableCount(slug: string): Promise<number | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("room_availability_summary")
+      .select("available_today")
+      .eq("slug", slug)
+      .single();
+    return data?.available_today ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getSimilarRooms(slug: string) {
+  try {
+    const { data } = await supabaseAdmin
+      .from("room_types")
+      .select("slug, name, collection_label, badge, price_per_night, main_image, description")
+      .neq("slug", slug)
+      .order("sort_order")
+      .limit(3);
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function RoomDetailPage({ params }: Props) {
   const { slug } = await params;
-  const room = getRoomBySlug(slug);
 
-  if (!room) notFound();
+  // Try Supabase first
+  const dbRoom = await getRoomData(slug);
+  const availableCount = await getAvailableCount(slug);
 
-  const similarRooms = ROOMS.filter((r) => r.slug !== slug).slice(0, 3);
+  // Build a unified room object for the widget (uses static Room type)
+  let widgetRoom = getRoomBySlug(slug);
+
+  if (!dbRoom && !widgetRoom) notFound();
+
+  // Merge DB data into widget room if available
+  if (dbRoom && widgetRoom) {
+    // Patch unavailable dates from DB
+    widgetRoom = {
+      ...widgetRoom,
+      unavailableDates: (dbRoom.room_type_unavailable_dates || []).map((ud) => ({
+        from: ud.from_date,
+        to: ud.to_date,
+        alternateRooms: ud.alternate_room_slugs || [],
+        alternateDates: (ud.alternate_dates as any) || [],
+      })),
+    };
+  }
+
+  // Display data — prefer DB
+  const name = dbRoom?.name || widgetRoom?.name || "";
+  const collectionLabel = dbRoom?.collection_label || widgetRoom?.collectionLabel || "";
+  const description = dbRoom?.description || widgetRoom?.description || "";
+  const longDescription = dbRoom?.long_description || widgetRoom?.longDescription || "";
+  const sqft = dbRoom?.sqft || widgetRoom?.sqft || 0;
+  const bedType = dbRoom?.bed_type || widgetRoom?.bedType || "";
+  const maxGuests = dbRoom?.max_guests || widgetRoom?.maxGuests || 0;
+  const cancellationPolicy = dbRoom?.cancellation_policy || widgetRoom?.cancellationPolicy || "";
+  const mainImage = dbRoom?.main_image || widgetRoom?.images.main || "";
+  const galleryImages = dbRoom?.gallery_images || widgetRoom?.images.gallery || [];
+
+  const amenities = dbRoom?.room_amenities?.length
+    ? dbRoom.room_amenities.map((a) => ({ icon: a.icon, label: a.label }))
+    : widgetRoom?.amenities || [];
+
+  // Similar rooms
+  const dbSimilar = await getSimilarRooms(slug);
+  const similarRooms =
+    dbSimilar.length > 0
+      ? dbSimilar.map((r: any) => ({
+          slug: r.slug,
+          name: r.name,
+          collectionLabel: r.collection_label,
+          badge: r.badge,
+          price: r.price_per_night,
+          mainImage: r.main_image || "/images/classic-heritage.png",
+          description: r.description || "",
+        }))
+      : ROOMS.filter((r) => r.slug !== slug)
+          .slice(0, 3)
+          .map((r) => ({
+            slug: r.slug,
+            name: r.name,
+            collectionLabel: r.collectionLabel,
+            badge: r.badge,
+            price: r.price,
+            mainImage: r.images.main,
+            description: r.description,
+          }));
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F9FAFB]">
-      {/* Navbar spacer */}
-      <div className="h-24"></div>
+      <div className="h-24" />
 
       <div className="max-w-7xl mx-auto w-full px-8 py-10">
-        {/* ── Gallery ── */}
-        {/* Both columns use h-[420px]; the right column fills its height with a 2×2 grid */}
-        <div
-          className="grid grid-cols-2 gap-2 mb-10"
-          style={{ height: "420px" }}
+        {/* Back link */}
+        <Link
+          href="/rooms"
+          className="inline-flex items-center gap-1.5 text-sm text-jagamn-secondary hover:text-jagamn-primary transition-colors mb-6"
         >
-          {/* Main large image — left column, full height */}
+          <ChevronLeft className="w-4 h-4" />
+          All Rooms & Suites
+        </Link>
+
+        {/* ── Gallery ── */}
+        <div className="grid grid-cols-2 gap-2 mb-10" style={{ height: "420px" }}>
           <div className="relative rounded-md overflow-hidden h-full">
             <Image
-              src={room.images.main}
-              alt={room.name}
+              src={mainImage}
+              alt={name}
               fill
               className="object-cover"
               priority
             />
+            {availableCount !== null && (
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-jagamn-primary text-xs font-bold px-3 py-1.5 rounded-sm flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                {availableCount} room{availableCount !== 1 ? "s" : ""} of this type available at Jagamn Palace
+              </div>
+            )}
           </div>
 
-          {/* Right column — 2×2 grid, full height */}
           <div className="grid grid-cols-2 grid-rows-2 gap-2 h-full">
-            {room.images.gallery.slice(0, 3).map((img, i) => (
+            {galleryImages.slice(0, 3).map((img, i) => (
               <div key={i} className="relative rounded-md overflow-hidden">
                 <Image
                   src={img}
-                  alt={`${room.name} photo ${i + 2}`}
+                  alt={`${name} photo ${i + 2}`}
                   fill
                   className="object-cover"
                 />
               </div>
             ))}
-            {/* +More badge on 4th slot */}
             <div className="relative rounded-md overflow-hidden cursor-pointer">
-              {room.images.gallery[3] && (
+              {galleryImages[3] && (
                 <Image
-                  src={room.images.gallery[3]}
-                  alt={`${room.name} more`}
+                  src={galleryImages[3]}
+                  alt={`${name} more`}
                   fill
                   className="object-cover"
                 />
@@ -96,39 +227,39 @@ export default async function RoomDetailPage({ params }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Left: Details */}
           <div className="lg:col-span-2">
-            {/* Room meta */}
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-jagamn-tertiary mb-2">
-              {room.collectionLabel}
+              {collectionLabel}
             </p>
             <h1 className="manrope-extrabold text-4xl text-jagamn-primary mb-4">
-              {room.name}
+              {name}
             </h1>
             <div className="flex items-center gap-6 text-sm text-jagamn-secondary mb-8">
               <span className="flex items-center gap-1.5">
                 <Maximize className="w-4 h-4" />
-                {room.sqft.toLocaleString()} sq.ft
+                {sqft.toLocaleString()} sq.ft
               </span>
               <span className="flex items-center gap-1.5">
                 <Bed className="w-4 h-4" />
-                {room.bedType}
+                {bedType}
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
-                Up to {room.maxGuests} Guests
+                Up to {maxGuests} Guests
               </span>
             </div>
 
-            {/* Description */}
             <div className="mb-10 bg-[#F4F6F8] border-l-4 border-[#00152A] p-8 rounded-r-md">
               <h2 className="manrope-bold text-xl text-jagamn-primary mb-3">
                 The Palace Experience
               </h2>
               <p className="text-sm text-jagamn-secondary leading-relaxed">
-                {room.description}
+                {description}
               </p>
-              <p className="text-sm text-jagamn-secondary leading-relaxed mt-3">
-                {room.longDescription}
-              </p>
+              {longDescription && (
+                <p className="text-sm text-jagamn-secondary leading-relaxed mt-3">
+                  {longDescription}
+                </p>
+              )}
             </div>
 
             {/* Premium Amenities */}
@@ -137,7 +268,7 @@ export default async function RoomDetailPage({ params }: Props) {
                 Premium Amenities
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {room.amenities.map((amenity) => {
+                {amenities.map((amenity) => {
                   const Icon = ICON_MAP[amenity.icon] ?? Sparkles;
                   return (
                     <div
@@ -161,9 +292,7 @@ export default async function RoomDetailPage({ params }: Props) {
                 <p className="text-sm font-semibold text-jagamn-primary mb-1">
                   Flexible Cancellation
                 </p>
-                <p className="text-xs text-jagamn-secondary">
-                  {room.cancellationPolicy}
-                </p>
+                <p className="text-xs text-jagamn-secondary">{cancellationPolicy}</p>
               </div>
             </div>
           </div>
@@ -171,12 +300,12 @@ export default async function RoomDetailPage({ params }: Props) {
           {/* Right: Booking Widget */}
           <div className="lg:col-span-1">
             <div className="sticky top-28">
-              <RoomBookingWidget room={room} />
+              {widgetRoom && <RoomBookingWidget room={widgetRoom} />}
             </div>
           </div>
         </div>
 
-        {/* ── You May Also Like — full-width below both columns ── */}
+        {/* ── You May Also Like ── */}
         <div className="mt-16 pt-12 border-t border-gray-200">
           <div className="flex items-end justify-between mb-8">
             <div>
@@ -205,7 +334,7 @@ export default async function RoomDetailPage({ params }: Props) {
               >
                 <div className="relative h-52 rounded-md overflow-hidden mb-4">
                   <Image
-                    src={similar.images.main}
+                    src={similar.mainImage}
                     alt={similar.name}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-700"

@@ -3,9 +3,9 @@ import Link from "next/link";
 import { ArrowRight, Waves, BookOpen } from "lucide-react";
 import { SearchBar } from "@/components/guest/search-bar";
 import { ROOMS } from "@/lib/data/rooms";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import type { RoomType, RoomAvailabilitySummary } from "@/types/database";
 
-// ── Centralized amenity image paths ─────────────────────────────────────────
-// Update paths here when real images are ready — no other file changes needed.
 const AMENITY_IMAGES = {
   hero: "/images/hero-img.png",
   spa: "/images/celestial-spa.png",
@@ -14,7 +14,82 @@ const AMENITY_IMAGES = {
   library: "/images/the-library.png",
 };
 
-export default function GuestLandingPage() {
+// Slugs for the 3 featured mid-tier cards
+const FEATURED_SLUGS = [
+  "classic-heritage",
+  "palace-deluxe",
+  "royal-grand-suite",
+];
+// Slugs for the 2 compact cards
+const COMPACT_SLUGS = ["garden-terrace", "maharaja-presidential"];
+
+async function getRoomData() {
+  const isConfigured =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!isConfigured) {
+    return { roomTypes: null, availability: null };
+  }
+
+  try {
+    const [{ data: roomTypes }, { data: availability }] = await Promise.all([
+      supabaseAdmin.from("room_types").select("*").order("sort_order"),
+      supabaseAdmin.from("room_availability_summary").select("*"),
+    ]);
+    return { roomTypes, availability };
+  } catch {
+    return { roomTypes: null, availability: null };
+  }
+}
+
+export default async function GuestLandingPage() {
+  const { roomTypes, availability } = await getRoomData();
+
+  // Build availability map: slug → available_today
+  const availMap: Record<string, number> = {};
+  if (availability) {
+    for (const row of availability as RoomAvailabilitySummary[]) {
+      availMap[row.slug] = row.available_today;
+    }
+  }
+
+  // Build room display data — prefer DB, fallback to static
+  function getRoomDisplay(slug: string) {
+    if (roomTypes) {
+      const rt = (roomTypes as RoomType[]).find((r) => r.slug === slug);
+      if (rt) {
+        return {
+          slug: rt.slug,
+          name: rt.name,
+          price: rt.price_per_night,
+          badge: rt.badge,
+          mainImage: rt.main_image || "/images/classic-heritage.png",
+          availableCount: availMap[rt.slug] ?? null,
+        };
+      }
+    }
+    // Static fallback
+    const r = ROOMS.find((r) => r.slug === slug);
+    if (!r) return null;
+    return {
+      slug: r.slug,
+      name: r.name,
+      price: r.price,
+      badge: r.badge,
+      mainImage: r.images.main,
+      availableCount: null,
+    };
+  }
+
+  const featuredRooms = FEATURED_SLUGS.map(getRoomDisplay).filter(Boolean);
+  const compactRooms = COMPACT_SLUGS.map(getRoomDisplay).filter(Boolean);
+
+  // All room types for SearchBar dropdown
+  const allRoomNames = roomTypes
+    ? (roomTypes as RoomType[]).map((rt) => ({ slug: rt.slug, name: rt.name }))
+    : ROOMS.map((r) => ({ slug: r.slug, name: r.name }));
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* ── Hero Section ───────────────────────────────────────────── */}
@@ -44,12 +119,12 @@ export default function GuestLandingPage() {
         </div>
 
         <div className="hidden lg:block absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-20 w-full max-w-5xl px-4">
-          <SearchBar />
+          <SearchBar roomTypes={allRoomNames} />
         </div>
       </section>
 
       <div className="lg:hidden w-full max-w-5xl px-4">
-        <SearchBar />
+        <SearchBar roomTypes={allRoomNames} />
       </div>
 
       <div className="h-24 md:h-32" />
@@ -75,9 +150,10 @@ export default function GuestLandingPage() {
           </Link>
         </div>
 
-        {/* Room cards — sourced from centralized ROOMS data */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-          {ROOMS.map((room, i) => {
+        {/* 3 featured mid-tier cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center mb-8">
+          {featuredRooms.map((room, i) => {
+            if (!room) return null;
             const isFeatured = !!room.badge;
             return (
               <Link
@@ -88,7 +164,7 @@ export default function GuestLandingPage() {
                 }`}
               >
                 <Image
-                  src={room.images.main}
+                  src={room.mainImage}
                   alt={room.name}
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
@@ -98,6 +174,60 @@ export default function GuestLandingPage() {
                 {room.badge && (
                   <div className="absolute top-4 right-4 bg-jagamn-tertiary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-sm z-20">
                     {room.badge}
+                  </div>
+                )}
+
+                {room.availableCount !== null && (
+                  <div className="absolute top-4 left-4 bg-white/90 text-jagamn-primary text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm z-20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                  </div>
+                )}
+
+                <div className="absolute bottom-4 left-4 right-4 bg-white p-4 rounded shadow-md flex justify-between items-center transition-transform group-hover:-translate-y-2 duration-300">
+                  <div>
+                    <h3 className="manrope-bold text-lg text-jagamn-primary">
+                      {room.name}
+                    </h3>
+                    <p className="text-xs text-jagamn-secondary mt-1">
+                      Starting from ${room.price} / Night
+                    </p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-jagamn-tertiary group-hover:bg-jagamn-tertiary group-hover:text-white transition-colors">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* 2 compact cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {compactRooms.map((room) => {
+            if (!room) return null;
+            return (
+              <Link
+                key={room.slug}
+                href={`/rooms/${room.slug}`}
+                className="group relative overflow-hidden rounded-md cursor-pointer border border-gray-100 shadow-sm block h-[280px]"
+              >
+                <Image
+                  src={room.mainImage}
+                  alt={room.name}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+
+                {room.badge && (
+                  <div className="absolute top-4 right-4 bg-jagamn-tertiary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-sm z-20">
+                    {room.badge}
+                  </div>
+                )}
+
+                {room.availableCount !== null && (
+                  <div className="absolute top-4 left-4 bg-white/90 text-jagamn-primary text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm z-20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                   </div>
                 )}
 
@@ -123,7 +253,6 @@ export default function GuestLandingPage() {
       {/* ── Amenities / Experiences Grid ───────────────────────────── */}
       <section className="py-8 px-8 max-w-7xl mx-auto w-full mb-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-auto md:h-[500px]">
-          {/* Left Large Card — Spa */}
           <div className="relative rounded-md overflow-hidden h-[300px] md:h-full group cursor-pointer shadow-sm">
             <Image
               src={AMENITY_IMAGES.spa}
@@ -142,9 +271,7 @@ export default function GuestLandingPage() {
             </div>
           </div>
 
-          {/* Right Cards */}
           <div className="grid grid-rows-2 gap-4 h-[600px] md:h-full">
-            {/* Saffron & Silk — Dining */}
             <div className="relative rounded-md overflow-hidden group cursor-pointer shadow-sm">
               <Image
                 src={AMENITY_IMAGES.dining}
@@ -163,7 +290,6 @@ export default function GuestLandingPage() {
               </div>
             </div>
 
-            {/* Royal Pool + The Library */}
             <div className="grid grid-cols-2 gap-4">
               <div className="relative rounded-md overflow-hidden group cursor-pointer shadow-sm">
                 <Image
