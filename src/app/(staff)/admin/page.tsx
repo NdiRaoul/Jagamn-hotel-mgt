@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 export default function OperationsDashboard() {
   return (
@@ -74,13 +75,10 @@ export default function OperationsDashboard() {
             </p>
           </div>
           <div>
-            <h3 className="manrope-bold text-4xl text-jagamn-primary mb-2">78%</h3>
-            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full"
-                style={{ width: "78%" }}
-              />
-            </div>
+            <h3 className="manrope-bold text-4xl text-jagamn-primary mb-2">
+              78%
+            </h3>
+            <Progress value={78} indicatorClassName="bg-jagamn-tertiary" className="h-2 bg-gray-100" />
           </div>
         </div>
 
@@ -95,7 +93,9 @@ export default function OperationsDashboard() {
             </p>
           </div>
           <div>
-            <h3 className="manrope-bold text-4xl text-jagamn-primary mb-1">5</h3>
+            <h3 className="manrope-bold text-4xl text-jagamn-primary mb-1">
+              5
+            </h3>
             <p className="text-xs text-gray-400 font-medium">Avg. Wait: 18m</p>
           </div>
         </div>
@@ -230,15 +230,11 @@ export default function OperationsDashboard() {
                   <span>{day}</span>
                   <span className="text-white">{i === 0 ? "82%" : "96%"}</span>
                 </div>
-                <div className="w-full h-1 bg-white/10 rounded-full">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-1000",
-                      i === 0 ? "bg-white" : "bg-jagamn-tertiary",
-                    )}
-                    style={{ width: i === 0 ? "82%" : "96%" }}
-                  />
-                </div>
+                <Progress 
+                  value={i === 0 ? 82 : 96} 
+                  indicatorClassName={i === 0 ? "bg-white" : "bg-jagamn-tertiary"} 
+                  className="h-1 bg-white/10"
+                />
               </div>
             ))}
           </div>
@@ -254,7 +250,7 @@ export default function OperationsDashboard() {
       {/* ── Row 4: Staff Deployment ─────────────────── */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-8 border-b border-gray-50 flex items-center justify-between">
-          <h3 className="manrope-bold text-xl text-[#0D2137]">
+          <h3 className="manrope-bold text-xl text-jagamn-primary">
             Live Staff Deployment
           </h3>
           <div className="flex gap-2">
