@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { StaffEditModal } from "@/components/staff/staff-edit-modal";
 import {
   Users,
   Plus,
@@ -16,7 +18,16 @@ import {
   Clock,
   TrendingUp,
   UserPlus,
+  Edit2,
+  Trash2,
+  Eye,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +119,18 @@ const RoleBadge = ({ role }: { role: string }) => {
 export default function StaffDirectory() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const router = useRouter();
+
+  const handleEditClick = (staff: any) => {
+    setSelectedStaff(staff);
+    setIsEditModalOpen(true);
+  };
+
+  const handleViewProfile = (id: string) => {
+    router.push(`/admin/staff/${id}`);
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -375,7 +398,7 @@ export default function StaffDirectory() {
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white p-10 rounded-[2rem] border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Total Personnel
@@ -390,7 +413,7 @@ export default function StaffDirectory() {
           </p>
         </div>
 
-        <div className="bg-white p-10 rounded-[2rem] border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Departmental Split
@@ -398,16 +421,16 @@ export default function StaffDirectory() {
             <PieChart className="w-6 h-6 text-gray-200 group-hover:text-jagamn-primary transition-colors" />
           </div>
           <div className="flex gap-1.5 h-10 mb-5">
-            <div className="flex-1 bg-jagamn-primary rounded-l-xl shadow-inner" />
+            <div className="flex-1 bg-jagamn-primary rounded-lg shadow-inner" />
             <div className="flex-[0.6] bg-jagamn-tertiary shadow-inner" />
-            <div className="flex-[0.3] bg-slate-100 rounded-r-xl shadow-inner" />
+            <div className="flex-[0.3] bg-slate-100 rounded-lg shadow-inner" />
           </div>
           <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
             F&B holding 42% share
           </p>
         </div>
 
-        <div className="bg-jagamn-primary p-10 rounded-[2rem] text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
+        <div className="bg-jagamn-primary p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
           <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8">
             Monthly Payroll Forecast
           </p>
@@ -493,7 +516,7 @@ export default function StaffDirectory() {
 
       {/* ── Directory Content ────────────────────────── */}
       {viewMode === "list" ? (
-        <div className="bg-white rounded-[2rem] border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm overflow-hidden overflow-x-auto">
+        <div className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm overflow-hidden overflow-x-auto">
           <table className="w-full min-w-[950px]">
             <thead className="bg-jagamn-neutral/30">
               <tr>
@@ -566,11 +589,27 @@ export default function StaffDirectory() {
                   <td className="px-6 py-4.5 text-[15px] manrope-bold text-jagamn-primary">
                     {staff.salary}
                   </td>
-                  <td className="px-6 py-4.5 text-right">
-                    <button className="p-3 text-gray-300 hover:text-jagamn-tertiary transition-all hover:bg-gray-50 rounded-xl">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
-                  </td>
+                      <td className="px-6 py-4.5 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="h-10 w-10 inline-flex items-center justify-center text-jagamn-primary hover:text-jagamn-tertiary transition-all bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 shadow-sm">
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-gray-100 shadow-xl">
+                            <DropdownMenuItem onClick={() => handleViewProfile(staff.id)} className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-50 text-[11px] font-black uppercase tracking-widest text-gray-500">
+                              <Eye className="w-4 h-4" /> View Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditClick(staff)} className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-50 text-[11px] font-black uppercase tracking-widest text-jagamn-primary">
+                              <Edit2 className="w-4 h-4" /> Edit Details
+                            </DropdownMenuItem>
+                            <div className="h-px bg-gray-50 my-1" />
+                            <DropdownMenuItem className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-red-50 text-[11px] font-black uppercase tracking-widest text-red-500">
+                              <Trash2 className="w-4 h-4" /> Deactivate
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                 </tr>
               ))}
             </tbody>
@@ -581,7 +620,7 @@ export default function StaffDirectory() {
           {STAFF_DATA.map((staff) => (
             <div
               key={staff.id}
-              className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-2xl transition-all duration-700 hover:-translate-y-2"
+              className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-2xl transition-all duration-700 hover:-translate-y-2"
             >
               <div
                 className={cn(
@@ -590,8 +629,8 @@ export default function StaffDirectory() {
                 )}
               >
                 <div className="absolute -bottom-12 left-8">
-                  <div className="w-24 h-24 rounded-[1.75rem] bg-white p-1.5 shadow-xl transition-transform group-hover:scale-105 duration-700">
-                    <Avatar className="w-full h-full rounded-[1.25rem]">
+                  <div className="w-24 h-24 rounded-xl bg-white p-1.5 shadow-xl transition-transform group-hover:scale-105 duration-700">
+                    <Avatar className="w-full h-full rounded-lg">
                       <AvatarFallback
                         className={cn(
                           "text-white manrope-bold text-2xl",
@@ -636,17 +675,42 @@ export default function StaffDirectory() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center justify-between pt-6 border-t border-gray-100">
                   <RoleBadge role={staff.role} />
-                  <button className="p-3 text-gray-200 hover:text-jagamn-tertiary transition-all hover:bg-gray-50 rounded-xl">
-                    <MoreHorizontal className="w-5 h-5" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-10 w-10 flex items-center justify-center text-jagamn-primary hover:text-jagamn-tertiary transition-all bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 shadow-sm">
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-gray-100 shadow-xl">
+                      <DropdownMenuItem onClick={() => handleViewProfile(staff.id)} className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-50 text-[11px] font-black uppercase tracking-widest text-gray-500">
+                        <Eye className="w-4 h-4" /> View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditClick(staff)} className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-50 text-[11px] font-black uppercase tracking-widest text-jagamn-primary">
+                        <Edit2 className="w-4 h-4" /> Edit Details
+                      </DropdownMenuItem>
+                      <div className="h-px bg-gray-50 my-1" />
+                      <DropdownMenuItem className="flex items-center gap-2 py-3 px-4 rounded-lg cursor-pointer hover:bg-red-50 text-[11px] font-black uppercase tracking-widest text-red-500">
+                        <Trash2 className="w-4 h-4" /> Deactivate
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* ── Edit Staff Modal ───────────────────────── */}
+      <StaffEditModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        staffName={selectedStaff?.name}
+        staffEmail={selectedStaff?.email}
+        staffAvatar={selectedStaff?.name?.split(" ").map((n: any) => n[0]).join("")}
+      />
     </div>
   );
 }

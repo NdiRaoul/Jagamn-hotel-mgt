@@ -47,7 +47,7 @@ export default function OperationsDashboard() {
       {/* ── Row 1: KPI Cards ─────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Revenue Card */}
-        <div className="bg-jagamn-primary p-8 rounded-3xl text-white shadow-xl relative overflow-hidden group">
+        <div className="bg-jagamn-primary p-8 rounded-2xl text-white shadow-xl relative overflow-hidden group">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">
             Revenue Today
           </p>
@@ -59,7 +59,7 @@ export default function OperationsDashboard() {
                 <span>+12.5% from yesterday</span>
               </div>
             </div>
-            <div className="p-4 bg-white/5 rounded-2xl group-hover:bg-jagamn-tertiary transition-colors duration-500">
+            <div className="p-4 bg-white/5 rounded-xl group-hover:bg-jagamn-tertiary transition-colors duration-500">
               <Wallet className="w-8 h-8 text-white" />
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function OperationsDashboard() {
         </div>
 
         {/* Occupancy Card */}
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-8">
             <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
               <Bed className="w-6 h-6" />
@@ -89,7 +89,7 @@ export default function OperationsDashboard() {
         </div>
 
         {/* Food Orders Card */}
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-8">
             <div className="p-3 bg-orange-50 rounded-xl text-jagamn-tertiary">
               <Utensils className="w-6 h-6" />
@@ -222,7 +222,7 @@ export default function OperationsDashboard() {
         </div>
 
         {/* Weekend Outlook */}
-        <div className="bg-jagamn-primary rounded-3xl p-8 text-white relative overflow-hidden">
+        <div className="bg-jagamn-primary rounded-2xl p-8 text-white relative overflow-hidden">
           <h3 className="manrope-bold text-xl mb-3">Weekend Outlook</h3>
           <p className="text-xs text-gray-400 leading-relaxed mb-8">
             Forecast predicts 94% occupancy. Dynamic pricing recommended for
@@ -256,7 +256,7 @@ export default function OperationsDashboard() {
       </div>
 
       {/* ── Row 4: Staff Deployment ─────────────────── */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-6 md:p-8 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h3 className="manrope-bold text-xl text-jagamn-primary">
             Live Staff Deployment
