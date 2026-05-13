@@ -17,7 +17,9 @@ import {
   ChevronRight,
   Printer,
   Share2,
-  MoreHorizontal
+  MoreHorizontal,
+  Briefcase,
+  Contact2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -82,14 +84,14 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
               <h1 className="manrope-bold text-6xl text-jagamn-primary tracking-tight leading-none mb-8">
                 {staff.name}
               </h1>
-              <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-100 rounded-full shadow-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#E8924A]" />
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{staff.dept}</span>
+              <div className="flex flex-wrap justify-center md:justify-start gap-8">
+                <div className="flex items-center gap-3">
+                  <Briefcase className="w-5 h-5 text-[#E8924A]" />
+                  <span className="text-sm font-bold text-slate-500">{staff.dept}</span>
                 </div>
-                <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-100 rounded-full shadow-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#E8924A]" />
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{staff.role}</span>
+                <div className="flex items-center gap-3">
+                  <Contact2 className="w-5 h-5 text-[#E8924A]" />
+                  <span className="text-sm font-bold text-slate-500">{staff.role}</span>
                 </div>
               </div>
             </div>
@@ -103,7 +105,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
               <Edit3 className="w-5 h-5" />
               Edit Details
             </Button>
-            <Button variant="ghost" className="h-14 text-gray-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center gap-3 transition-all">
+            <Button variant="ghost" className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center gap-3 transition-all">
               <UserMinus className="w-5 h-5" />
               Deactivate Account
             </Button>
