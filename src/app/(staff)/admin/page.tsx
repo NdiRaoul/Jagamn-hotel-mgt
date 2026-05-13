@@ -16,6 +16,8 @@ import {
   ArrowUpRight,
   Wallet,
   Building2,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,7 +80,11 @@ export default function OperationsDashboard() {
             <h3 className="manrope-bold text-4xl text-jagamn-primary mb-2">
               78%
             </h3>
-            <Progress value={78} indicatorClassName="bg-jagamn-tertiary" className="h-2 bg-gray-100" />
+            <Progress
+              value={78}
+              indicatorClassName="bg-jagamn-tertiary"
+              className="h-2 bg-gray-100"
+            />
           </div>
         </div>
 
@@ -106,7 +112,7 @@ export default function OperationsDashboard() {
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-jagamn-primary">
-              <ArrowUpRight className="w-6 h-6 rotate-45" />
+              <LogIn className="w-6 h-6 " />
             </div>
             <div>
               <h4 className="manrope-bold text-2xl">12</h4>
@@ -126,7 +132,7 @@ export default function OperationsDashboard() {
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-jagamn-primary">
-              <ArrowUpRight className="w-6 h-6 rotate-[135deg]" />
+              <LogOut className="w-6 h-6]" />
             </div>
             <div>
               <h4 className="manrope-bold text-2xl">8</h4>
@@ -230,9 +236,11 @@ export default function OperationsDashboard() {
                   <span>{day}</span>
                   <span className="text-white">{i === 0 ? "82%" : "96%"}</span>
                 </div>
-                <Progress 
-                  value={i === 0 ? 82 : 96} 
-                  indicatorClassName={i === 0 ? "bg-white" : "bg-jagamn-tertiary"} 
+                <Progress
+                  value={i === 0 ? 82 : 96}
+                  indicatorClassName={
+                    i === 0 ? "bg-white" : "bg-jagamn-tertiary"
+                  }
                   className="h-1 bg-white/10"
                 />
               </div>
@@ -249,11 +257,11 @@ export default function OperationsDashboard() {
 
       {/* ── Row 4: Staff Deployment ─────────────────── */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+        <div className="p-6 md:p-8 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h3 className="manrope-bold text-xl text-jagamn-primary">
             Live Staff Deployment
           </h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="ghost"
               className="text-xs font-black uppercase tracking-widest text-gray-400 gap-2"
@@ -267,94 +275,96 @@ export default function OperationsDashboard() {
           </div>
         </div>
 
-        <table className="w-full">
-          <thead>
-            <tr className="bg-jagamn-neutral/50">
-              <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Department
-              </th>
-              <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                On-Duty
-              </th>
-              <th className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Status
-              </th>
-              <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Coverage
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {[
-              {
-                dept: "Front Desk",
-                icon: Bed,
-                onDuty: "4 Staff members",
-                status: "Full Coverage",
-                statusColor: "text-green-500",
-                coverage: "100%",
-              },
-              {
-                dept: "Housekeeping",
-                icon: Building2,
-                onDuty: "12 Staff members",
-                status: "High Load",
-                statusColor: "text-orange-500",
-                coverage: "85%",
-              },
-              {
-                dept: "Food & Beverage",
-                icon: Utensils,
-                onDuty: "8 Staff members",
-                status: "Active",
-                statusColor: "text-green-500",
-                coverage: "92%",
-              },
-            ].map((row, i) => (
-              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-8 py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-jagamn-neutral rounded-lg">
-                      <row.icon className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <span className="manrope-bold text-sm text-jagamn-primary">
-                      {row.dept}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-8 py-6 text-xs text-gray-500 font-medium">
-                  {row.onDuty}
-                </td>
-                <td className="px-8 py-6">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "w-1.5 h-1.5 rounded-full bg-current",
-                        row.statusColor,
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest",
-                        row.statusColor,
-                      )}
-                    >
-                      {row.status}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-8 py-6 text-right manrope-bold text-sm text-jagamn-primary">
-                  {row.coverage}
-                </td>
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full min-w-[600px]">
+            <thead>
+              <tr className="bg-jagamn-neutral/50">
+                <th className="px-6 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Department
+                </th>
+                <th className="px-6 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  On-Duty
+                </th>
+                <th className="px-6 md:px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Status
+                </th>
+                <th className="px-6 md:px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Coverage
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[
+                {
+                  dept: "Front Desk",
+                  icon: Bed,
+                  onDuty: "4 Staff members",
+                  status: "Full Coverage",
+                  statusColor: "text-green-500",
+                  coverage: "100%",
+                },
+                {
+                  dept: "Housekeeping",
+                  icon: Building2,
+                  onDuty: "12 Staff members",
+                  status: "High Load",
+                  statusColor: "text-orange-500",
+                  coverage: "85%",
+                },
+                {
+                  dept: "Food & Beverage",
+                  icon: Utensils,
+                  onDuty: "8 Staff members",
+                  status: "Active",
+                  statusColor: "text-green-500",
+                  coverage: "92%",
+                },
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-6 md:px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-jagamn-neutral rounded-lg">
+                        <row.icon className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <span className="manrope-bold text-sm text-jagamn-primary">
+                        {row.dept}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 md:px-8 py-6 text-xs text-gray-500 font-medium">
+                    {row.onDuty}
+                  </td>
+                  <td className="px-6 md:px-8 py-6">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full bg-current",
+                          row.statusColor,
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest",
+                          row.statusColor,
+                        )}
+                      >
+                        {row.status}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 md:px-8 py-6 text-right manrope-bold text-sm text-jagamn-primary">
+                    {row.coverage}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── Footer ───────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pt-6 border-t border-gray-100 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
             The Palace CMS v2.4.0
           </p>
