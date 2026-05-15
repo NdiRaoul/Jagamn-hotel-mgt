@@ -18,12 +18,66 @@ import {
   Building2,
   LogIn,
   LogOut,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+// --- Mock Data ---
+const DEPLOYMENT_DATA = [
+  {
+    dept: "Front Desk",
+    icon: Bed,
+    onDuty: "4 Staff members",
+    status: "Full Coverage",
+    statusColor: "text-green-500",
+    coverage: "100%",
+  },
+  {
+    dept: "Housekeeping",
+    icon: Building2,
+    onDuty: "12 Staff members",
+    status: "High Load",
+    statusColor: "text-orange-500",
+    coverage: "85%",
+  },
+  {
+    dept: "Food & Beverage",
+    icon: Utensils,
+    onDuty: "8 Staff members",
+    status: "Active",
+    statusColor: "text-green-500",
+    coverage: "92%",
+  },
+];
+
 export default function OperationsDashboard() {
+  const handleExportDeployment = () => {
+    const headers = ["Department", "On-Duty", "Status", "Coverage"];
+    const rows = DEPLOYMENT_DATA.map((row) => [
+      row.dept,
+      row.onDuty,
+      row.status,
+      row.coverage,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Staff_Deployment_Rota.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* ── Page Header ────────────────────────────── */}
@@ -264,10 +318,11 @@ export default function OperationsDashboard() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="ghost"
+              onClick={handleExportDeployment}
               className="text-xs font-black uppercase tracking-widest text-gray-400 gap-2"
             >
-              <Printer className="w-4 h-4" />
-              Print Report
+              <Download className="w-4 h-4" />
+              Export Rota
             </Button>
             <Button className="bg-jagamn-primary text-white text-xs font-black uppercase tracking-widest px-6 rounded-lg">
               Manage Rota
@@ -294,32 +349,7 @@ export default function OperationsDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {[
-                {
-                  dept: "Front Desk",
-                  icon: Bed,
-                  onDuty: "4 Staff members",
-                  status: "Full Coverage",
-                  statusColor: "text-green-500",
-                  coverage: "100%",
-                },
-                {
-                  dept: "Housekeeping",
-                  icon: Building2,
-                  onDuty: "12 Staff members",
-                  status: "High Load",
-                  statusColor: "text-orange-500",
-                  coverage: "85%",
-                },
-                {
-                  dept: "Food & Beverage",
-                  icon: Utensils,
-                  onDuty: "8 Staff members",
-                  status: "Active",
-                  statusColor: "text-green-500",
-                  coverage: "92%",
-                },
-              ].map((row, i) => (
+              {DEPLOYMENT_DATA.map((row, i) => (
                 <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 md:px-8 py-6">
                     <div className="flex items-center gap-4">

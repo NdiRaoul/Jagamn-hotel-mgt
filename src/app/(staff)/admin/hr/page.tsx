@@ -138,6 +138,11 @@ export default function HRPage() {
   const [leaveStatusFilter, setLeaveStatusFilter] = useState("Pending");
   const [selectedRequest, setSelectedRequest] = useState(LEAVE_REQUESTS[1]);
 
+  const filteredLeaveRequests = React.useMemo(() => {
+    if (leaveStatusFilter === "All") return LEAVE_REQUESTS;
+    return LEAVE_REQUESTS.filter((req) => req.status === leaveStatusFilter);
+  }, [leaveStatusFilter]);
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* ── Sub Navigation Switcher ─────────────────── */}
@@ -172,6 +177,7 @@ export default function HRPage() {
           setLeaveStatusFilter={setLeaveStatusFilter}
           selectedRequest={selectedRequest}
           setSelectedRequest={setSelectedRequest}
+          requests={filteredLeaveRequests}
         />
       ) : (
         <DeductionsView />
@@ -187,6 +193,7 @@ function LeaveManagementView({
   setLeaveStatusFilter,
   selectedRequest,
   setSelectedRequest,
+  requests,
 }: any) {
   const [showNotes, setShowNotes] = useState(false);
   const [isAvailabilityExpanded, setIsAvailabilityExpanded] = useState(false);
@@ -204,19 +211,31 @@ function LeaveManagementView({
           </h1>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3">
-          <Button 
+          <Button
             onClick={() => {
-              const headers = ["Staff", "Role", "Category", "Dates", "Duration", "Status"];
-              const rows = LEAVE_REQUESTS.map(req => [
+              const headers = [
+                "Staff",
+                "Role",
+                "Category",
+                "Dates",
+                "Duration",
+                "Status",
+              ];
+              const rows = LEAVE_REQUESTS.map((req) => [
                 req.staff.name,
                 req.staff.role,
                 req.category,
                 `${req.dates.from} - ${req.dates.to}`,
                 req.duration,
-                req.status
+                req.status,
               ]);
-              const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const csvContent = [
+                headers.join(","),
+                ...rows.map((r) => r.join(",")),
+              ].join("\n");
+              const blob = new Blob([csvContent], {
+                type: "text/csv;charset=utf-8;",
+              });
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.setAttribute("href", url);
@@ -225,7 +244,7 @@ function LeaveManagementView({
               link.click();
               document.body.removeChild(link);
             }}
-            variant="ghost" 
+            variant="ghost"
             className="w-full sm:w-auto h-12 px-6 rounded-xl border border-gray-100 bg-white text-xs font-bold text-slate-400 shadow-sm hover:bg-gray-50 hover:text-[#0D2137] transition-all flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" /> Export Report
@@ -364,7 +383,7 @@ function LeaveManagementView({
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10">
         <div className="lg:col-span-4 space-y-8">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x no-scrollbar sm:no-scrollbar">
-            {["Pending", "Approved", "Rejected"].map((status) => (
+            {["All", "Pending", "Approved", "Rejected"].map((status) => (
               <button
                 key={status}
                 onClick={() => setLeaveStatusFilter(status)}
@@ -375,13 +394,15 @@ function LeaveManagementView({
                     : "bg-gray-100/80 text-slate-400 hover:text-[#0D2137]",
                 )}
               >
-                {status} {status === "Pending" && "(12)"}
+                {status}{" "}
+                {status === "Pending" &&
+                  `(${requests.filter((r: any) => r.status === "Pending").length})`}
               </button>
             ))}
           </div>
 
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-            {LEAVE_REQUESTS.map((request) => (
+            {requests.map((request: any) => (
               <div
                 key={request.id}
                 onClick={() => setSelectedRequest(request)}
@@ -398,7 +419,7 @@ function LeaveManagementView({
                       <span className="text-white text-xs font-black">
                         {request.staff.name
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: any[]) => n[0])
                           .join("")}
                       </span>
                     </div>
@@ -884,21 +905,34 @@ function DeductionsView() {
             <h1 className="manrope-bold text-3xl md:text-5xl text-jagamn-primary tracking-tight">
               Deductions & Penalties
             </h1>
-            <Button 
+            <Button
               onClick={() => {
-                const headers = ["Staff", "Dept", "Role", "Type", "Amount", "Date", "Reason"];
+                const headers = [
+                  "Staff",
+                  "Dept",
+                  "Role",
+                  "Type",
+                  "Amount",
+                  "Date",
+                  "Reason",
+                ];
                 const headersString = headers.join(",");
-                const rows = RECENT_DEDUCTIONS.map(d => [
+                const rows = RECENT_DEDUCTIONS.map((d) => [
                   d.staff.name,
                   d.staff.dept,
                   d.staff.role,
                   d.type,
                   d.amount,
                   d.date,
-                  d.reason.replace(/,/g, ";") // Escape commas
+                  d.reason.replace(/,/g, ";"), // Escape commas
                 ]);
-                const csvContent = [headersString, ...rows.map(r => r.join(","))].join("\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const csvContent = [
+                  headersString,
+                  ...rows.map((r) => r.join(",")),
+                ].join("\n");
+                const blob = new Blob([csvContent], {
+                  type: "text/csv;charset=utf-8;",
+                });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.setAttribute("href", url);
@@ -907,7 +941,7 @@ function DeductionsView() {
                 link.click();
                 document.body.removeChild(link);
               }}
-              variant="ghost" 
+              variant="ghost"
               className="w-fit h-10 px-4 rounded-xl border border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#0D2137] transition-all flex items-center gap-2"
             >
               <Download className="w-3.5 h-3.5" /> Export Data

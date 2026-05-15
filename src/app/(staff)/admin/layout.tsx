@@ -23,6 +23,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const ADMIN_NAV = [
   { label: "Overview", icon: LayoutDashboard, href: "/admin" },
@@ -55,20 +61,23 @@ export default function AdminLayout({
 
       <aside
         className={cn(
-          "bg-jagamn-primary text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative md:translate-x-0 shadow-2xl md:shadow-none",
+          "bg-jagamn-primary text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
           isSidebarOpen
             ? "translate-x-0 w-[280px]"
-            : "-translate-x-full md:translate-x-0 md:w-[80px]",
+            : "-translate-x-full md:translate-x-0 md:w-[90px]",
         )}
       >
         {/* Logo Section */}
-        <div className="p-8 flex items-center justify-between gap-3">
+        <div className={cn(
+          "p-8 flex items-center gap-3 transition-all duration-500",
+          !isSidebarOpen && "md:px-6 md:justify-center"
+        )}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
               <Building2 className="w-6 h-6 text-white" />
             </div>
-            {(isSidebarOpen || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
-              <div className="animate-in fade-in duration-500">
+            {isSidebarOpen && (
+              <div className="animate-in fade-in duration-500 overflow-hidden whitespace-nowrap">
                 <h2 className="manrope-bold text-lg leading-tight">The Palace</h2>
                 <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
                   Management Suite
@@ -87,37 +96,73 @@ export default function AdminLayout({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar">
-          {ADMIN_NAV.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-4 px-8 py-4 transition-all group relative",
-                  isActive
-                    ? "bg-white/10 text-white border-l-[3px] border-l-jagamn-tertiary"
-                    : "text-gray-400 hover:text-white hover:bg-white/5 border-l-[3px] border-l-transparent",
-                )}
-                onClick={() => {
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) setIsSidebarOpen(false);
-                }}
-              >
-                <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-gray-500 group-hover:text-white")} />
-                {(isSidebarOpen || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
-                  <span className="text-[11px] font-black tracking-[0.15em] uppercase">{item.label}</span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar overflow-x-hidden">
+          <TooltipProvider delayDuration={0}>
+            {ADMIN_NAV.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/admin" && pathname.startsWith(item.href));
+              return (
+                <Tooltip key={item.label} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-4 py-4 transition-all group relative",
+                        isSidebarOpen ? "px-8" : "px-0 md:justify-center",
+                        isActive
+                          ? "bg-white/10 text-white border-l-[3px] border-l-jagamn-tertiary"
+                          : "text-gray-400 hover:text-white hover:bg-white/5 border-l-[3px] border-l-transparent",
+                      )}
+                      onClick={() => {
+                        if (
+                          typeof window !== "undefined" &&
+                          window.innerWidth < 768
+                        )
+                          setIsSidebarOpen(false);
+                      }}
+                    >
+                      <item.icon
+                        className={cn(
+                          "w-5 h-5 shrink-0",
+                          isActive
+                            ? "text-white"
+                            : "text-gray-500 group-hover:text-white",
+                        )}
+                      />
+                      {isSidebarOpen && (
+                        <span className="text-[11px] font-black tracking-[0.15em] uppercase animate-in fade-in slide-in-from-left-2 duration-300 overflow-hidden whitespace-nowrap">
+                          {item.label}
+                        </span>
+                      )}
+                    </Link>
+                  </TooltipTrigger>
+                  {!isSidebarOpen && (
+                    <TooltipContent
+                      side="right"
+                      className="hidden md:block bg-jagamn-primary border-jagamn-tertiary text-white manrope-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg ml-2 shadow-2xl z-[100]"
+                    >
+                      {item.label}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </nav>
 
         {/* Bottom Section */}
         <div className="p-4 border-t border-white/5">
-          <button className="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white transition-colors w-full group">
-            <LogOut className="w-5 h-5 group-hover:text-jagamn-tertiary" />
-            {(isSidebarOpen || (typeof window !== 'undefined' && window.innerWidth < 768)) && <span className="text-[11px] font-black uppercase tracking-widest">Logout</span>}
+          <button className={cn(
+            "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
+            isSidebarOpen ? "px-4" : "md:justify-center"
+          )}>
+            <LogOut className="w-5 h-5 shrink-0 group-hover:text-jagamn-tertiary" />
+            {isSidebarOpen && (
+              <span className="text-[11px] font-black uppercase tracking-widest animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
+                Logout
+              </span>
+            )}
           </button>
         </div>
       </aside>
@@ -129,7 +174,7 @@ export default function AdminLayout({
           <div className="flex items-center gap-12 flex-1">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 text-gray-400 hover:text-jagamn-tertiary transition-colors md:hidden"
+              className="p-2 text-gray-400 hover:text-jagamn-tertiary transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
