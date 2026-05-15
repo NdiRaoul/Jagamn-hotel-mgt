@@ -121,6 +121,8 @@ export default function StaffDirectory() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("name");
   const router = useRouter();
 
   const handleEditClick = (staff: any) => {
@@ -131,6 +133,24 @@ export default function StaffDirectory() {
   const handleViewProfile = (id: string) => {
     router.push(`/admin/staff/${id}`);
   };
+
+  const filteredStaff = React.useMemo(() => {
+    let result = [...STAFF_DATA];
+
+    if (deptFilter !== "all") {
+      result = result.filter(s => s.dept === deptFilter);
+    }
+
+    result.sort((a, b) => {
+      if (sortOrder === "name") {
+        return a.name.localeCompare(b.name);
+      } else {
+        return new Date(b.hireDate).getTime() - new Date(a.hireDate).getTime();
+      }
+    });
+
+    return result;
+  }, [deptFilter, sortOrder]);
 
   const handleExportCSV = () => {
     const headers = ["Staff ID", "Name", "Email", "Department", "Position", "Role", "Hire Date", "Salary"];
@@ -487,17 +507,19 @@ export default function StaffDirectory() {
       {/* ── Toolbar & View Switcher ─────────────────── */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-gray-100">
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
-          <Select defaultValue="all">
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
             <SelectTrigger className="h-12 w-full sm:w-[220px] bg-white border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm focus:ring-jagamn-tertiary/20">
               <SelectValue placeholder="All Departments" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Departments</SelectItem>
-              <SelectItem value="front">Front Desk</SelectItem>
-              <SelectItem value="kitchen">Kitchen</SelectItem>
+              <SelectItem value="Guest Relations">Guest Relations</SelectItem>
+              <SelectItem value="Food & Beverage">Food & Beverage</SelectItem>
+              <SelectItem value="Inventory">Inventory</SelectItem>
+              <SelectItem value="Security">Security</SelectItem>
             </SelectContent>
           </Select>
-          <Select defaultValue="name">
+          <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger className="h-12 w-full sm:w-[220px] bg-white border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm focus:ring-jagamn-tertiary/20">
               <SelectValue placeholder="Sort by Name" />
             </SelectTrigger>
@@ -573,7 +595,7 @@ export default function StaffDirectory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {STAFF_DATA.map((staff) => (
+              {filteredStaff.map((staff) => (
                 <tr
                   key={staff.id}
                   className="group hover:bg-jagamn-neutral/40 transition-colors"
@@ -646,7 +668,7 @@ export default function StaffDirectory() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {STAFF_DATA.map((staff) => (
+          {filteredStaff.map((staff) => (
             <div
               key={staff.id}
               className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-2xl transition-all duration-700 hover:-translate-y-2"
