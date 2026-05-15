@@ -194,22 +194,45 @@ function LeaveManagementView({
   return (
     <div className="space-y-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 text-center lg:text-left">
             Management Dashboard
           </p>
-          <h1 className="manrope-bold text-5xl text-[#0D2137] tracking-tight">
+          <h1 className="manrope-bold text-3xl md:text-5xl text-[#0D2137] tracking-tight text-center lg:text-left">
             Leave Requests
           </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-white px-6 py-3 rounded-xl border border-gray-100 text-xs font-bold text-slate-400 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
-            Export Report
-          </div>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Button 
+            onClick={() => {
+              const headers = ["Staff", "Role", "Category", "Dates", "Duration", "Status"];
+              const rows = LEAVE_REQUESTS.map(req => [
+                req.staff.name,
+                req.staff.role,
+                req.category,
+                `${req.dates.from} - ${req.dates.to}`,
+                req.duration,
+                req.status
+              ]);
+              const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.setAttribute("href", url);
+              link.setAttribute("download", "Leave_Requests_Report.csv");
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            variant="ghost" 
+            className="w-full sm:w-auto h-12 px-6 rounded-xl border border-gray-100 bg-white text-xs font-bold text-slate-400 shadow-sm hover:bg-gray-50 hover:text-[#0D2137] transition-all flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Export Report
+          </Button>
           <Sheet>
             <SheetTrigger asChild>
-              <Button className="h-12 px-6 rounded-xl bg-[#E8924A] hover:bg-[#E8924A]/90 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#E8924A]/20">
+              <Button className="w-full sm:w-auto h-12 px-6 rounded-xl bg-[#E8924A] hover:bg-[#E8924A]/90 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#E8924A]/20">
                 <Plus className="w-4 h-4" /> Manual Entry
               </Button>
             </SheetTrigger>
@@ -338,15 +361,15 @@ function LeaveManagementView({
       </div>
 
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10">
         <div className="lg:col-span-4 space-y-8">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x no-scrollbar sm:no-scrollbar">
             {["Pending", "Approved", "Rejected"].map((status) => (
               <button
                 key={status}
                 onClick={() => setLeaveStatusFilter(status)}
                 className={cn(
-                  "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap snap-start",
                   leaveStatusFilter === status
                     ? "bg-[#0D2137] text-white shadow-xl"
                     : "bg-gray-100/80 text-slate-400 hover:text-[#0D2137]",
@@ -357,7 +380,7 @@ function LeaveManagementView({
             ))}
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             {LEAVE_REQUESTS.map((request) => (
               <div
                 key={request.id}
@@ -431,10 +454,10 @@ function LeaveManagementView({
 
         <div className="lg:col-span-8 relative">
           <div className="bg-white rounded-xl border border-gray-100 shadow-2xl overflow-hidden flex flex-col h-full sticky top-8">
-            <div className="bg-[#0D2137] p-10 text-white relative overflow-hidden">
-              <div className="flex items-center gap-8 relative z-10">
-                <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center border-4 border-white/10 shadow-2xl shrink-0">
-                  <span className="text-[#0D2137] text-2xl font-black">
+            <div className="bg-[#0D2137] p-6 md:p-10 text-white relative overflow-hidden">
+              <div className="flex items-center gap-6 md:gap-8 relative z-10">
+                <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-white flex items-center justify-center border-4 border-white/10 shadow-2xl shrink-0">
+                  <span className="text-[#0D2137] text-xl md:text-2xl font-black">
                     {selectedRequest.staff.name
                       .split(" ")
                       .map((n: any[]) => n[0])
@@ -442,34 +465,34 @@ function LeaveManagementView({
                   </span>
                 </div>
                 <div>
-                  <h2 className="manrope-bold text-4xl tracking-tight mb-2">
+                  <h2 className="manrope-bold text-2xl md:text-4xl tracking-tight mb-2">
                     {selectedRequest.staff.name}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <p className="text-sm font-bold text-slate-400">
-                      {selectedRequest.staff.role} • Employee ID:{" "}
+                  <div className="flex flex-wrap items-center gap-3 md:gap-4">
+                    <p className="text-xs md:text-sm font-bold text-slate-400">
+                      {selectedRequest.staff.role} • ID:{" "}
                       {selectedRequest.staff.id}
                     </p>
                     <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#FFB067] animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                      <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-300">
                         Pending Review
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-              <Calendar className="absolute top-10 right-10 w-24 h-24 text-white/5 -rotate-12" />
+              <Calendar className="absolute top-4 right-4 md:top-10 md:right-10 w-16 h-16 md:w-24 md:h-24 text-white/5 -rotate-12" />
             </div>
 
-            <div className="p-12 flex-1 space-y-12 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                <div className="space-y-12">
+            <div className="p-6 md:p-12 flex-1 space-y-10 md:space-y-12 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16">
+                <div className="space-y-10 md:space-y-12">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
                       Leave Category
                     </p>
-                    <h3 className="manrope-bold text-2xl text-[#0D2137]">
+                    <h3 className="manrope-bold text-xl md:text-2xl text-[#0D2137]">
                       {selectedRequest.category}
                     </h3>
                   </div>
@@ -478,27 +501,27 @@ function LeaveManagementView({
                     <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
                       Duration
                     </p>
-                    <div className="flex items-center gap-6">
-                      <div className="bg-gray-100/40 p-6 rounded-xl border border-gray-100 flex-1 text-center">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                    <div className="flex items-center gap-4 md:gap-6">
+                      <div className="bg-gray-100/40 p-4 md:p-6 rounded-xl border border-gray-100 flex-1 text-center">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-2">
                           From
                         </p>
-                        <p className="manrope-bold text-lg text-[#0D2137]">
+                        <p className="manrope-bold text-base md:text-lg text-[#0D2137]">
                           {selectedRequest.dates.from.split(",")[0]}
                         </p>
-                        <p className="text-[11px] text-gray-400 font-bold mt-1">
+                        <p className="text-[10px] text-gray-400 font-bold mt-1">
                           2023
                         </p>
                       </div>
-                      <ArrowRight className="w-6 h-6 text-gray-200 shrink-0" />
-                      <div className="bg-gray-100/40 p-6 rounded-xl border border-gray-100 flex-1 text-center">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                      <ArrowRight className="w-4 h-4 md:w-6 md:h-6 text-gray-200 shrink-0" />
+                      <div className="bg-gray-100/40 p-4 md:p-6 rounded-xl border border-gray-100 flex-1 text-center">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-2">
                           To
                         </p>
-                        <p className="manrope-bold text-lg text-[#0D2137]">
+                        <p className="manrope-bold text-base md:text-lg text-[#0D2137]">
                           {selectedRequest.dates.to.split(",")[0]}
                         </p>
-                        <p className="text-[11px] text-gray-400 font-bold mt-1">
+                        <p className="text-[10px] text-gray-400 font-bold mt-1">
                           2023
                         </p>
                       </div>
@@ -518,23 +541,23 @@ function LeaveManagementView({
                     <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
                       Supporting Documentation
                     </p>
-                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-[#0D2137]/20 transition-all cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-[#0D2137] rounded-lg">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-[#0D2137]/20 transition-all cursor-pointer">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="p-2 bg-[#0D2137] rounded-lg shrink-0">
                           <FileText className="w-4 h-4 text-[#FFB067]" />
                         </div>
-                        <span className="text-xs font-bold text-[#0D2137]">
+                        <span className="text-[10px] font-bold text-[#0D2137] truncate">
                           {selectedRequest.supportingDoc}
                         </span>
-                        <Download className="w-4 h-4 text-gray-300" />
                       </div>
+                      <Download className="w-4 h-4 text-gray-300 shrink-0" />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-12">
-                  <div className="bg-gray-100/40 rounded-xl p-8 border border-gray-100 relative overflow-hidden">
-                    <div className="flex items-center gap-3 mb-10">
+                <div className="space-y-10 md:space-y-12">
+                  <div className="bg-gray-100/40 rounded-xl p-6 md:p-8 border border-gray-100 relative overflow-hidden">
+                    <div className="flex items-center gap-3 mb-8 md:mb-10">
                       <div className="p-2 bg-white rounded-lg shadow-sm">
                         <Clock className="w-4 h-4 text-[#0D2137]" />
                       </div>
@@ -543,12 +566,12 @@ function LeaveManagementView({
                       </h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-y-10">
+                    <div className="grid grid-cols-2 gap-y-8 md:gap-y-10">
                       <div>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mb-1">
                           Total Accrued
                         </p>
-                        <p className="manrope-bold text-lg text-[#0D2137]">
+                        <p className="manrope-bold text-base md:text-lg text-[#0D2137]">
                           {selectedRequest.balance.accrued} Days
                         </p>
                       </div>
@@ -556,7 +579,7 @@ function LeaveManagementView({
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mb-1">
                           Used This Year
                         </p>
-                        <p className="manrope-bold text-lg text-[#0D2137]">
+                        <p className="manrope-bold text-base md:text-lg text-[#0D2137]">
                           0{selectedRequest.balance.used} Days
                         </p>
                       </div>
@@ -566,10 +589,10 @@ function LeaveManagementView({
                             Available Balance
                           </p>
                           <div className="text-right">
-                            <span className="manrope-bold text-4xl text-[#0D2137]">
+                            <span className="manrope-bold text-3xl md:text-4xl text-[#0D2137]">
                               {selectedRequest.balance.available}
                             </span>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 md:ml-2">
                               Days
                             </span>
                           </div>
@@ -605,12 +628,12 @@ function LeaveManagementView({
                       <div className="animate-in slide-in-from-top-2 duration-300">
                         <textarea
                           autoFocus
-                          className="w-full min-h-[160px] border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/30 text-xs font-medium focus:outline-none focus:border-[#E8924A] transition-all"
+                          className="w-full min-h-[120px] md:min-h-[160px] border-2 border-dashed border-gray-200 rounded-xl p-5 md:p-6 bg-gray-50/30 text-xs font-medium focus:outline-none focus:border-[#E8924A] transition-all"
                           placeholder="Type your notes here..."
                         />
                       </div>
                     ) : (
-                      <div className="min-h-[120px] w-full border-2 border-dashed border-gray-100 rounded-xl p-6 flex items-center justify-center bg-gray-50/10">
+                      <div className="min-h-[100px] md:min-h-[120px] w-full border-2 border-dashed border-gray-100 rounded-xl p-6 flex items-center justify-center bg-gray-50/10">
                         <p className="text-[10px] text-gray-300 font-medium italic">
                           No notes added yet.
                         </p>
@@ -621,14 +644,14 @@ function LeaveManagementView({
               </div>
             </div>
 
-            <div className="p-8 bg-white border-t border-gray-100 flex items-center justify-center gap-6">
+            <div className="p-6 md:p-8 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6">
               <Button
                 variant="outline"
-                className="h-14 px-12 rounded-xl border-2 border-red-500 bg-white text-red-500 manrope-bold hover:bg-red-50 transition-all min-w-[200px]"
+                className="w-full sm:w-auto h-14 px-12 rounded-xl border-2 border-red-500 bg-white text-red-500 manrope-bold hover:bg-red-50 transition-all sm:min-w-[200px]"
               >
                 REJECT REQUEST
               </Button>
-              <Button className="h-14 px-12 rounded-xl bg-[#0D2137] text-white manrope-bold hover:bg-[#0D2137]/90 shadow-xl transition-all min-w-[200px]">
+              <Button className="w-full sm:w-auto h-14 px-12 rounded-xl bg-[#0D2137] text-white manrope-bold hover:bg-[#0D2137]/90 shadow-xl transition-all sm:min-w-[200px]">
                 APPROVE LEAVE
               </Button>
             </div>
@@ -855,11 +878,41 @@ function DeductionsView() {
   return (
     <div className="space-y-10">
       {/* Header */}
-      <div className="flex items-start justify-between gap-10">
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-10">
         <div className="max-w-3xl">
-          <h1 className="manrope-bold text-5xl text-jagamn-primary tracking-tight mb-4">
-            Deductions & Penalties
-          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+            <h1 className="manrope-bold text-3xl md:text-5xl text-jagamn-primary tracking-tight">
+              Deductions & Penalties
+            </h1>
+            <Button 
+              onClick={() => {
+                const headers = ["Staff", "Dept", "Role", "Type", "Amount", "Date", "Reason"];
+                const headersString = headers.join(",");
+                const rows = RECENT_DEDUCTIONS.map(d => [
+                  d.staff.name,
+                  d.staff.dept,
+                  d.staff.role,
+                  d.type,
+                  d.amount,
+                  d.date,
+                  d.reason.replace(/,/g, ";") // Escape commas
+                ]);
+                const csvContent = [headersString, ...rows.map(r => r.join(","))].join("\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", "Employee_Deductions_Report.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              variant="ghost" 
+              className="w-fit h-10 px-4 rounded-xl border border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#0D2137] transition-all flex items-center gap-2"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Data
+            </Button>
+          </div>
           <p className="text-sm text-gray-400 font-medium leading-relaxed">
             Enforce professional standards through precise financial
             adjustments. Manage disciplinary actions and resource recovery with
@@ -868,13 +921,13 @@ function DeductionsView() {
         </div>
 
         {/* Monthly Impact Card */}
-        <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-xl border-l-4 border-l-[#0D2137] min-w-[280px] relative overflow-hidden">
+        <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-xl border-l-4 border-l-[#0D2137] w-full lg:min-w-[280px] lg:w-auto relative overflow-hidden">
           <div className="relative z-10">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
               Monthly Impact
             </p>
-            <div className="flex items-center justify-between">
-              <h3 className="manrope-bold text-4xl text-[#0D2137] tracking-tight">
+            <div className="flex items-center justify-between gap-6">
+              <h3 className="manrope-bold text-3xl md:text-4xl text-[#0D2137] tracking-tight">
                 $4,820.00
               </h3>
               <div className="w-10 h-10 bg-[#FFB067]/10 rounded-full flex items-center justify-center">
@@ -886,20 +939,20 @@ function DeductionsView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10">
         {/* Left: Add New Deduction Form */}
         <div className="lg:col-span-4">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-xl p-10 space-y-10 sticky top-8 border-l-4 border-l-[#0D2137]">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-xl p-6 md:p-10 space-y-8 md:space-y-10 sticky top-8 border-l-4 border-l-[#0D2137]">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-jagamn-primary/5 rounded-lg">
                 <Plus className="w-5 h-5 text-jagamn-primary" />
               </div>
-              <h2 className="manrope-bold text-2xl text-jagamn-primary">
+              <h2 className="manrope-bold text-xl md:text-2xl text-jagamn-primary">
                 Add New Deduction
               </h2>
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
                   Staff Member
@@ -913,7 +966,7 @@ function DeductionsView() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
                     Type
@@ -942,7 +995,7 @@ function DeductionsView() {
                   Reason Field
                 </label>
                 <textarea
-                  className="w-full min-h-[140px] bg-gray-50 border border-gray-100 rounded-xl p-5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-jagamn-primary/20 placeholder:text-gray-300"
+                  className="w-full min-h-[120px] md:min-h-[140px] bg-gray-50 border border-gray-100 rounded-xl p-5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-jagamn-primary/20 placeholder:text-gray-300"
                   placeholder="Provide detailed context for the penalty..."
                 />
               </div>
@@ -957,7 +1010,7 @@ function DeductionsView() {
 
         {/* Right: Recent & Stats */}
         <div className="lg:col-span-8 space-y-10">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="manrope-bold text-2xl text-jagamn-primary">
               Recent Deductions Applied
             </h3>
@@ -970,12 +1023,12 @@ function DeductionsView() {
             {RECENT_DEDUCTIONS.map((deduction) => (
               <div
                 key={deduction.id}
-                className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm space-y-8 group hover:shadow-xl transition-all border-l-4 border-l-[#0D2137]"
+                className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm space-y-6 md:space-y-8 group hover:shadow-xl transition-all border-l-4 border-l-[#0D2137]"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-full bg-[#0D2137] flex items-center justify-center border-4 border-white shadow-lg shrink-0">
-                      <span className="text-white font-black text-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 md:gap-6">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#0D2137] flex items-center justify-center border-4 border-white shadow-lg shrink-0">
+                      <span className="text-white font-black text-base md:text-lg">
                         {deduction.staff.name
                           .split(" ")
                           .map((n) => n[0])
@@ -983,11 +1036,11 @@ function DeductionsView() {
                       </span>
                     </div>
                     <div>
-                      <h4 className="manrope-bold text-xl text-jagamn-primary">
+                      <h4 className="manrope-bold text-lg md:text-xl text-jagamn-primary">
                         {deduction.staff.name}
                       </h4>
-                      <div className="flex items-center gap-3 mt-1">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-1">
+                        <p className="text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                           {deduction.staff.dept} • {deduction.staff.role}
                         </p>
                         <div className="flex items-center gap-1.5">
@@ -1001,8 +1054,8 @@ function DeductionsView() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="manrope-bold text-3xl text-red-500">
+                  <div className="sm:text-right">
+                    <p className="manrope-bold text-2xl md:text-3xl text-red-500">
                       -${deduction.amount}
                     </p>
                     <p className="text-[9px] text-gray-300 font-black uppercase tracking-widest mt-1">
@@ -1010,7 +1063,7 @@ function DeductionsView() {
                     </p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-500 font-medium leading-relaxed italic border-l-2 border-gray-50 pl-6">
+                <p className="text-sm text-gray-500 font-medium leading-relaxed italic border-l-2 border-gray-50 pl-4 md:pl-6">
                   "{deduction.reason}"
                 </p>
               </div>

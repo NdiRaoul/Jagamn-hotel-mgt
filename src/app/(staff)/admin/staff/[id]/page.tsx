@@ -19,7 +19,8 @@ import {
   Share2,
   MoreHorizontal,
   Briefcase,
-  Contact2
+  Contact2,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,7 +52,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto px-8 pt-6 space-y-12">
+      <div className="max-w-7xl mx-auto pt-6 space-y-10 md:space-y-12">
         {/* ── Breadcrumb Navigation ───────────────────── */}
         <Link 
           href="/admin/staff" 
@@ -60,52 +61,52 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           <div className="p-2 rounded-lg group-hover:bg-gray-100 transition-all">
             <ArrowLeft className="w-5 h-5" />
           </div>
-          <span className="manrope-bold text-sm tracking-tight uppercase">Staff Management</span>
+          <span className="manrope-bold text-xs md:text-sm tracking-tight uppercase">Staff Management</span>
         </Link>
         {/* ── Header Profile Section ──────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
-          <div className="flex flex-col md:flex-row items-center gap-10">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-10">
             <div className="relative">
-              <div className="w-52 h-52 rounded-full border-8 border-white shadow-2xl relative flex items-center justify-center bg-white p-1">
+              <div className="w-40 h-40 md:w-52 md:h-52 rounded-full border-8 border-white shadow-2xl relative flex items-center justify-center bg-white p-1">
                 <Avatar className="w-full h-full rounded-full">
                   <AvatarImage src={staff.avatar} className="object-cover" />
-                  <AvatarFallback className="bg-[#0D2137] text-white text-5xl manrope-bold">
+                  <AvatarFallback className="bg-[#0D2137] text-white text-4xl md:text-5xl manrope-bold">
                     {staff.name.split(" ").map(n => n[0]).join("")}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <div className="absolute bottom-4 right-4 w-7 h-7 bg-green-500 border-4 border-white rounded-full shadow-lg" />
+              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-6 h-6 md:w-7 md:h-7 bg-green-500 border-4 border-white rounded-full shadow-lg" />
             </div>
 
             <div className="flex flex-col text-center md:text-left">
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.4em] mb-4">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-3 md:mb-4">
                 STAFF ID: {staff.id}
               </p>
-              <h1 className="manrope-bold text-6xl text-jagamn-primary tracking-tight leading-none mb-8">
+              <h1 className="manrope-bold text-4xl md:text-6xl text-jagamn-primary tracking-tight leading-none mb-6 md:mb-8">
                 {staff.name}
               </h1>
-              <div className="flex flex-wrap justify-center md:justify-start gap-8">
+              <div className="flex flex-wrap justify-center md:justify-start gap-6 md:gap-8">
                 <div className="flex items-center gap-3">
-                  <Briefcase className="w-5 h-5 text-[#E8924A]" />
-                  <span className="text-sm font-bold text-slate-500">{staff.dept}</span>
+                  <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
+                  <span className="text-xs md:text-sm font-bold text-slate-500">{staff.dept}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Contact2 className="w-5 h-5 text-[#E8924A]" />
-                  <span className="text-sm font-bold text-slate-500">{staff.role}</span>
+                  <Contact2 className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
+                  <span className="text-xs md:text-sm font-bold text-slate-500">{staff.role}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 min-w-[200px]">
+          <div className="flex flex-col gap-3 md:gap-4 w-full md:w-auto md:min-w-[200px]">
             <Button 
               onClick={() => setIsEditModalOpen(true)}
-              className="h-14 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold px-8 rounded-2xl shadow-xl flex items-center gap-3 transition-all hover:scale-[1.02]"
+              className="h-14 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all hover:scale-[1.02]"
             >
               <Edit3 className="w-5 h-5" />
               Edit Details
             </Button>
-            <Button variant="ghost" className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center gap-3 transition-all">
+            <Button variant="ghost" className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center justify-center gap-3 transition-all">
               <UserMinus className="w-5 h-5" />
               Deactivate Account
             </Button>
@@ -113,27 +114,26 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* ── Main Content Grid ───────────────────────── */}
-        {/* ── Main Content Grid ───────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+        <div className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-stretch">
           {/* Column 1: Contact Information */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary flex flex-col">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-10">Contact Information</h3>
-            <div className="space-y-10 flex-1">
+          <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary flex flex-col">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Contact Information</h3>
+            <div className="space-y-8 md:space-y-10 flex-1">
               <div className="space-y-1.5">
                 <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Email Address</p>
-                <p className="manrope-bold text-xl text-jagamn-primary break-all">{staff.email}</p>
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary break-all">{staff.email}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Phone Number</p>
-                <p className="manrope-bold text-xl text-jagamn-primary">{staff.phone}</p>
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary">{staff.phone}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Emergency Contact</p>
-                <p className="manrope-bold text-xl text-jagamn-primary leading-relaxed">{staff.emergencyContact}</p>
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary leading-relaxed">{staff.emergencyContact}</p>
               </div>
             </div>
             
-            <div className="pt-10 mt-10 border-t border-gray-50 space-y-6">
+            <div className="pt-8 md:pt-10 mt-8 md:mt-10 border-t border-gray-50 space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Work Authorization</p>
                 <Badge className="bg-blue-50 text-blue-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">VERIFIED</Badge>
@@ -149,14 +149,14 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           <div className="space-y-8 flex flex-col">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {/* Remuneration */}
-              <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-10">Remuneration</h3>
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Remuneration</h3>
                 <div className="space-y-8">
                   <div className="space-y-2">
                     <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Base Salary</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="manrope-bold text-4xl text-jagamn-primary">{staff.salary}</span>
-                      <span className="text-gray-400 font-bold text-xs uppercase">/ yr</span>
+                      <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">{staff.salary}</span>
+                      <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">/ yr</span>
                     </div>
                   </div>
                   <div className="h-px bg-gray-50 w-full" />
@@ -168,12 +168,12 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
               </div>
 
               {/* Employment Tenure */}
-              <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-10">Employment Tenure</h3>
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Employment Tenure</h3>
                 <div className="space-y-8">
                   <div className="space-y-1">
                     <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Hire Date</p>
-                    <p className="manrope-bold text-2xl text-jagamn-primary">{staff.hireDate}</p>
+                    <p className="manrope-bold text-xl md:text-2xl text-jagamn-primary">{staff.hireDate}</p>
                   </div>
                   <div className="bg-[#F8F9FA] p-4 rounded-xl flex items-center gap-4 border border-gray-100">
                     <div className="w-10 h-10 bg-[#0D2137] rounded-xl flex items-center justify-center text-[#E8924A] shrink-0">
@@ -181,7 +181,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
                     </div>
                     <div>
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total Service</p>
-                      <p className="manrope-bold text-sm text-jagamn-primary whitespace-nowrap">{staff.tenure}</p>
+                      <p className="manrope-bold text-xs md:text-sm text-jagamn-primary whitespace-nowrap">{staff.tenure}</p>
                     </div>
                   </div>
                 </div>
@@ -189,24 +189,24 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
             </div>
 
             {/* Performance Banner (Jumbotron) */}
-            <div className="bg-[#0D2137] rounded-2xl p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[220px]">
-              <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
+            <div className="bg-[#0D2137] rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[220px]">
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 <div className="space-y-2 text-center md:text-left">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Shift Performance</p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                    <span className="manrope-bold text-5xl text-white">{staff.performance}</span>
+                    <span className="manrope-bold text-4xl md:text-5xl text-white">{staff.performance}</span>
                   </div>
                 </div>
-                <div className="w-px h-12 bg-white/10 hidden md:block" />
+                <div className="w-full h-px md:w-px md:h-12 bg-white/10" />
                 <div className="space-y-2 text-center md:text-left">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Tasks</p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                    <span className="manrope-bold text-5xl text-white">{staff.pendingTasks}</span>
+                    <span className="manrope-bold text-4xl md:text-5xl text-white">{staff.pendingTasks}</span>
                   </div>
                 </div>
               </div>
               
-              <Button className="relative z-10 h-14 px-8 bg-[#FFB067] hover:bg-[#FFB067]/90 text-jagamn-primary manrope-bold rounded-xl shadow-lg mt-10 md:mt-0 transition-all hover:scale-105">
+              <Button className="relative z-10 w-full md:w-auto h-14 px-8 bg-[#FFB067] hover:bg-[#FFB067]/90 text-jagamn-primary manrope-bold rounded-xl shadow-lg mt-8 md:mt-0 transition-all hover:scale-105">
                 View Full Report
               </Button>
 
@@ -250,14 +250,44 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
 
         {/* ── Footer Actions ─────────────────────────── */}
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all">
+          <Button 
+            onClick={() => window.location.href = `mailto:${staff.email}`}
+            variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all"
+          >
             <Mail className="w-5 h-5" />
           </Button>
-          <Button variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all">
+          <Button 
+            onClick={() => window.print()}
+            variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all"
+          >
             <Printer className="w-5 h-5" />
           </Button>
-          <Button variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all">
-            <Share2 className="w-5 h-5" />
+          <Button 
+            onClick={() => {
+              const headers = ["Attribute", "Value"];
+              const rows = [
+                ["Staff ID", staff.id],
+                ["Name", staff.name],
+                ["Email", staff.email],
+                ["Department", staff.dept],
+                ["Role", staff.role],
+                ["Hire Date", staff.hireDate],
+                ["Salary", staff.salary],
+                ["Performance", staff.performance]
+              ];
+              const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.setAttribute("href", url);
+              link.setAttribute("download", `Record_${staff.id}_${staff.name.replace(/\s/g, "_")}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            variant="outline" size="icon" className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all"
+          >
+            <Download className="w-5 h-5" />
           </Button>
         </div>
       </div>
