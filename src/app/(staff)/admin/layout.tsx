@@ -17,7 +17,8 @@ import {
   LogOut,
   Search,
   ChevronDown,
-  Building2
+  Building2,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import {
 
 const ADMIN_NAV = [
   { label: "Overview", icon: LayoutDashboard, href: "/admin" },
+  { label: "Revenue", icon: TrendingUp, href: "/admin/revenue" },
   { label: "Staff", icon: Users, href: "/admin/staff" },
   { label: "HR", icon: Landmark, href: "/admin/hr" },
   { label: "Payroll", icon: Wallet, href: "/admin/payroll" },
@@ -45,11 +47,17 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const pathname = usePathname();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
 
-  return (
-    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
+    const handleSearch = (val: string) => {
+      setSearchQuery(val);
+      window.dispatchEvent(new CustomEvent('jagamn-global-search', { detail: val }));
+    };
+
+    return (
+      <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
       {/* ── Sidebar ───────────────────────────────────── */}
       {/* Mobile Backdrop */}
       {isSidebarOpen && (
@@ -183,7 +191,9 @@ export default function AdminLayout({
             <div className="relative w-full max-w-md hidden md:block">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input 
-                placeholder="Search staff members..." 
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Global search across pages..." 
                 className="w-full h-12 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-jagamn-tertiary/20"
               />
             </div>

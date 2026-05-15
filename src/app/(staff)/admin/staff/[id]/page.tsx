@@ -117,29 +117,29 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
         <div className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-stretch">
           {/* Column 1: Contact Information */}
           <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary flex flex-col">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Contact Information</h3>
+            <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">Contact Information</h3>
             <div className="space-y-8 md:space-y-10 flex-1">
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Email Address</p>
+                <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">Email Address</p>
                 <p className="manrope-bold text-lg md:text-xl text-jagamn-primary break-all">{staff.email}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Phone Number</p>
+                <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">Phone Number</p>
                 <p className="manrope-bold text-lg md:text-xl text-jagamn-primary">{staff.phone}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Emergency Contact</p>
+                <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">Emergency Contact</p>
                 <p className="manrope-bold text-lg md:text-xl text-jagamn-primary leading-relaxed">{staff.emergencyContact}</p>
               </div>
             </div>
             
             <div className="pt-8 md:pt-10 mt-8 md:mt-10 border-t border-gray-50 space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Work Authorization</p>
+                <p className="text-[10px] font-bold text-[#43474D] uppercase tracking-widest">Work Authorization</p>
                 <Badge className="bg-blue-50 text-blue-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">VERIFIED</Badge>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Compliance Level</p>
+                <p className="text-[10px] font-bold text-[#43474D] uppercase tracking-widest">Compliance Level</p>
                 <Badge className="bg-green-50 text-green-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">L4 SECURE</Badge>
               </div>
             </div>
@@ -150,10 +150,10 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {/* Remuneration */}
               <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Remuneration</h3>
+                <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">Remuneration</h3>
                 <div className="space-y-8">
                   <div className="space-y-2">
-                    <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Base Salary</p>
+                    <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">Base Salary</p>
                     <div className="flex items-baseline gap-2">
                       <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">{staff.salary}</span>
                       <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">/ yr</span>
@@ -161,7 +161,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
                   </div>
                   <div className="h-px bg-gray-50 w-full" />
                   <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Next Review</p>
+                    <p className="text-[9px] font-bold text-[#43474D] uppercase tracking-widest">Next Review</p>
                     <p className="manrope-bold text-xs text-jagamn-primary">Oct 2024</p>
                   </div>
                 </div>
@@ -169,10 +169,10 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
 
               {/* Employment Tenure */}
               <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 md:mb-10">Employment Tenure</h3>
+                <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">Employment Tenure</h3>
                 <div className="space-y-8">
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Hire Date</p>
+                    <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">Hire Date</p>
                     <p className="manrope-bold text-xl md:text-2xl text-jagamn-primary">{staff.hireDate}</p>
                   </div>
                   <div className="bg-[#F8F9FA] p-4 rounded-xl flex items-center gap-4 border border-gray-100">
@@ -180,7 +180,7 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
                       <Clock className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total Service</p>
+                      <p className="text-[8px] font-black text-[#43474D] uppercase tracking-widest">Total Service</p>
                       <p className="manrope-bold text-xs md:text-sm text-jagamn-primary whitespace-nowrap">{staff.tenure}</p>
                     </div>
                   </div>
@@ -192,14 +192,14 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
             <div className="bg-[#0D2137] rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[220px]">
               <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Shift Performance</p>
+                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Shift Performance</p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
                     <span className="manrope-bold text-4xl md:text-5xl text-white">{staff.performance}</span>
                   </div>
                 </div>
                 <div className="w-full h-px md:w-px md:h-12 bg-white/10" />
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Tasks</p>
+                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Active Tasks</p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
                     <span className="manrope-bold text-4xl md:text-5xl text-white">{staff.pendingTasks}</span>
                   </div>

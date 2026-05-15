@@ -23,8 +23,20 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import Link from "next/link";
 
 // --- Mock Data ---
+const REVENUE_SPARKLINE = [
+  { value: 2400 },
+  { value: 1800 },
+  { value: 3200 },
+  { value: 2800 },
+  { value: 4200 },
+  { value: 3800 },
+  { value: 4250 },
+];
+
 const DEPLOYMENT_DATA = [
   {
     dept: "Front Desk",
@@ -101,24 +113,44 @@ export default function OperationsDashboard() {
       {/* ── Row 1: KPI Cards ─────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Revenue Card */}
-        <div className="bg-jagamn-primary p-8 rounded-2xl text-white shadow-xl relative overflow-hidden group">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">
-            Revenue Today
-          </p>
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="manrope-bold text-5xl mb-3">$4,250</h2>
-              <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold">
-                <TrendingUp className="w-4 h-4" />
-                <span>+12.5% from yesterday</span>
+        <Link href="/admin/revenue" className="block">
+          <div className="bg-jagamn-primary p-8 rounded-2xl text-white shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer">
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">
+                Revenue Today
+              </p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="manrope-bold text-5xl mb-3">$4,250</h2>
+                  <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>+12.5% from yesterday</span>
+                  </div>
+                </div>
+                <div className="p-4 bg-white/5 rounded-xl group-hover:bg-jagamn-tertiary transition-colors duration-500">
+                  <Wallet className="w-8 h-8 text-white" />
+                </div>
               </div>
             </div>
-            <div className="p-4 bg-white/5 rounded-xl group-hover:bg-jagamn-tertiary transition-colors duration-500">
-              <Wallet className="w-8 h-8 text-white" />
+            
+            {/* Sparkline Overlay */}
+            <div className="absolute inset-0 z-0 opacity-20 pointer-events-none translate-y-12">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={REVENUE_SPARKLINE}>
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#E8924A" 
+                    strokeWidth={3} 
+                    fill="transparent"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
+
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:bg-jagamn-tertiary/20 transition-all duration-500" />
           </div>
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:bg-jagamn-tertiary/20 transition-all duration-500" />
-        </div>
+        </Link>
 
         {/* Occupancy Card */}
         <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm flex flex-col justify-between">
