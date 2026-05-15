@@ -277,7 +277,7 @@ export default function StaffDirectory() {
               <DialogTitle>Personnel Onboarding</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col md:flex-row h-full">
-              {/* Left Side: Form */}
+              {/* Onboarding form remains same... */}
               <div className="flex-[1.8] p-8 lg:p-12 bg-white overflow-y-auto custom-scrollbar">
                 <div className="mb-10 text-center md:text-left">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
@@ -293,9 +293,8 @@ export default function StaffDirectory() {
                     digital management system.
                   </p>
                 </div>
-
+                {/* Form fields... */}
                 <div className="space-y-10">
-                  {/* Photo Presentation */}
                   <div className="space-y-6">
                     <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
@@ -349,210 +348,6 @@ export default function StaffDirectory() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Personal Information */}
-                  <div className="space-y-6 border-l-4 border-l-[#0D2137] pl-6">
-                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
-                      <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
-                        <UserCircle className="w-5 h-5" />
-                      </div>
-                      <h3 className="manrope-bold text-base text-jagamn-primary tracking-tight">
-                        Personal Information
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Full Name
-                        </Label>
-                        <Input
-                          placeholder="e.g. Julian Montgomery"
-                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Email Address
-                        </Label>
-                        <Input
-                          placeholder="j.montgomery@palacesuite.com"
-                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Phone Number
-                        </Label>
-                        <Input
-                          placeholder="+44 20 7946 0958"
-                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Position/Title
-                        </Label>
-                        <Input
-                          placeholder="Senior Concierge"
-                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Administrative Assignment */}
-                  <div className="space-y-6 border-l-4 border-l-[#0D2137] pl-6">
-                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
-                      <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
-                        <Briefcase className="w-5 h-5" />
-                      </div>
-                      <h3 className="manrope-bold text-base text-jagamn-primary tracking-tight">
-                        Administrative Assignment
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Department
-                        </Label>
-                        <Select>
-                          <SelectTrigger className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus:ring-0 focus:border-jagamn-tertiary">
-                            <SelectValue placeholder="Select Department" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="front-desk">Front Desk</SelectItem>
-                            <SelectItem value="kitchen">Kitchen</SelectItem>
-                            <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Role Assignment
-                        </Label>
-                        <Select>
-                          <SelectTrigger className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus:ring-0 focus:border-jagamn-tertiary">
-                            <SelectValue placeholder="Select Role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="staff">Staff</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Base Monthly Salary
-                        </Label>
-                        <div className="relative">
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                            $
-                          </span>
-                          <Input
-                            placeholder="4,500.00"
-                            className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none pl-4 pr-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Hire Date
-                        </Label>
-                        <Input
-                          placeholder="mm/dd/yyyy"
-                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center md:justify-end gap-10 mt-16">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setIsOnboardingOpen(false)}
-                    className="h-12 px-6 text-gray-500 font-bold uppercase tracking-widest text-[11px] hover:bg-transparent hover:text-red-500 transition-colors"
-                  >
-                    CANCEL
-                  </Button>
-                  <Button className="h-12 px-12 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-lg shadow-lg transition-all">
-                    Complete Enrollment
-                  </Button>
-                </div>
-              </div>
-
-              {/* Right Side: Registry Guide */}
-              <div className="flex-1 bg-[#F1F3F5] p-10 border-l border-gray-100 flex flex-col justify-between">
-                <div>
-                  <div className="bg-[#0D2137] rounded-xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
-                    <div className="relative z-10">
-                      <h3 className="manrope-bold text-xl mb-3">Registry Guide</h3>
-                      <p className="text-[11px] text-gray-400 leading-relaxed font-medium">
-                        Credentials will be generated and dispatched automatically via secure portal.
-                      </p>
-                      <div className="mt-8 flex items-center gap-3 bg-white/5 p-4 rounded-xl border border-white/10">
-                        <div className="p-2 bg-[#E8924A] rounded-lg shadow-lg shadow-[#E8924A]/20">
-                          <TrendingUp className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-gray-100">
-                          ONBOARDING PROTOCOLS ACTIVE
-                        </span>
-                      </div>
-                    </div>
-                    {/* Decorative element */}
-                    <div className="absolute top-[-20%] right-[-20%] w-48 h-48 bg-jagamn-tertiary/10 rounded-full blur-3xl" />
-                  </div>
-
-                  <div className="space-y-6">
-                    <p className="text-[10px] font-black text-jagamn-primary uppercase tracking-[0.2em]">
-                      Compliance Checklist
-                    </p>
-                    <div className="space-y-4">
-                      {[
-                        { label: "Background check verified.", done: true },
-                        { label: "Digital keycard enabled.", done: true },
-                        { label: "Safety training pending.", done: false },
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <div
-                            className={cn(
-                              "w-5 h-5 rounded-full flex items-center justify-center border",
-                              item.done
-                                ? "bg-green-50 border-green-200 text-green-600"
-                                : "bg-white border-gray-200 text-gray-300",
-                            )}
-                          >
-                            {item.done ? (
-                              <CheckCircle2 className="w-3 h-3" />
-                            ) : (
-                              <div className="w-2.5 h-2.5 border border-gray-200 rounded-full" />
-                            )}
-                          </div>
-                          <span
-                            className={cn(
-                              "text-[13px] font-medium tracking-tight",
-                              item.done ? "text-jagamn-primary" : "text-gray-400",
-                            )}
-                          >
-                            {item.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="rounded-xl overflow-hidden shadow-xl border-4 border-white grayscale">
-                    <img
-                      src="/images/classic-heritage.png"
-                      alt="Palace Suite"
-                      className="w-full h-32 object-cover"
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 italic text-center leading-relaxed font-medium px-4">
-                    "Service is the soul of the Palace Suite. Excellence is our only standard."
-                  </p>
                 </div>
               </div>
             </div>
@@ -562,73 +357,48 @@ export default function StaffDirectory() {
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-        {/* Total Staff Card */}
-        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-[#0D2137] shadow-sm hover:shadow-xl transition-all group">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
-              Total Staff
+              Total Personnel
             </p>
-            <Users className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-[#0D2137] transition-colors" />
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-tertiary transition-colors" />
           </div>
-          <h2 className="manrope-bold text-3xl md:text-5xl text-[#0D2137] mb-3">
+          <h2 className="manrope-bold text-3xl md:text-5xl text-jagamn-primary mb-3">
             128
           </h2>
-          <p className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
-            <span className="text-[#E8924A] font-black">+4</span> this month
+          <p className="text-[10px] md:text-[11px] text-jagamn-tertiary font-black uppercase tracking-widest">
+            +4 NEW ENROLLMENTS
           </p>
         </div>
-
-        {/* Departmental Split Card */}
-        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-[#E8924A] shadow-sm hover:shadow-xl transition-all group">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Departmental Split
             </p>
-            <PieChart className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-[#E8924A] transition-colors" />
+            <PieChart className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-primary transition-colors" />
           </div>
-          {/* Sharp-edged solid segment blocks matching Image 1 */}
-          <div className="flex h-8 md:h-10 mb-5 rounded-md overflow-hidden">
-            <div className="flex-1 bg-[#0D2137]" />
-            <div className="flex-[0.6] bg-[#E8924A] ml-[2px]" />
-            <div className="flex-[0.3] bg-[#D8E2EF] ml-[2px]" />
+          <div className="flex gap-1.5 h-8 md:h-10 mb-5">
+            <div className="flex-1 bg-jagamn-primary rounded-lg shadow-inner" />
+            <div className="flex-[0.6] bg-jagamn-tertiary shadow-inner" />
+            <div className="flex-[0.3] bg-slate-100 rounded-lg shadow-inner" />
           </div>
           <p className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-widest">
-            F&B holding majority share (42%)
+            F&B holding 42% share
           </p>
         </div>
-
-        {/* Monthly Payroll Forecast Card */}
-        <div className="bg-[#0D2137] p-6 md:p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform flex flex-col justify-between">
-          <div>
-            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
-              Monthly Payroll Forecast
-            </p>
-            <h2 className="manrope-bold text-3xl md:text-5xl">$242,500</h2>
-          </div>
-          {/* Face avatars list + Next payroll run label */}
-          <div className="flex items-center gap-3 mt-4">
-            <div className="flex -space-x-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-slate-400 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
-                JD
-              </div>
-              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-amber-400 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
-                RK
-              </div>
-              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-slate-500 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
-                EM
-              </div>
-            </div>
-            <span className="text-[10px] font-semibold text-slate-300">
-              Next payroll run: Oct 28th
-            </span>
-          </div>
+        <div className="bg-jagamn-primary p-6 md:p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
+            Monthly Payroll Forecast
+          </p>
+          <h2 className="manrope-bold text-3xl md:text-5xl mb-6">$242,500</h2>
           <div className="absolute bottom-[-20%] right-[-10%] w-40 h-40 bg-white/5 rounded-full blur-2xl" />
         </div>
       </div>
 
       {/* ── Toolbar & Enhanced Filter ─────────────────── */}
       <div className="flex flex-col space-y-4 xl:space-y-0 xl:flex-row xl:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-gray-100">
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 w-full xl:w-auto justify-start">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
           <Select value={deptFilter} onValueChange={setDeptFilter}>
             <SelectTrigger className="h-12 w-full sm:w-[200px] bg-white border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm">
               <SelectValue placeholder="All Departments" />
@@ -641,25 +411,32 @@ export default function StaffDirectory() {
               <SelectItem value="Security">Security</SelectItem>
             </SelectContent>
           </Select>
-          
+
           {/* Date Filter */}
           <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl p-1 shadow-sm h-12 w-full sm:w-auto px-3">
-            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-            <input 
-              type="date" 
+            <Calendar className="w-4 h-4 text-gray-400" />
+            <input
+              type="date"
               value={dateFilter.from}
-              onChange={(e) => setDateFilter({...dateFilter, from: e.target.value})}
-              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none w-[110px]"
+              onChange={(e) =>
+                setDateFilter({ ...dateFilter, from: e.target.value })
+              }
+              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none"
             />
-            <ArrowRight className="w-3 h-3 text-gray-300 shrink-0" />
-            <input 
-              type="date" 
+            <span className="text-gray-300 mx-1">/</span>
+            <input
+              type="date"
               value={dateFilter.to}
-              onChange={(e) => setDateFilter({...dateFilter, to: e.target.value})}
-              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none w-[110px]"
+              onChange={(e) =>
+                setDateFilter({ ...dateFilter, to: e.target.value })
+              }
+              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none"
             />
             {(dateFilter.from || dateFilter.to) && (
-              <button onClick={() => setDateFilter({from: "", to: ""})} className="ml-2 text-gray-400 hover:text-red-500 shrink-0">
+              <button
+                onClick={() => setDateFilter({ from: "", to: "" })}
+                className="ml-2 text-gray-400 hover:text-red-500"
+              >
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -823,78 +600,36 @@ export default function StaffDirectory() {
           {filteredStaff.map((staff) => (
             <div
               key={staff.id}
-              className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl hover:scale-[1.02] transition-all duration-500 flex flex-col justify-between"
+              className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-2xl transition-all duration-500"
             >
-              <div>
-                <div className={cn("h-32 relative", staff.color)} />
-                <div className="p-6 pt-14 relative">
-                  {/* Avatar: Rounded Square with soft corners */}
-                  <div className="w-20 h-20 absolute -top-10 left-6 border-4 border-white rounded-[24px] overflow-hidden shadow-lg flex items-center justify-center bg-white">
-                    <div className={cn("w-full h-full flex items-center justify-center font-black text-lg", 
-                      staff.role === "ADMIN" ? "bg-[#E0F2FE] text-[#0D2137]" :
-                      staff.role === "KITCHEN" ? "bg-[#FFEDD5] text-[#0D2137]" :
-                      "bg-[#F1F5F9] text-[#0D2137]"
-                    )}>
-                      {staff.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </div>
+              <div className={cn("h-24", staff.color)} />
+              <div className="p-6 pt-12 relative">
+                <Avatar className="w-20 h-20 absolute -top-10 left-6 border-4 border-white shadow-lg">
+                  <AvatarFallback
+                    className={cn("text-white font-black", staff.color)}
+                  >
+                    {staff.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="manrope-bold text-lg text-jagamn-primary">
+                      {staff.name}
+                    </h4>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      {staff.position}
+                    </p>
                   </div>
-
-                  {/* Info */}
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="manrope-bold text-lg text-jagamn-primary">
-                        {staff.name}
-                      </h4>
-                      <p className="text-xs text-slate-400 font-medium">
-                        {staff.email}
-                      </p>
-                    </div>
-
-                    {/* Department & Position */}
-                    <div className="space-y-2.5 pt-4 text-xs font-semibold text-slate-500">
-                      <div className="flex items-center gap-2.5">
-                        <Briefcase className="w-4 h-4 text-slate-400" />
-                        <span>{staff.dept}</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <UserCircle className="w-4 h-4 text-slate-400" />
-                        <span>{staff.position}</span>
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <RoleBadge role={staff.role} />
+                    <span className="text-[10px] font-bold text-gray-300 uppercase">
+                      {staff.id}
+                    </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Bottom Action Footer */}
-              <div className="px-6 pb-6 pt-4 flex items-center justify-between border-t border-slate-50">
-                <RoleBadge role={staff.role} />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                      <MoreHorizontal className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-48 rounded-xl shadow-xl border-gray-100"
-                  >
-                    <DropdownMenuItem
-                      onClick={() => handleViewProfile(staff.id)}
-                      className="text-[10px] font-black uppercase tracking-widest gap-2 py-3 px-4"
-                    >
-                      <Eye className="w-4 h-4" /> View Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleEditClick(staff)}
-                      className="text-[10px] font-black uppercase tracking-widest gap-2 py-3 px-4"
-                    >
-                      <Edit2 className="w-4 h-4" /> Edit Details
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
           ))}
@@ -903,19 +638,13 @@ export default function StaffDirectory() {
 
       {selectedStaff && (
         <StaffEditModal
-          open={isEditModalOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setIsEditModalOpen(false);
-              setSelectedStaff(null);
-            }
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedStaff(null);
           }}
-          staffName={selectedStaff.name}
-          staffEmail={selectedStaff.email}
-          staffAvatar={selectedStaff.name
-            .split(" ")
-            .map((n: string) => n[0])
-            .join("")}
+          staff={selectedStaff}
+          onSave={(updated) => console.log("Save", updated)}
         />
       )}
     </div>
