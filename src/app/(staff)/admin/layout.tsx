@@ -168,7 +168,7 @@ export default function AdminLayout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 md:p-8 custom-scrollbar">
           {children}
         </main>
       </div>

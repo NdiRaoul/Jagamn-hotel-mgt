@@ -132,15 +132,43 @@ export default function StaffDirectory() {
     router.push(`/admin/staff/${id}`);
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Staff ID", "Name", "Email", "Department", "Position", "Role", "Hire Date", "Salary"];
+    const rows = STAFF_DATA.map(staff => [
+      staff.id,
+      staff.name,
+      staff.email,
+      staff.dept,
+      staff.position,
+      staff.role,
+      staff.hireDate,
+      staff.salary
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Staff_Directory_Report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* ── Page Header & Stats ──────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="manrope-bold text-4xl text-jagamn-primary uppercase tracking-tight">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4 md:px-0">
+        <div className="text-center md:text-left">
+          <h1 className="manrope-bold text-3xl md:text-4xl text-jagamn-primary uppercase tracking-tight">
             Staff Directory
           </h1>
-          <p className="text-gray-500 mt-2 max-w-xl font-medium">
+          <p className="text-gray-500 mt-2 max-w-xl font-medium text-sm md:text-base">
             Manage your distinguished team members across all palace departments
             and oversee professional roles.
           </p>
@@ -148,7 +176,7 @@ export default function StaffDirectory() {
 
         <Dialog open={isOnboardingOpen} onOpenChange={setIsOnboardingOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-jagamn-primary text-white manrope-bold h-12 px-8 rounded-xl gap-2 shadow-lg hover:bg-jagamn-primary/90 transition-all hover:scale-[1.02]">
+            <Button className="w-full md:w-auto bg-jagamn-primary text-white manrope-bold h-12 md:h-14 px-8 rounded-xl gap-2 shadow-lg hover:bg-jagamn-primary/90 transition-all hover:scale-[1.02]">
               <UserPlus className="w-5 h-5" />
               Add New Staff Member
             </Button>
@@ -160,16 +188,16 @@ export default function StaffDirectory() {
             <div className="flex flex-col md:flex-row h-full">
               {/* Left Side: Form */}
               <div className="flex-[1.8] p-8 lg:p-12 bg-white overflow-y-auto custom-scrollbar">
-                <div className="mb-10">
+                <div className="mb-10 text-center md:text-left">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                     STAFF MANAGEMENT{" "}
                     <span className="mx-1 text-gray-300">›</span> ADD NEW STAFF
                     MEMBER
                   </p>
-                  <h2 className="manrope-bold text-3xl text-jagamn-primary mb-2">
+                  <h2 className="manrope-bold text-2xl md:text-3xl text-jagamn-primary mb-2">
                     Personnel Onboarding
                   </h2>
-                  <p className="text-gray-400 text-sm font-medium">
+                  <p className="text-gray-400 text-xs md:text-sm font-medium">
                     Enroll a new member of the Palace Suite staff into the
                     digital management system.
                   </p>
@@ -178,7 +206,7 @@ export default function StaffDirectory() {
                 <div className="space-y-10">
                   {/* Personal Information */}
                   <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-[#E8924A]">
+                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
                         <UserCircle className="w-5 h-5" />
                       </div>
@@ -228,7 +256,7 @@ export default function StaffDirectory() {
 
                   {/* Administrative Assignment */}
                   <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-[#E8924A]">
+                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
                         <Briefcase className="w-5 h-5" />
                       </div>
@@ -297,22 +325,22 @@ export default function StaffDirectory() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-10 mt-16">
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-6 mt-16">
                   <Button
                     variant="ghost"
                     onClick={() => setIsOnboardingOpen(false)}
-                    className="h-12 px-6 text-gray-500 font-bold uppercase tracking-widest text-[11px] hover:bg-transparent hover:text-red-500 transition-colors"
+                    className="w-full sm:w-auto h-12 px-6 text-gray-500 font-bold uppercase tracking-widest text-[11px] hover:bg-transparent hover:text-red-500 transition-colors"
                   >
                     CANCEL
                   </Button>
-                  <Button className="h-12 px-12 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-lg shadow-lg transition-all">
+                  <Button className="w-full sm:w-auto h-12 px-12 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-lg shadow-lg transition-all">
                     Complete Enrollment
                   </Button>
                 </div>
               </div>
 
               {/* Right Side: Registry Guide */}
-              <div className="flex-1 bg-[#F1F3F5] p-10 border-l border-gray-100 flex flex-col justify-between">
+              <div className="flex-1 bg-[#F1F3F5] p-10 border-l border-gray-100 hidden md:flex flex-col justify-between">
                 <div>
                   <div className="bg-[#0D2137] rounded-xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
                     <div className="relative z-10">
@@ -397,58 +425,58 @@ export default function StaffDirectory() {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
-          <div className="flex items-center justify-between mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Total Personnel
             </p>
-            <Users className="w-6 h-6 text-gray-200 group-hover:text-jagamn-tertiary transition-colors" />
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-tertiary transition-colors" />
           </div>
-          <h2 className="manrope-bold text-5xl text-jagamn-primary mb-3">
+          <h2 className="manrope-bold text-3xl md:text-5xl text-jagamn-primary mb-3">
             128
           </h2>
-          <p className="text-[11px] text-jagamn-tertiary font-black uppercase tracking-widest">
+          <p className="text-[10px] md:text-[11px] text-jagamn-tertiary font-black uppercase tracking-widest">
             +4 NEW ENROLLMENTS
           </p>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
-          <div className="flex items-center justify-between mb-8">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Departmental Split
             </p>
-            <PieChart className="w-6 h-6 text-gray-200 group-hover:text-jagamn-primary transition-colors" />
+            <PieChart className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-primary transition-colors" />
           </div>
-          <div className="flex gap-1.5 h-10 mb-5">
+          <div className="flex gap-1.5 h-8 md:h-10 mb-5">
             <div className="flex-1 bg-jagamn-primary rounded-lg shadow-inner" />
             <div className="flex-[0.6] bg-jagamn-tertiary shadow-inner" />
             <div className="flex-[0.3] bg-slate-100 rounded-lg shadow-inner" />
           </div>
-          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+          <p className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-widest">
             F&B holding 42% share
           </p>
         </div>
 
-        <div className="bg-jagamn-primary p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8">
+        <div className="bg-jagamn-primary p-6 md:p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
             Monthly Payroll Forecast
           </p>
-          <h2 className="manrope-bold text-5xl mb-6">$242,500</h2>
+          <h2 className="manrope-bold text-3xl md:text-5xl mb-6">$242,500</h2>
           <div className="flex items-center gap-4">
             <div className="flex -space-x-3">
               {[1, 2, 3, 4].map((i) => (
                 <Avatar
                   key={i}
-                  className="w-8 h-8 border-4 border-jagamn-primary"
+                  className="w-7 h-7 md:w-8 md:h-8 border-4 border-jagamn-primary"
                 >
-                  <AvatarFallback className="bg-jagamn-tertiary text-[10px] font-black">
+                  <AvatarFallback className="bg-jagamn-tertiary text-[9px] md:text-[10px] font-black">
                     ST
                   </AvatarFallback>
                 </Avatar>
               ))}
             </div>
-            <p className="text-[11px] text-gray-400 font-black uppercase tracking-widest">
+            <p className="text-[10px] md:text-[11px] text-gray-400 font-black uppercase tracking-widest">
               Next Run: Oct 28
             </p>
           </div>
@@ -482,6 +510,7 @@ export default function StaffDirectory() {
 
         <div className="flex items-center justify-between sm:justify-end gap-4 w-full xl:w-auto">
           <Button
+            onClick={handleExportCSV}
             variant="ghost"
             className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] gap-2.5 h-12 px-4 sm:px-6"
           >
