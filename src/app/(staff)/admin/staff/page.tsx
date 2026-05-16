@@ -398,7 +398,7 @@ export default function StaffDirectory() {
 
       {/* ── Toolbar & Enhanced Filter ─────────────────── */}
       <div className="flex flex-col space-y-4 xl:space-y-0 xl:flex-row xl:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-gray-100">
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 w-full xl:w-auto justify-start">
           <Select value={deptFilter} onValueChange={setDeptFilter}>
             <SelectTrigger className="h-12 w-full sm:w-[200px] bg-white border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm">
               <SelectValue placeholder="All Departments" />
@@ -411,32 +411,25 @@ export default function StaffDirectory() {
               <SelectItem value="Security">Security</SelectItem>
             </SelectContent>
           </Select>
-
+          
           {/* Date Filter */}
           <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl p-1 shadow-sm h-12 w-full sm:w-auto px-3">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <input
-              type="date"
+            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+            <input 
+              type="date" 
               value={dateFilter.from}
-              onChange={(e) =>
-                setDateFilter({ ...dateFilter, from: e.target.value })
-              }
-              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none"
+              onChange={(e) => setDateFilter({...dateFilter, from: e.target.value})}
+              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none w-[110px]"
             />
-            <span className="text-gray-300 mx-1">/</span>
-            <input
-              type="date"
+            <ArrowRight className="w-3 h-3 text-gray-300 shrink-0" />
+            <input 
+              type="date" 
               value={dateFilter.to}
-              onChange={(e) =>
-                setDateFilter({ ...dateFilter, to: e.target.value })
-              }
-              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none"
+              onChange={(e) => setDateFilter({...dateFilter, to: e.target.value})}
+              className="bg-transparent text-[10px] font-bold text-jagamn-primary outline-none w-[110px]"
             />
             {(dateFilter.from || dateFilter.to) && (
-              <button
-                onClick={() => setDateFilter({ from: "", to: "" })}
-                className="ml-2 text-gray-400 hover:text-red-500"
-              >
+              <button onClick={() => setDateFilter({from: "", to: ""})} className="ml-2 text-gray-400 hover:text-red-500 shrink-0">
                 <X className="w-3 h-3" />
               </button>
             )}
