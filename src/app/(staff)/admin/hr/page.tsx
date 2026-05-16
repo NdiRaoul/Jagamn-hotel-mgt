@@ -873,7 +873,7 @@ function LeaveManagementView({
                   return (
                     <div
                       className={cn(
-                        "absolute -top-1 -right-1 w-3 h-3 border-2 border-white rounded-full",
+                        "absolute top-1 right-1 w-3 h-3 border-2 border-white rounded-full",
                         coverage > 80
                           ? "bg-green-500"
                           : coverage > 65
