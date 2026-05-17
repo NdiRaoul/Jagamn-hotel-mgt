@@ -19,26 +19,43 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DatesUnavailableModal } from "@/components/guest/dates-unavailable-modal";
-import { ROOMS, isDateRangeUnavailable, type UnavailableDateRange } from "@/lib/data/rooms";
+import {
+  ROOMS,
+  isDateRangeUnavailable,
+  type UnavailableDateRange,
+} from "@/lib/data/rooms";
 import { useRouter } from "next/navigation";
 
-export function SearchBar() {
+type RoomTypeOption = { slug: string; name: string };
+
+type Props = {
+  roomTypes?: RoomTypeOption[];
+};
+
+export function SearchBar({ roomTypes }: Props) {
   const router = useRouter();
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [roomType, setRoomType] = useState<string>("all");
   const [guests, setGuests] = useState<string>("2a1c");
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     roomSlug: string;
     unavailableRange: UnavailableDateRange;
   } | null>(null);
 
+  // Use provided roomTypes or fall back to static ROOMS
+  const options: RoomTypeOption[] =
+    roomTypes && roomTypes.length > 0
+      ? roomTypes
+      : ROOMS.map((r) => ({ slug: r.slug, name: r.name }));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   function handleCheckAvailability() {
     if (!checkIn || !checkOut) {
-      // No dates selected — go to collection page
       router.push("/rooms");
       return;
     }
@@ -50,8 +67,8 @@ export function SearchBar() {
       ...(roomType !== "all" ? { roomType } : {}),
     });
 
-    // If a specific room is selected, check its availability
     if (roomType !== "all") {
+      // Check static data for conflict (fast client-side check)
       const room = ROOMS.find((r) => r.slug === roomType);
       if (room) {
         const conflict = isDateRangeUnavailable(room, checkIn, checkOut);
@@ -60,13 +77,11 @@ export function SearchBar() {
           setModalOpen(true);
           return;
         }
-        // Dates available — go straight to room detail
-        router.push(`/rooms/${room.slug}?${params.toString()}`);
-        return;
       }
+      router.push(`/rooms/${roomType}?${params.toString()}`);
+      return;
     }
 
-    // No specific room — go to collection with search params
     router.push(`/rooms?${params.toString()}`);
   }
 
@@ -89,7 +104,17 @@ export function SearchBar() {
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={checkIn} onSelect={setCheckIn} initialFocus />
+            <Calendar
+              mode="single"
+              selected={checkIn}
+              onSelect={(d) => {
+                setCheckIn(d);
+                // Reset checkout if it's before new check-in
+                if (d && checkOut && checkOut <= d) setCheckOut(undefined);
+              }}
+              disabled={(date) => date < today}
+              initialFocus
+            />
           </PopoverContent>
         </Popover>
 
@@ -109,7 +134,15 @@ export function SearchBar() {
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={checkOut} onSelect={setCheckOut} initialFocus />
+            <Calendar
+              mode="single"
+              selected={checkOut}
+              onSelect={setCheckOut}
+              disabled={(date) =>
+                date < today || (checkIn ? date <= checkIn : false)
+              }
+              initialFocus
+            />
           </PopoverContent>
         </Popover>
 
@@ -121,15 +154,17 @@ export function SearchBar() {
           <Select value={roomType} onValueChange={setRoomType}>
             <SelectTrigger className="border-0 p-0 h-auto w-full focus:ring-0 shadow-none bg-transparent hover:bg-transparent">
               <div className="flex items-center gap-2 text-jagamn-primary">
-                <Building className="w-4 h-4 text-jagamn-tertiary" />
+                <Building className="w-4 h-4 text-[#00152A]" />
                 <SelectValue placeholder="Select room type" />
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Rooms</SelectItem>
-              <SelectItem value="classic-heritage">Classic Heritage</SelectItem>
-              <SelectItem value="palace-deluxe">Palace Deluxe</SelectItem>
-              <SelectItem value="royal-grand-suite">Royal Grand Suite</SelectItem>
+              <SelectItem value="all">All Room Types</SelectItem>
+              {options.map((opt) => (
+                <SelectItem key={opt.slug} value={opt.slug}>
+                  {opt.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -167,7 +202,6 @@ export function SearchBar() {
         </div>
       </div>
 
-      {/* Dates Unavailable Modal */}
       {modalData && checkIn && checkOut && (
         <DatesUnavailableModal
           isOpen={modalOpen}
