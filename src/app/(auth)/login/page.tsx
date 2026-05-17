@@ -20,6 +20,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +136,6 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-stretch bg-white">
-      <Suspense fallback={null}>
-        <TabSync onTab={setActiveTab} />
-      </Suspense>
       {/* ── Left Side: Brand Imagery ────────────────── */}
       <div className="hidden lg:flex w-[45%] relative overflow-hidden">
         <Image
