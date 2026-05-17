@@ -20,6 +20,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
