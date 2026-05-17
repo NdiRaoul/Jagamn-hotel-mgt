@@ -113,6 +113,8 @@ async function ConfirmedContent({
     booking?.total_amount ?? roomTotal + resortFee + taxAmount;
 
   const bookingRef = booking?.booking_ref || ref;
+  const isGuestBooking = !booking?.user_id;
+  const guestEmail = booking?.guest_email || "";
 
   // Receipt data passed to the client component
   const receiptData = {
@@ -212,6 +214,7 @@ async function ConfirmedContent({
                     src={roomImage}
                     alt="Room"
                     fill
+                    sizes="64px"
                     className="object-cover"
                   />
                 </div>
@@ -360,7 +363,32 @@ async function ConfirmedContent({
             >
               Explore More Rooms
             </Link>
+            <Link
+              href="/"
+              className="w-full h-14 border border-gray-200 text-gray-500 font-bold text-sm flex items-center justify-center rounded-md hover:bg-gray-50 transition-all"
+            >
+              Return to Home
+            </Link>
           </div>
+
+          {/* Create Account card — shown only for guest bookings */}
+          {isGuestBooking && (
+            <div className="bg-jagamn-primary text-white rounded-md p-8 space-y-4">
+              <h3 className="manrope-bold text-xl">
+                Save Your Booking to an Account
+              </h3>
+              <p className="text-sm text-gray-300">
+                Create a free account to view your booking history and manage
+                reservations.
+              </p>
+              <Link
+                href={`/login?tab=signup&email=${encodeURIComponent(guestEmail)}&redirect=/dashboard`}
+                className="inline-flex items-center gap-2 bg-jagamn-tertiary hover:bg-jagamn-tertiary/90 text-white font-bold px-6 h-12 rounded-md text-sm transition-all"
+              >
+                Create Account <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 

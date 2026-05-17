@@ -26,7 +26,10 @@ import {
 import { getRoomBySlug, ROOMS } from "@/lib/data/rooms";
 import { RoomBookingWidget } from "@/components/guest/room-booking-widget";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import type { RoomTypeWithDetails, RoomAvailabilitySummary } from "@/types/database";
+import type {
+  RoomTypeWithDetails,
+  RoomAvailabilitySummary,
+} from "@/types/database";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Wifi,
@@ -87,7 +90,9 @@ async function getSimilarRooms(slug: string) {
   try {
     const { data } = await supabaseAdmin
       .from("room_types")
-      .select("slug, name, collection_label, badge, price_per_night, main_image, description")
+      .select(
+        "slug, name, collection_label, badge, price_per_night, main_image, description",
+      )
       .neq("slug", slug)
       .order("sort_order")
       .limit(3);
@@ -114,26 +119,32 @@ export default async function RoomDetailPage({ params }: Props) {
     // Patch unavailable dates from DB
     widgetRoom = {
       ...widgetRoom,
-      unavailableDates: (dbRoom.room_type_unavailable_dates || []).map((ud) => ({
-        from: ud.from_date,
-        to: ud.to_date,
-        alternateRooms: ud.alternate_room_slugs || [],
-        alternateDates: (ud.alternate_dates as any) || [],
-      })),
+      unavailableDates: (dbRoom.room_type_unavailable_dates || []).map(
+        (ud) => ({
+          from: ud.from_date,
+          to: ud.to_date,
+          alternateRooms: ud.alternate_room_slugs || [],
+          alternateDates: (ud.alternate_dates as any) || [],
+        }),
+      ),
     };
   }
 
   // Display data — prefer DB
   const name = dbRoom?.name || widgetRoom?.name || "";
-  const collectionLabel = dbRoom?.collection_label || widgetRoom?.collectionLabel || "";
+  const collectionLabel =
+    dbRoom?.collection_label || widgetRoom?.collectionLabel || "";
   const description = dbRoom?.description || widgetRoom?.description || "";
-  const longDescription = dbRoom?.long_description || widgetRoom?.longDescription || "";
+  const longDescription =
+    dbRoom?.long_description || widgetRoom?.longDescription || "";
   const sqft = dbRoom?.sqft || widgetRoom?.sqft || 0;
   const bedType = dbRoom?.bed_type || widgetRoom?.bedType || "";
   const maxGuests = dbRoom?.max_guests || widgetRoom?.maxGuests || 0;
-  const cancellationPolicy = dbRoom?.cancellation_policy || widgetRoom?.cancellationPolicy || "";
+  const cancellationPolicy =
+    dbRoom?.cancellation_policy || widgetRoom?.cancellationPolicy || "";
   const mainImage = dbRoom?.main_image || widgetRoom?.images.main || "";
-  const galleryImages = dbRoom?.gallery_images || widgetRoom?.images.gallery || [];
+  const galleryImages =
+    dbRoom?.gallery_images || widgetRoom?.images.gallery || [];
 
   const amenities = dbRoom?.room_amenities?.length
     ? dbRoom.room_amenities.map((a) => ({ icon: a.icon, label: a.label }))
@@ -179,19 +190,24 @@ export default async function RoomDetailPage({ params }: Props) {
         </Link>
 
         {/* ── Gallery ── */}
-        <div className="grid grid-cols-2 gap-2 mb-10" style={{ height: "420px" }}>
+        <div
+          className="grid grid-cols-2 gap-2 mb-10"
+          style={{ height: "420px" }}
+        >
           <div className="relative rounded-md overflow-hidden h-full">
             <Image
               src={mainImage}
               alt={name}
               fill
+              sizes="50vw"
               className="object-cover"
               priority
             />
             {availableCount !== null && (
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-jagamn-primary text-xs font-bold px-3 py-1.5 rounded-sm flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                {availableCount} room{availableCount !== 1 ? "s" : ""} of this type available at Jagamn Palace
+                {availableCount} room{availableCount !== 1 ? "s" : ""} of this
+                type available at Jagamn Palace
               </div>
             )}
           </div>
@@ -203,6 +219,7 @@ export default async function RoomDetailPage({ params }: Props) {
                   src={img}
                   alt={`${name} photo ${i + 2}`}
                   fill
+                  sizes="25vw"
                   className="object-cover"
                 />
               </div>
@@ -213,6 +230,7 @@ export default async function RoomDetailPage({ params }: Props) {
                   src={galleryImages[3]}
                   alt={`${name} more`}
                   fill
+                  sizes="25vw"
                   className="object-cover"
                 />
               )}
@@ -292,7 +310,9 @@ export default async function RoomDetailPage({ params }: Props) {
                 <p className="text-sm font-semibold text-jagamn-primary mb-1">
                   Flexible Cancellation
                 </p>
-                <p className="text-xs text-jagamn-secondary">{cancellationPolicy}</p>
+                <p className="text-xs text-jagamn-secondary">
+                  {cancellationPolicy}
+                </p>
               </div>
             </div>
           </div>
@@ -337,6 +357,7 @@ export default async function RoomDetailPage({ params }: Props) {
                     src={similar.mainImage}
                     alt={similar.name}
                     fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   {similar.badge && (

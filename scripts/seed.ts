@@ -369,6 +369,59 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function seed() {
   console.log("\n🌱  Starting Jagamn Palace seed...\n");
 
+  // ── 0. Clean up tables that are being replaced ─────────────────────────────
+  console.log("── Cleanup ─────────────────────────────────────────────────");
+
+  // Delete all bookings (cascades to payments via booking_id)
+  const { error: delBookings } = await supabase
+    .from("bookings")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  log("bookings: cleared", !delBookings, delBookings?.message);
+
+  // Delete all payments
+  const { error: delPayments } = await supabase
+    .from("payments")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  log("payments: cleared", !delPayments, delPayments?.message);
+
+  // Delete all users (our custom table, not auth.users)
+  const { error: delUsers } = await supabase
+    .from("users")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  log("users: cleared", !delUsers, delUsers?.message);
+
+  // Delete room amenities, unavailable dates, rooms, room types
+  await supabase
+    .from("room_amenities")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase
+    .from("room_type_unavailable_dates")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase
+    .from("rooms")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase
+    .from("room_types")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase
+    .from("hotel_amenities")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  log(
+    "room data: cleared",
+    true,
+    "room_types, amenities, rooms, unavailable_dates, hotel_amenities",
+  );
+
+  console.log("");
+
   const summary: { step: string; status: "ok" | "error"; detail: string }[] =
     [];
 
@@ -376,59 +429,40 @@ async function seed() {
   console.log("── Room Types ──────────────────────────────────────────");
   const slugMap: Record<string, string> = {}; // slug → id
 
-  // First, load any already-existing room types
-  const { data: existingRoomTypes } = await supabase
-    .from("room_types")
-    .select("id, slug");
-
-  for (const rt of existingRoomTypes ?? []) {
-    slugMap[rt.slug] = rt.id;
+  // Insert all room types fresh (we cleared them above)
+  let inserted: any[] = [];
+  let insertError: any = null;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const result = await supabase
+      .from("room_types")
+      .insert(ROOM_TYPES as any[])
+      .select("id, slug");
+    inserted = result.data ?? [];
+    insertError = result.error;
+    if (!insertError) break;
+    console.log(`  ↻ retry ${attempt}/5 for batch room_types insert…`);
+    await sleep(1500 * attempt);
   }
 
-  const existingSlugs = new Set(Object.keys(slugMap));
-  const toInsert = ROOM_TYPES.filter((rt) => !existingSlugs.has(rt.slug));
-
-  if (toInsert.length === 0) {
-    log("room_types: all 5", true, "already exist — skipped");
+  if (insertError) {
+    log("room_types: batch insert", false, insertError.message);
     for (const rt of ROOM_TYPES) {
-      summary.push({ step: `room_type:${rt.slug}`, status: "ok", detail: "skipped" });
+      summary.push({
+        step: `room_type:${rt.slug}`,
+        status: "error",
+        detail: insertError.message,
+      });
     }
   } else {
-    // Batch insert all missing room types in one request
-    let inserted: any[] = [];
-    let insertError: any = null;
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      const result = await supabase
-        .from("room_types")
-        .insert(toInsert as any[])
-        .select("id, slug");
-      inserted = result.data ?? [];
-      insertError = result.error;
-      if (!insertError) break;
-      console.log(`  ↻ retry ${attempt}/5 for batch room_types insert…`);
-      await sleep(1500 * attempt);
+    for (const row of inserted) {
+      slugMap[row.slug] = row.id;
+      log(`room_types: ${row.slug}`, true, `id=${row.id}`);
+      summary.push({
+        step: `room_type:${row.slug}`,
+        status: "ok",
+        detail: "inserted",
+      });
     }
-
-    if (insertError) {
-      log("room_types: batch insert", false, insertError.message);
-      for (const rt of toInsert) {
-        summary.push({ step: `room_type:${rt.slug}`, status: "error", detail: insertError.message });
-      }
-    } else {
-      for (const row of inserted) {
-        slugMap[row.slug] = row.id;
-        log(`room_types: ${row.slug}`, true, `id=${row.id}`);
-        summary.push({ step: `room_type:${row.slug}`, status: "ok", detail: "inserted" });
-      }
-    }
-  }
-
-  // Re-fetch slugMap to make sure we have all IDs (handles partial prior runs)
-  const { data: allRoomTypes } = await supabase
-    .from("room_types")
-    .select("id, slug");
-  for (const rt of allRoomTypes ?? []) {
-    slugMap[rt.slug] = rt.id;
   }
 
   // ── 2. Room Amenities ──────────────────────────────────────
@@ -441,22 +475,6 @@ async function seed() {
         step: `amenities:${slug}`,
         status: "error",
         detail: "room_type_id missing",
-      });
-      continue;
-    }
-
-    // Check if amenities already exist for this room type
-    const { count } = await supabase
-      .from("room_amenities")
-      .select("id", { count: "exact", head: true })
-      .eq("room_type_id", roomTypeId);
-
-    if (count && count > 0) {
-      log(`amenities: ${slug}`, true, `${count} already exist — skipped`);
-      summary.push({
-        step: `amenities:${slug}`,
-        status: "ok",
-        detail: "skipped",
       });
       continue;
     }
@@ -497,17 +515,6 @@ async function seed() {
         status: "error",
         detail: "room_type_id missing",
       });
-      continue;
-    }
-
-    const { count } = await supabase
-      .from("rooms")
-      .select("id", { count: "exact", head: true })
-      .eq("room_type_id", roomTypeId);
-
-    if (count && count > 0) {
-      log(`rooms: ${slug}`, true, `${count} already exist — skipped`);
-      summary.push({ step: `rooms:${slug}`, status: "ok", detail: "skipped" });
       continue;
     }
 
@@ -553,26 +560,6 @@ async function seed() {
       continue;
     }
 
-    const { count } = await supabase
-      .from("room_type_unavailable_dates")
-      .select("id", { count: "exact", head: true })
-      .eq("room_type_id", roomTypeId)
-      .eq("from_date", ud.from_date);
-
-    if (count && count > 0) {
-      log(
-        `unavailable: ${ud.slug} ${ud.from_date}`,
-        true,
-        "already exists — skipped",
-      );
-      summary.push({
-        step: `unavailable:${ud.slug}:${ud.from_date}`,
-        status: "ok",
-        detail: "skipped",
-      });
-      continue;
-    }
-
     const { error } = await supabase
       .from("room_type_unavailable_dates")
       .insert({
@@ -607,21 +594,6 @@ async function seed() {
   // ── 5. Hotel Amenities ─────────────────────────────────────
   console.log("\n── Hotel Amenities ─────────────────────────────────────");
   for (const ha of HOTEL_AMENITIES) {
-    const { count } = await supabase
-      .from("hotel_amenities")
-      .select("id", { count: "exact", head: true })
-      .eq("name", ha.name);
-
-    if (count && count > 0) {
-      log(`hotel_amenity: ${ha.name}`, true, "already exists — skipped");
-      summary.push({
-        step: `hotel_amenity:${ha.name}`,
-        status: "ok",
-        detail: "skipped",
-      });
-      continue;
-    }
-
     const { error } = await supabase.from("hotel_amenities").insert(ha);
     if (error) {
       log(`hotel_amenity: ${ha.name}`, false, error.message);

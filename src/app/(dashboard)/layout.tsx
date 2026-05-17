@@ -59,17 +59,17 @@ export default function DashboardLayout({
   const supabase = createSupabaseBrowserClient();
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+    async function loadUser(user: {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, string>;
+    }) {
       setUserEmail(user.email || "");
 
-      // Try guest_profiles first, then user_metadata, then email prefix
       const { data: profile } = await supabase
-        .from("guest_profiles")
-        .select("full_name")
-        .eq("id", user.id)
+        .from("users")
+        .select("full_name, avatar_url")
+        .eq("auth_user_id", user.id)
         .single();
 
       const name =
@@ -80,14 +80,21 @@ export default function DashboardLayout({
         "Guest";
 
       setUserName(name);
-      setUserAvatar(user.user_metadata?.avatar_url || null);
+      setUserAvatar(
+        profile?.avatar_url || user.user_metadata?.avatar_url || null,
+      );
     }
-    loadUser();
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) router.push("/login?redirect=/dashboard");
+      else loadUser(user);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 
@@ -111,21 +118,12 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">
-      {/* Mobile Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar — hidden on mobile, fixed on desktop ── */}
       <aside
         className={cn(
-          "bg-[#00152A] text-white flex flex-col transition-all duration-300 z-50 fixed inset-y-0 left-0 md:relative md:h-full",
-          isSidebarOpen
-            ? "w-[280px] translate-x-0"
-            : "w-[280px] -translate-x-full md:w-[80px] md:translate-x-0"
+          "bg-[#00152A] text-white flex-col transition-all duration-300 z-50",
+          "hidden md:flex md:fixed md:inset-y-0 md:left-0 md:h-full",
+          isSidebarOpen ? "md:w-[280px]" : "md:w-[80px]",
         )}
       >
         {/* Logo */}
@@ -136,22 +134,30 @@ export default function DashboardLayout({
           <div
             className={cn(
               "min-w-0 transition-opacity",
-              isSidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              isSidebarOpen ? "opacity-100" : "opacity-0 hidden",
             )}
           >
-            <h2 className="manrope-bold text-lg leading-tight truncate">The Palace</h2>
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Guest Services</p>
+            <h2 className="manrope-bold text-lg leading-tight truncate">
+              The Palace
+            </h2>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+              Guest Services
+            </p>
           </div>
         </div>
 
         {/* Primary Action */}
         <div className="px-6 mb-8 flex-shrink-0">
-          <Button className="w-full bg-[#1A2E42] hover:bg-[#253D55] border-0 h-12 rounded-md flex items-center justify-center gap-2 transition-all overflow-hidden">
-            <Plus className="w-4 h-4 text-jagamn-tertiary" />
-            {isSidebarOpen && (
-              <span className="text-sm font-bold whitespace-nowrap">Request Service</span>
-            )}
-          </Button>
+          <Link href="/rooms">
+            <Button className="w-full bg-[#1A2E42] hover:bg-[#253D55] border-0 h-12 rounded-md flex items-center justify-center gap-2 transition-all overflow-hidden">
+              <Plus className="w-4 h-4 text-jagamn-tertiary" />
+              {isSidebarOpen && (
+                <span className="text-sm font-bold whitespace-nowrap">
+                  Book a Room
+                </span>
+              )}
+            </Button>
+          </Link>
         </div>
 
         {/* Navigation */}
@@ -162,25 +168,26 @@ export default function DashboardLayout({
               href={item.href}
               className={cn(
                 "flex items-center gap-4 px-4 py-3.5 rounded-md transition-all group",
-                pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+                pathname === item.href ||
+                  (item.href !== "/dashboard" && pathname.startsWith(item.href))
                   ? "bg-[#1A2E42] text-[#FFB77A]"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-gray-400 hover:text-white hover:bg-white/5",
               )}
-              onClick={() => {
-                if (typeof window !== "undefined" && window.innerWidth < 768)
-                  setIsSidebarOpen(false);
-              }}
             >
               <item.icon
                 className={cn(
                   "w-5 h-5 flex-shrink-0",
-                  pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+                  pathname === item.href ||
+                    (item.href !== "/dashboard" &&
+                      pathname.startsWith(item.href))
                     ? "text-[#FFB77A]"
-                    : "text-gray-500 group-hover:text-white"
+                    : "text-gray-500 group-hover:text-white",
                 )}
               />
               {isSidebarOpen && (
-                <span className="text-sm font-bold whitespace-nowrap">{item.label}</span>
+                <span className="text-sm font-bold whitespace-nowrap">
+                  {item.label}
+                </span>
               )}
             </Link>
           ))}
@@ -196,32 +203,136 @@ export default function DashboardLayout({
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               {isSidebarOpen && (
-                <span className="text-sm font-bold whitespace-nowrap">{item.label}</span>
+                <span className="text-sm font-bold whitespace-nowrap">
+                  {item.label}
+                </span>
               )}
             </Link>
           ))}
 
-          {/* Sign Out button */}
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-4 px-4 py-3 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {isSidebarOpen && (
-              <span className="text-sm font-bold whitespace-nowrap">Sign Out</span>
+              <span className="text-sm font-bold whitespace-nowrap">
+                Sign Out
+              </span>
             )}
           </button>
         </div>
       </aside>
 
+      {/* ── Mobile Floating Bottom Nav ── */}
+      <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#00152A] rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-around">
+        {NAV_ITEMS.map((item) => {
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[52px]",
+                isActive
+                  ? "bg-[#1A2E42] text-[#FFB77A]"
+                  : "text-gray-500 hover:text-white",
+              )}
+            >
+              <item.icon
+                className={cn(
+                  "w-5 h-5",
+                  isActive ? "text-[#FFB77A]" : "text-gray-500",
+                )}
+              />
+              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+                {item.label.split(" ")[0]}
+              </span>
+            </Link>
+          );
+        })}
+
+        {/* Book button — mobile */}
+        <Link
+          href="/rooms"
+          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-jagamn-tertiary hover:text-white transition-all min-w-[52px]"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+            Book
+          </span>
+        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-gray-500 hover:text-white transition-all min-w-[52px]">
+              <div className="w-5 h-5 rounded-full bg-jagamn-primary flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
+                {userAvatar ? (
+                  <Image
+                    src={userAvatar}
+                    alt="avatar"
+                    width={20}
+                    height={20}
+                    className="object-cover"
+                  />
+                ) : (
+                  userName.charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+                Account
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-52 mb-2">
+            <DropdownMenuLabel>
+              <p className="font-bold text-jagamn-primary truncate">
+                {userName}
+              </p>
+              <p className="text-xs text-gray-400 font-normal truncate">
+                {userEmail}
+              </p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/profile">
+                <User className="w-4 h-4 mr-2" />
+                My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/payments">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Payments
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="text-red-500 focus:text-red-500 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </nav>
+
       {/* ── Main Content Area ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300",
+          isSidebarOpen ? "md:ml-[280px]" : "md:ml-[80px]",
+        )}
+      >
         {/* Header */}
         <header className="h-[80px] bg-white border-b border-gray-100 px-10 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-12 flex-1">
+            {/* Sidebar toggle — desktop only */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="text-gray-500 mr-4 md:mr-0"
+              className="text-gray-500 mr-4 hidden md:block"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -249,7 +360,13 @@ export default function DashboardLayout({
                 <div className="flex items-center gap-3 pl-6 border-l border-gray-100 cursor-pointer group">
                   <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-[#BA722E] transition-all flex-shrink-0">
                     {userAvatar ? (
-                      <Image src={userAvatar} alt="Profile" fill className="object-cover" />
+                      <Image
+                        src={userAvatar}
+                        alt="Profile"
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
                     ) : (
                       <div className="w-full h-full bg-jagamn-primary flex items-center justify-center text-white font-bold text-sm">
                         {userName.charAt(0).toUpperCase()}
@@ -271,7 +388,9 @@ export default function DashboardLayout({
                 <DropdownMenuLabel>
                   <div>
                     <p className="font-bold text-jagamn-primary">{userName}</p>
-                    <p className="text-xs text-gray-400 font-normal">{userEmail}</p>
+                    <p className="text-xs text-gray-400 font-normal">
+                      {userEmail}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -297,8 +416,10 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-10">{children}</main>
+        {/* Scrollable Content — extra bottom padding on mobile for floating nav */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 pb-28 md:pb-10">
+          {children}
+        </main>
       </div>
     </div>
   );

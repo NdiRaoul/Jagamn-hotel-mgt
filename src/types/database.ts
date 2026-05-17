@@ -48,6 +48,25 @@ export interface RoomTypeUnavailableDate {
   alternate_dates: { from: string; to: string }[] | null;
 }
 
+export interface User {
+  id: string; // our own UUID — NOT the auth.users id
+  auth_user_id: string | null; // links to auth.users — null for guests without accounts
+  full_name: string | null;
+  email: string;
+  phone: string | null;
+  country: string | null;
+  nationality: string | null;
+  id_type: string | null;
+  id_number: string | null;
+  role: "member" | "guest"; // guest = no account, member = has Supabase auth account
+  loyalty_tier: string;
+  special_requests: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** @deprecated Use User instead */
 export interface GuestProfile {
   id: string;
   full_name: string | null;
@@ -58,7 +77,7 @@ export interface GuestProfile {
   id_number: string | null;
   nationality: string | null;
   loyalty_tier: string;
-  role: "member" | "guest"; // 'member' = has auth account, 'guest' = guest checkout
+  role: "member" | "guest";
   special_requests: string | null;
   created_at: string;
   updated_at: string;
@@ -104,6 +123,10 @@ export interface Booking {
   payment_status: string; // 'pending' | 'paid' | 'failed' | 'cancelled'
   status: string; // 'confirmed' | 'cancelled' | 'completed'
   special_requests: string | null;
+  app_user_id: string | null;
+  cancelled_at: string | null;
+  cancellation_fee: number;
+  refund_amount: number;
   created_at: string;
   // joined
   room_types?: RoomType;
@@ -122,6 +145,8 @@ export interface Payment {
   status: string; // 'pending' | 'paid' | 'failed'
   fapshi_trans_id: string | null;
   stripe_payment_intent_id: string | null;
+  refund_status: string | null;
+  refund_tx_id: string | null;
   created_at: string;
   updated_at: string;
 }

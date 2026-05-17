@@ -245,6 +245,7 @@ export default function DiningPage() {
                         src={item.image}
                         alt={item.title}
                         fill
+                        sizes="140px"
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
                       />
                     </div>
@@ -301,6 +302,7 @@ export default function DiningPage() {
                         src={item.image}
                         alt={item.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
                       />
                     </div>
@@ -426,6 +428,7 @@ export default function DiningPage() {
                           src={item.image}
                           alt={item.title}
                           fill
+                          sizes="48px"
                           className="object-cover"
                         />
                       </div>
@@ -604,6 +607,7 @@ export default function DiningPage() {
               src={recentOrderImage}
               alt="Recent Order"
               fill
+              sizes="35vw"
               className="object-cover"
             />
           </div>
@@ -663,6 +667,7 @@ export default function DiningPage() {
                     src={recentOrderImage}
                     alt="Meal"
                     fill
+                    sizes="80px"
                     className="object-cover"
                   />
                 </div>
@@ -705,6 +710,7 @@ export default function DiningPage() {
                     src={order.image}
                     alt="Meal"
                     fill
+                    sizes="80px"
                     className="object-cover"
                   />
                 </div>
