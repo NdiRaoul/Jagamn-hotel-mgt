@@ -177,7 +177,7 @@ function LoginContent() {
         </div>
       </div>
 
-      {/* ── Right Side: Auth Forms ─────────────────── */}
+      {/* ── Right Side: Auth Forms ──*/}
       <div className="flex-1 flex flex-col justify-center px-8 md:px-24 lg:px-32 xl:px-48 bg-[#FAFAFA]">
         <div className="max-w-md w-full space-y-10">
           <div className="space-y-2">
