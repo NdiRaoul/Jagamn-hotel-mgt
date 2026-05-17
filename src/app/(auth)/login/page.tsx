@@ -136,9 +136,6 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-stretch bg-white">
-      <Suspense fallback={null}>
-        <TabSync onTab={setActiveTab} />
-      </Suspense>
       {/* ── Left Side: Brand Imagery ────────────────── */}
       <div className="hidden lg:flex w-[45%] relative overflow-hidden">
         <Image
