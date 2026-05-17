@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
+  apiVersion: "2026-04-22.dahlia",
 });
 
 // POST /api/payments/stripe — create PaymentIntent
@@ -14,15 +14,18 @@ export async function POST(request: NextRequest) {
     if (!bookingRef || !totalAmount) {
       return NextResponse.json(
         { error: "bookingRef and totalAmount are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(totalAmount * 100), // convert to cents
-      currency,
-      metadata: { bookingRef },
-    });
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: Math.round(totalAmount * 100), // convert to cents
+        currency,
+        metadata: { bookingRef },
+      },
+      { idempotencyKey: `booking-${bookingRef}` },
+    );
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: any) {
