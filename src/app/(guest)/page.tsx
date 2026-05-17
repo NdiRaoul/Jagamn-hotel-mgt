@@ -99,6 +99,7 @@ export default async function GuestLandingPage() {
             src={AMENITY_IMAGES.hero}
             alt="Jagamn Palace Heritage Luxury"
             fill
+            sizes="100vw"
             className="opacity-80 object-cover object-top"
             priority
           />
@@ -167,6 +168,7 @@ export default async function GuestLandingPage() {
                   src={room.mainImage}
                   alt={room.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
@@ -215,6 +217,7 @@ export default async function GuestLandingPage() {
                   src={room.mainImage}
                   alt={room.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
@@ -258,6 +261,7 @@ export default async function GuestLandingPage() {
               src={AMENITY_IMAGES.spa}
               alt="The Celestial Spa"
               fill
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
@@ -277,6 +281,7 @@ export default async function GuestLandingPage() {
                 src={AMENITY_IMAGES.dining}
                 alt="Saffron & Silk"
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
@@ -296,6 +301,7 @@ export default async function GuestLandingPage() {
                   src={AMENITY_IMAGES.pool}
                   alt="Royal Pool"
                   fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors pointer-events-none" />
@@ -312,6 +318,7 @@ export default async function GuestLandingPage() {
                   src={AMENITY_IMAGES.library}
                   alt="The Library"
                   fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors pointer-events-none" />

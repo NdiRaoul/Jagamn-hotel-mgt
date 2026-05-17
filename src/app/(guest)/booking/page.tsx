@@ -60,6 +60,7 @@ function BookingContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Fapshi polling state
   const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
@@ -93,10 +94,11 @@ function BookingContent() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        setIsLoggedIn(true);
         const { data: profile } = await supabase
-          .from("guest_profiles")
+          .from("users")
           .select("*")
-          .eq("id", user.id)
+          .eq("auth_user_id", user.id)
           .single();
         setFormData((prev) => ({
           ...prev,
@@ -215,18 +217,15 @@ function BookingContent() {
         options: { data: { full_name: formData.fullName } },
       });
       if (!error && data.user) {
-        await supabase.from("guest_profiles").upsert(
-          {
-            id: data.user.id,
-            full_name: formData.fullName,
+        // Call the server route to create/upgrade the users row
+        await fetch("/api/auth/create-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: formData.fullName,
             email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            id_type: formData.idType,
-            id_number: formData.idNumber,
-          },
-          { onConflict: "id", ignoreDuplicates: true },
-        );
+          }),
+        });
         // Link booking to new user
         await fetch("/api/bookings/link", {
           method: "POST",
@@ -425,10 +424,26 @@ function BookingContent() {
           </div>
 
           <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-6">
+            {/* Logged-in notice */}
+            {isLoggedIn && (
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                <p className="text-xs font-semibold text-emerald-700">
+                  Your profile details have been pre-filled. Fields marked with
+                  a lock are from your account.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                   Full Name *
+                  {isLoggedIn && formData.fullName && (
+                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
+                      From profile
+                    </span>
+                  )}
                 </Label>
                 <Input
                   value={formData.fullName}
@@ -436,13 +451,18 @@ function BookingContent() {
                     setFormData({ ...formData, fullName: e.target.value })
                   }
                   placeholder="Johnathan Doe"
-                  className="bg-gray-50 border-none h-12"
+                  className={`h-12 ${isLoggedIn && formData.fullName ? "bg-gray-50 border-gray-100 text-jagamn-primary font-semibold" : "bg-gray-50 border-none"}`}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                   Email Address *
+                  {isLoggedIn && formData.email && (
+                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
+                      From profile
+                    </span>
+                  )}
                 </Label>
                 <Input
                   type="email"
@@ -451,13 +471,19 @@ function BookingContent() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   placeholder="john@example.com"
-                  className="bg-gray-50 border-none h-12"
+                  readOnly={isLoggedIn && !!formData.email}
+                  className={`h-12 ${isLoggedIn && formData.email ? "bg-gray-100 border-gray-100 text-jagamn-primary font-semibold cursor-not-allowed" : "bg-gray-50 border-none"}`}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                   Phone Number *
+                  {isLoggedIn && formData.phone && (
+                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
+                      From profile
+                    </span>
+                  )}
                 </Label>
                 <PhoneInput
                   value={formData.phone}
@@ -468,8 +494,13 @@ function BookingContent() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                   Country of Residence *
+                  {isLoggedIn && formData.country && (
+                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
+                      From profile
+                    </span>
+                  )}
                 </Label>
                 <CountrySelect
                   value={formData.country}
@@ -483,8 +514,13 @@ function BookingContent() {
 
             {/* Identification — full width */}
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                 Identification *
+                {isLoggedIn && formData.idNumber && (
+                  <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
+                    From profile
+                  </span>
+                )}
               </Label>
               <IdInput
                 idType={formData.idType}
@@ -511,57 +547,60 @@ function BookingContent() {
               />
             </div>
 
-            <div className="bg-[#F8F9FA] rounded-md p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="create-account"
-                  checked={createAccount}
-                  onCheckedChange={(c) => setCreateAccount(!!c)}
-                  className="border-gray-300 data-[state=checked]:bg-[#00152A]"
-                />
-                <Label
-                  htmlFor="create-account"
-                  className="text-sm text-gray-600 font-medium cursor-pointer"
-                >
-                  Save my details and create a free Palace Club account
-                </Label>
-              </div>
-              {createAccount && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Choose Password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                      placeholder="••••••••"
-                      className="bg-white h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Confirm Password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      placeholder="••••••••"
-                      className="bg-white h-11"
-                    />
-                  </div>
+            {/* Create account — only shown to guests */}
+            {!isLoggedIn && (
+              <div className="bg-[#F8F9FA] rounded-md p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="create-account"
+                    checked={createAccount}
+                    onCheckedChange={(c) => setCreateAccount(!!c)}
+                    className="border-gray-300 data-[state=checked]:bg-[#00152A]"
+                  />
+                  <Label
+                    htmlFor="create-account"
+                    className="text-sm text-gray-600 font-medium cursor-pointer"
+                  >
+                    Save my details and create a free Palace Club account
+                  </Label>
                 </div>
-              )}
-            </div>
+                {createAccount && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Choose Password
+                      </Label>
+                      <Input
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                        placeholder="••••••••"
+                        className="bg-white h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Confirm Password
+                      </Label>
+                      <Input
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        placeholder="••••••••"
+                        className="bg-white h-11"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -782,6 +821,7 @@ function BookingContent() {
               src={room.images.main}
               alt={room.name}
               fill
+              sizes="400px"
               className="object-cover opacity-60"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#00152A] to-transparent" />
