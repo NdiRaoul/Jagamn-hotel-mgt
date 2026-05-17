@@ -27,6 +27,7 @@ function TabSync({
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,9 +42,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-stretch bg-white">
-      <Suspense fallback={null}>
-        <TabSync onTab={setActiveTab} />
-      </Suspense>
       {/* ── Left Side: Brand Imagery ────────────────── */}
       <div className="hidden lg:flex w-[45%] relative overflow-hidden">
         <Image
