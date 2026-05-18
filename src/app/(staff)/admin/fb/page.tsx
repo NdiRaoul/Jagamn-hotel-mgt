@@ -17,6 +17,7 @@ import {
   Upload,
   X,
   Info,
+  Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -268,6 +269,14 @@ export default function FBManagementPage() {
 function AddMenuModal() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [ingredients, setIngredients] = useState(["BEEF PRIME CUT", "SEA SALT"]);
+  const [ingredientInput, setIngredientInput] = useState("");
+  const [dietary, setDietary] = useState({
+    glutenFree: false,
+    containsNuts: false,
+    dairyFree: false,
+    vegan: false,
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -282,32 +291,279 @@ function AddMenuModal() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const addIngredient = () => {
+    if (ingredientInput.trim() && !ingredients.includes(ingredientInput.trim().toUpperCase())) {
+      setIngredients([...ingredients, ingredientInput.trim().toUpperCase()]);
+      setIngredientInput("");
+    }
+  };
+
+  const removeIngredient = (tag: string) => {
+    setIngredients(ingredients.filter((t) => t !== tag));
+  };
+
   return (
     <DialogContent className="sm:max-w-[1000px] p-0 border-0 overflow-hidden bg-white rounded-3xl flex flex-col h-[90vh]">
       <div className="p-8 md:p-12 space-y-12 flex-1 overflow-y-auto custom-scrollbar">
-        <div className="space-y-1"><p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.3em]">Culinary Administration</p><DialogTitle className="manrope-bold text-4xl text-[#0D2137] tracking-tight">Add New Menu Item</DialogTitle></div>
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.3em]">
+            Culinary Administration
+          </p>
+          <DialogTitle className="manrope-bold text-4xl text-[#0D2137] tracking-tight">
+            Add New Menu Item
+          </DialogTitle>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Left Column */}
           <div className="lg:col-span-4 space-y-10">
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Item Presentation</label>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-              <div onClick={() => fileInputRef.current?.click()} className={cn("aspect-square rounded-[2rem] border-2 border-dashed flex flex-col items-center justify-center gap-4 text-center p-8 group transition-all cursor-pointer relative overflow-hidden", previewUrl ? "border-solid border-gray-100" : "border-gray-200 bg-[#F1F5F9] hover:border-[#E8924A]")}>
+              <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Item Presentation
+              </label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/*"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "aspect-square rounded-[2rem] border-2 border-dashed flex flex-col items-center justify-center gap-4 text-center p-8 group transition-all cursor-pointer relative overflow-hidden",
+                  previewUrl
+                    ? "border-solid border-gray-100 bg-white"
+                    : "border-gray-200 bg-[#F1F5F9] hover:border-[#E8924A]/40",
+                )}
+              >
                 {previewUrl ? (
-                  <><img src={previewUrl} className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-500" alt="Preview" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><div className="flex flex-col items-center gap-2"><Upload className="w-8 h-8 text-white" /><p className="text-white text-[10px] font-black uppercase tracking-widest">Replace Photo</p></div></div><button onClick={removeImage} className="absolute top-4 right-4 bg-white/90 hover:bg-white p-2 rounded-xl shadow-lg z-20 text-red-500 transition-all hover:scale-110"><Trash2 className="w-4 h-4" /></button></>
+                  <>
+                    <img
+                      src={previewUrl}
+                      className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-500"
+                      alt="Preview"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="w-8 h-8 text-white" />
+                        <p className="text-white text-[10px] font-black uppercase tracking-widest">
+                          Replace Photo
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeImage}
+                      className="absolute top-4 right-4 bg-white/90 hover:bg-white p-2 rounded-xl shadow-lg z-20 text-red-500 transition-all hover:scale-110"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
                 ) : (
-                  <><div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-all duration-500"><Upload className="w-6 h-6 text-slate-400 group-hover:text-[#E8924A]" /></div><p className="manrope-bold text-sm text-[#0D2137]">Drag photo here or click to upload</p></>
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-white flex flex-col items-center justify-center shadow-sm group-hover:scale-110 transition-all duration-500 relative">
+                      <Camera className="w-6 h-6 text-slate-300 group-hover:text-[#E8924A] transition-colors" />
+                      <Plus className="w-3 h-3 text-slate-300 absolute bottom-4 right-4 group-hover:text-[#E8924A]" />
+                    </div>
+                    <p className="manrope-bold text-xs text-slate-400">
+                      Drag photo here or click to upload
+                    </p>
+                  </>
                 )}
               </div>
+              <p className="text-[10px] text-slate-400 font-medium leading-relaxed leading-normal">
+                High-resolution PNG or JPG recommended. Minimum 1080x1080px for premium digital menu display.
+              </p>
             </div>
-            <div className="space-y-4"><label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Pricing & Revenue</label><div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl manrope-bold text-slate-400">$</span><Input placeholder="0.00" className="h-20 bg-[#F1F5F9] border-0 rounded-2xl pl-12 text-3xl manrope-bold text-[#0D2137] placeholder:text-slate-300" /></div></div>
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Pricing & Revenue
+              </label>
+              <div className="relative">
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl manrope-bold text-slate-400">
+                  $
+                </span>
+                <Input
+                  placeholder="0.00"
+                  type="number"
+                  step="0.01"
+                  className="h-20 bg-[#F1F5F9] border-0 rounded-2xl pl-12 text-3xl manrope-bold text-[#0D2137] placeholder:text-slate-300 focus-visible:ring-0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="lg:col-span-8 space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-4"><label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Item Name</label><Input placeholder="e.g. Wagyu Beef Tartare" className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm manrope-bold text-[#0D2137]" /></div><div className="space-y-4"><label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Category</label><Select><SelectTrigger className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm manrope-bold text-[#0D2137]"><SelectValue placeholder="Select Category" /></SelectTrigger><SelectContent><SelectItem value="main">Main Course</SelectItem><SelectItem value="breakfast">Breakfast</SelectItem></SelectContent></Select></div></div>
-            <div className="space-y-4"><label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">Description</label><textarea placeholder="Craft a compelling story..." className="w-full h-40 bg-[#F1F5F9] border-0 rounded-2xl p-6 text-sm font-medium text-[#0D2137] resize-none outline-none focus:ring-2 focus:ring-jagamn-tertiary/20" /></div>
+
+          {/* Right Column */}
+          <div className="lg:col-span-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Item Name
+                </label>
+                <Input
+                  placeholder="e.g. Wagyu Beef Tartare"
+                  className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm font-semibold text-[#0D2137] placeholder:text-slate-300 focus-visible:ring-0"
+                />
+              </div>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Category
+                </label>
+                <Select>
+                  <SelectTrigger className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm font-semibold text-[#0D2137] placeholder:text-slate-300 focus:ring-0">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="breakfast">Breakfast</SelectItem>
+                    <SelectItem value="main">Main Course</SelectItem>
+                    <SelectItem value="wine">Wine & Spirits</SelectItem>
+                    <SelectItem value="desserts">Desserts</SelectItem>
+                    <SelectItem value="room">Room Service Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Description
+              </label>
+              <textarea
+                placeholder="Craft a compelling story for this dish..."
+                className="w-full h-40 bg-[#F1F5F9] border-0 rounded-2xl p-6 text-sm font-semibold text-[#0D2137] resize-none outline-none focus:ring-0 focus:ring-offset-0 placeholder:text-slate-300"
+              />
+            </div>
+
+            {/* Bottom side-by-side section: Ingredients vs Dietary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Inventory Integration */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Inventory Integration (Ingredients)
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    value={ingredientInput}
+                    onChange={(e) => setIngredientInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addIngredient();
+                      }
+                    }}
+                    placeholder="Search inventory..."
+                    className="h-14 bg-[#F1F5F9] border-0 rounded-2xl pl-12 text-sm font-semibold text-[#0D2137] placeholder:text-slate-400 focus-visible:ring-0"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  {ingredients.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[#0369A1] font-black text-[9px] uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 border-0 animate-in fade-in"
+                    >
+                      {tag}
+                      <X
+                        className="w-3.5 h-3.5 cursor-pointer text-[#0369A1]/60 hover:text-[#0369A1] transition-colors"
+                        onClick={() => removeIngredient(tag)}
+                      />
+                    </Badge>
+                  ))}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      addIngredient();
+                    }}
+                    className="h-[30px] px-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#BA722E] text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                  >
+                    + ADD
+                  </button>
+                </div>
+              </div>
+
+              {/* Dietary & Allergens */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Dietary & Allergens
+                </label>
+                <div className="grid grid-cols-2 gap-y-4 gap-x-8 pt-2">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="gluten-free"
+                      checked={dietary.glutenFree}
+                      onCheckedChange={(checked) =>
+                        setDietary({ ...dietary, glutenFree: !!checked })
+                      }
+                      className="w-5 h-5 rounded-full border-gray-300 text-[#0D2137] focus:ring-0 data-[state=checked]:bg-[#0D2137]"
+                    />
+                    <label
+                      htmlFor="gluten-free"
+                      className="text-xs font-semibold text-slate-500 cursor-pointer select-none"
+                    >
+                      Gluten Free
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="contains-nuts"
+                      checked={dietary.containsNuts}
+                      onCheckedChange={(checked) =>
+                        setDietary({ ...dietary, containsNuts: !!checked })
+                      }
+                      className="w-5 h-5 rounded-full border-gray-300 text-[#0D2137] focus:ring-0 data-[state=checked]:bg-[#0D2137]"
+                    />
+                    <label
+                      htmlFor="contains-nuts"
+                      className="text-xs font-semibold text-slate-500 cursor-pointer select-none"
+                    >
+                      Contains Nuts
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="dairy-free"
+                      checked={dietary.dairyFree}
+                      onCheckedChange={(checked) =>
+                        setDietary({ ...dietary, dairyFree: !!checked })
+                      }
+                      className="w-5 h-5 rounded-full border-gray-300 text-[#0D2137] focus:ring-0 data-[state=checked]:bg-[#0D2137]"
+                    />
+                    <label
+                      htmlFor="dairy-free"
+                      className="text-xs font-semibold text-slate-500 cursor-pointer select-none"
+                    >
+                      Dairy Free
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="vegan"
+                      checked={dietary.vegan}
+                      onCheckedChange={(checked) =>
+                        setDietary({ ...dietary, vegan: !!checked })
+                      }
+                      className="w-5 h-5 rounded-full border-gray-300 text-[#0D2137] focus:ring-0 data-[state=checked]:bg-[#0D2137]"
+                    />
+                    <label
+                      htmlFor="vegan"
+                      className="text-xs font-semibold text-slate-500 cursor-pointer select-none"
+                    >
+                      Vegan
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div className="p-8 md:p-12 border-t border-gray-100 bg-[#F8FAFC] flex flex-col sm:flex-row items-center justify-end gap-6"><button className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500">DISCARD DRAFT</button><Button className="h-16 px-12 bg-[#E8924A] text-white manrope-bold rounded-2xl shadow-xl hover:scale-[1.02]">SAVE TO MENU</Button></div>
+      <div className="p-8 md:p-12 border-t border-gray-100 bg-[#F8FAFC] flex items-center justify-end gap-6">
+        <button className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors">
+          DISCARD DRAFT
+        </button>
+        <Button className="h-[56px] px-10 bg-[#E8924A] hover:bg-[#D4813B] text-white manrope-bold rounded-xl shadow-xl shadow-orange-500/5 transition-all hover:scale-[1.02]">
+          SAVE TO MENU
+        </Button>
+      </div>
     </DialogContent>
   );
 }

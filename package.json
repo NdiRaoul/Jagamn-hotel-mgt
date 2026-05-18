@@ -10,6 +10,7 @@
     "seed": "node_modules/.bin/ts-node --transpile-only --project tsconfig.json scripts/seed.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "@stripe/react-stripe-js": "^6.3.0",
     "@stripe/stripe-js": "^9.3.1",
     "@supabase/ssr": "^0.10.3",

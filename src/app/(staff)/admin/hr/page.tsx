@@ -291,6 +291,8 @@ function LeaveManagementView({
 }: any) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAvailabilityExpanded, setIsAvailabilityExpanded] = useState(false);
+  const [manualFromDate, setManualFromDate] = useState("");
+  const [manualToDate, setManualToDate] = useState("");
   return (
     <div className="space-y-10">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -311,7 +313,7 @@ function LeaveManagementView({
               </Button>
             </SheetTrigger>
             <SheetContent className="sm:max-w-[540px] p-0 border-l-0 overflow-hidden flex flex-col">
-              <div className="bg-[#0D2137] p-10 text-white">
+              <div className="bg-[#0D2137] p-10 text-white relative">
                 <SheetHeader className="text-left space-y-2">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                     Administrator Tool
@@ -319,10 +321,159 @@ function LeaveManagementView({
                   <SheetTitle className="manrope-bold text-4xl text-white tracking-tight">
                     Manual Leave Entry
                   </SheetTitle>
+                  <SheetDescription className="text-slate-400 font-medium">
+                    Create a manual leave record for a staff member. This will
+                    bypass the standard approval workflow.
+                  </SheetDescription>
                 </SheetHeader>
+                <div className="absolute top-10 right-10 opacity-10">
+                  <Calendar className="w-24 h-24" />
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-10 space-y-10">
-                {/* Form logic remains similar but integrated... */}
+              <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Users className="w-3 h-3" /> Select Staff Member
+                  </label>
+                  <Select>
+                    <SelectTrigger className="h-14 bg-gray-50 border-gray-100 rounded-xl px-5 text-sm font-bold text-[#0D2137]">
+                      <SelectValue placeholder="Search staff records..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="elena">
+                        Elena Rodriguez (Housekeeping Lead)
+                      </SelectItem>
+                      <SelectItem value="sterling">
+                        Sterling (Front Desk Supervisor)
+                      </SelectItem>
+                      <SelectItem value="julian">
+                        Julian Chen (Sous Chef)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <LayoutDashboard className="w-3 h-3" /> Leave Type
+                    </label>
+                    <Select>
+                      <SelectTrigger className="h-14 bg-gray-50 border-gray-100 rounded-xl px-5 text-sm font-bold text-[#0D2137]">
+                        <SelectValue placeholder="Annual Paid" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="annual">
+                          Annual Paid Leave
+                        </SelectItem>
+                        <SelectItem value="sick">Sick Leave</SelectItem>
+                        <SelectItem value="unpaid">Unpaid Leave</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Clock className="w-3 h-3" /> Total Days
+                    </label>
+                    <Input
+                      className="h-14 bg-gray-50 border-gray-100 rounded-xl px-5 text-sm font-bold text-[#0D2137]"
+                      type="number"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Calendar className="w-3 h-3" /> Duration Period
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-1 relative focus-within:border-slate-300 transition-all">
+                      <span className="text-[9px] font-bold text-slate-300 uppercase">
+                        From
+                      </span>
+                      <input
+                        type="date"
+                        value={manualFromDate}
+                        onChange={(e) => setManualFromDate(e.target.value)}
+                        className="bg-transparent text-sm font-bold text-[#0D2137] outline-none w-full"
+                      />
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-1 relative focus-within:border-slate-300 transition-all">
+                      <span className="text-[9px] font-bold text-slate-300 uppercase">
+                        To
+                      </span>
+                      <input
+                        type="date"
+                        value={manualToDate}
+                        onChange={(e) => setManualToDate(e.target.value)}
+                        className="bg-transparent text-sm font-bold text-[#0D2137] outline-none w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Entry Reasoning
+                  </label>
+                  <textarea
+                    className="w-full min-h-[120px] bg-gray-50 border border-gray-100 rounded-xl p-5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0D2137]/20 placeholder:text-slate-300"
+                    placeholder="Provide justification for this manual entry..."
+                  />
+                </div>
+                <div 
+                  onClick={() => document.getElementById("manual-entry-doc")?.click()}
+                  className="border-2 border-dashed border-gray-100 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50/50 group hover:border-[#E8924A]/30 transition-all cursor-pointer relative"
+                >
+                  <input
+                    type="file"
+                    id="manual-entry-doc"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setSelectedFile(file);
+                    }}
+                    accept=".pdf,.png,.jpg,.jpeg"
+                  />
+                  {selectedFile ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="p-3 bg-[#E8924A]/10 rounded-full text-[#E8924A] mb-1">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-[#0D2137] max-w-[200px] truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                        }}
+                        className="mt-2 text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline animate-in fade-in"
+                      >
+                        Remove Document
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="p-3 bg-white rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                        <FileDown className="w-5 h-5 text-slate-300" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-400 mb-1">
+                        Drag & drop documentation
+                      </p>
+                      <p className="text-[10px] text-slate-300">
+                        Max file size: 10MB (PDF, PNG, JPG)
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="p-10 border-t border-gray-100 bg-white">
+                <Button className="w-full h-14 bg-[#0D2137] text-white manrope-bold rounded-xl flex items-center justify-center gap-3 shadow-xl hover:bg-[#0D2137]/90 transition-all">
+                  COMMIT MANUAL ENTRY
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
             </SheetContent>
           </Sheet>

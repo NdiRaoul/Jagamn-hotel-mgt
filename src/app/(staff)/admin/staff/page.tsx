@@ -277,7 +277,7 @@ export default function StaffDirectory() {
               <DialogTitle>Personnel Onboarding</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col md:flex-row h-full">
-              {/* Onboarding form remains same... */}
+              {/* Left Side: Form */}
               <div className="flex-[1.8] p-8 lg:p-12 bg-white overflow-y-auto custom-scrollbar">
                 <div className="mb-10 text-center md:text-left">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
@@ -293,8 +293,9 @@ export default function StaffDirectory() {
                     digital management system.
                   </p>
                 </div>
-                {/* Form fields... */}
+
                 <div className="space-y-10">
+                  {/* Photo Presentation */}
                   <div className="space-y-6">
                     <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
@@ -348,6 +349,210 @@ export default function StaffDirectory() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Personal Information */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
+                      <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
+                        <UserCircle className="w-5 h-5" />
+                      </div>
+                      <h3 className="manrope-bold text-base text-jagamn-primary tracking-tight">
+                        Personal Information
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Full Name
+                        </Label>
+                        <Input
+                          placeholder="e.g. Julian Montgomery"
+                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Email Address
+                        </Label>
+                        <Input
+                          placeholder="j.montgomery@palacesuite.com"
+                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Phone Number
+                        </Label>
+                        <Input
+                          placeholder="+44 20 7946 0958"
+                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Position/Title
+                        </Label>
+                        <Input
+                          placeholder="Senior Concierge"
+                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Administrative Assignment */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
+                      <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
+                        <Briefcase className="w-5 h-5" />
+                      </div>
+                      <h3 className="manrope-bold text-base text-jagamn-primary tracking-tight">
+                        Administrative Assignment
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Department
+                        </Label>
+                        <Select>
+                          <SelectTrigger className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus:ring-0 focus:border-jagamn-tertiary">
+                            <SelectValue placeholder="Select Department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="front-desk">Front Desk</SelectItem>
+                            <SelectItem value="kitchen">Kitchen</SelectItem>
+                            <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Role Assignment
+                        </Label>
+                        <Select>
+                          <SelectTrigger className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus:ring-0 focus:border-jagamn-tertiary">
+                            <SelectValue placeholder="Select Role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Base Monthly Salary
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                            $
+                          </span>
+                          <Input
+                            placeholder="4,500.00"
+                            className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none pl-4 pr-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Hire Date
+                        </Label>
+                        <Input
+                          placeholder="mm/dd/yyyy"
+                          className="h-11 bg-transparent border-0 border-b border-gray-200 rounded-none px-0 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center md:justify-end gap-10 mt-16">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsOnboardingOpen(false)}
+                    className="h-12 px-6 text-gray-500 font-bold uppercase tracking-widest text-[11px] hover:bg-transparent hover:text-red-500 transition-colors"
+                  >
+                    CANCEL
+                  </Button>
+                  <Button className="h-12 px-12 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-lg shadow-lg transition-all">
+                    Complete Enrollment
+                  </Button>
+                </div>
+              </div>
+
+              {/* Right Side: Registry Guide */}
+              <div className="flex-1 bg-[#F1F3F5] p-10 border-l border-gray-100 flex flex-col justify-between">
+                <div>
+                  <div className="bg-[#0D2137] rounded-xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <h3 className="manrope-bold text-xl mb-3">Registry Guide</h3>
+                      <p className="text-[11px] text-gray-400 leading-relaxed font-medium">
+                        Credentials will be generated and dispatched automatically via secure portal.
+                      </p>
+                      <div className="mt-8 flex items-center gap-3 bg-white/5 p-4 rounded-xl border border-white/10">
+                        <div className="p-2 bg-[#E8924A] rounded-lg shadow-lg shadow-[#E8924A]/20">
+                          <TrendingUp className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-gray-100">
+                          ONBOARDING PROTOCOLS ACTIVE
+                        </span>
+                      </div>
+                    </div>
+                    {/* Decorative element */}
+                    <div className="absolute top-[-20%] right-[-20%] w-48 h-48 bg-jagamn-tertiary/10 rounded-full blur-3xl" />
+                  </div>
+
+                  <div className="space-y-6">
+                    <p className="text-[10px] font-black text-jagamn-primary uppercase tracking-[0.2em]">
+                      Compliance Checklist
+                    </p>
+                    <div className="space-y-4">
+                      {[
+                        { label: "Background check verified.", done: true },
+                        { label: "Digital keycard enabled.", done: true },
+                        { label: "Safety training pending.", done: false },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center gap-4">
+                          <div
+                            className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center border",
+                              item.done
+                                ? "bg-green-50 border-green-200 text-green-600"
+                                : "bg-white border-gray-200 text-gray-300",
+                            )}
+                          >
+                            {item.done ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : (
+                              <div className="w-2.5 h-2.5 border border-gray-200 rounded-full" />
+                            )}
+                          </div>
+                          <span
+                            className={cn(
+                              "text-[13px] font-medium tracking-tight",
+                              item.done ? "text-jagamn-primary" : "text-gray-400",
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="rounded-xl overflow-hidden shadow-xl border-4 border-white grayscale">
+                    <img
+                      src="/images/classic-heritage.png"
+                      alt="Palace Suite"
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 italic text-center leading-relaxed font-medium px-4">
+                    "Service is the soul of the Palace Suite. Excellence is our only standard."
+                  </p>
                 </div>
               </div>
             </div>
@@ -631,13 +836,19 @@ export default function StaffDirectory() {
 
       {selectedStaff && (
         <StaffEditModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setSelectedStaff(null);
+          open={isEditModalOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsEditModalOpen(false);
+              setSelectedStaff(null);
+            }
           }}
-          staff={selectedStaff}
-          onSave={(updated) => console.log("Save", updated)}
+          staffName={selectedStaff.name}
+          staffEmail={selectedStaff.email}
+          staffAvatar={selectedStaff.name
+            .split(" ")
+            .map((n: string) => n[0])
+            .join("")}
         />
       )}
     </div>
