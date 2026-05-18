@@ -798,36 +798,78 @@ export default function StaffDirectory() {
           {filteredStaff.map((staff) => (
             <div
               key={staff.id}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-2xl transition-all duration-500"
+              className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl hover:scale-[1.02] transition-all duration-500 flex flex-col justify-between"
             >
-              <div className={cn("h-24", staff.color)} />
-              <div className="p-6 pt-12 relative">
-                <Avatar className="w-20 h-20 absolute -top-10 left-6 border-4 border-white shadow-lg">
-                  <AvatarFallback
-                    className={cn("text-white font-black", staff.color)}
-                  >
-                    {staff.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="manrope-bold text-lg text-jagamn-primary">
-                      {staff.name}
-                    </h4>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      {staff.position}
-                    </p>
+              <div>
+                <div className={cn("h-32 relative", staff.color)} />
+                <div className="p-6 pt-14 relative">
+                  {/* Avatar: Rounded Square with soft corners */}
+                  <div className="w-20 h-20 absolute -top-10 left-6 border-4 border-white rounded-[24px] overflow-hidden shadow-lg flex items-center justify-center bg-white">
+                    <div className={cn("w-full h-full flex items-center justify-center font-black text-lg", 
+                      staff.role === "ADMIN" ? "bg-[#E0F2FE] text-[#0D2137]" :
+                      staff.role === "KITCHEN" ? "bg-[#FFEDD5] text-[#0D2137]" :
+                      "bg-[#F1F5F9] text-[#0D2137]"
+                    )}>
+                      {staff.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <RoleBadge role={staff.role} />
-                    <span className="text-[10px] font-bold text-gray-300 uppercase">
-                      {staff.id}
-                    </span>
+
+                  {/* Info */}
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="manrope-bold text-lg text-jagamn-primary">
+                        {staff.name}
+                      </h4>
+                      <p className="text-xs text-slate-400 font-medium">
+                        {staff.email}
+                      </p>
+                    </div>
+
+                    {/* Department & Position */}
+                    <div className="space-y-2.5 pt-4 text-xs font-semibold text-slate-500">
+                      <div className="flex items-center gap-2.5">
+                        <Briefcase className="w-4 h-4 text-slate-400" />
+                        <span>{staff.dept}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <UserCircle className="w-4 h-4 text-slate-400" />
+                        <span>{staff.position}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Bottom Action Footer */}
+              <div className="px-6 pb-6 pt-4 flex items-center justify-between border-t border-slate-50">
+                <RoleBadge role={staff.role} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                      <MoreHorizontal className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 rounded-xl shadow-xl border-gray-100"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => handleViewProfile(staff.id)}
+                      className="text-[10px] font-black uppercase tracking-widest gap-2 py-3 px-4"
+                    >
+                      <Eye className="w-4 h-4" /> View Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleEditClick(staff)}
+                      className="text-[10px] font-black uppercase tracking-widest gap-2 py-3 px-4"
+                    >
+                      <Edit2 className="w-4 h-4" /> Edit Details
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
