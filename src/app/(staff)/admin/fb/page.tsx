@@ -91,14 +91,14 @@ const CATEGORIES = [
   "Room Service Only",
 ];
 
-const StatCard = ({ title, value, change, accentColor }: any) => (
+const StatCard = ({ title, value, change, accentColor, changeColor }: any) => (
   <div className={cn("bg-white p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4", accentColor)}>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{title}</p>
     <div className="flex items-baseline gap-2">
       <h3 className="manrope-bold text-4xl text-[#0D2137] tracking-tight">{value}</h3>
     </div>
     {change && (
-      <p className="text-[10px] font-black text-green-500 mt-2 uppercase tracking-widest">{change}</p>
+      <p className={cn("text-xs font-semibold mt-2", changeColor || "text-slate-400")}>{change}</p>
     )}
   </div>
 );
@@ -168,9 +168,27 @@ export default function FBManagementPage() {
 
       {/* ── Quick Stats ──────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <StatCard title="Live Items" value={items.length.toString()} change="+3 since last week" accentColor="border-l-green-500" />
-        <StatCard title="Daily Orders" value="186" change="84% peak capacity" accentColor="border-l-[#E8924A]" />
-        <StatCard title="Avg. Ticket" value="$74.50" change="Main Dining Hall" accentColor="border-l-[#0D2137]" />
+        <StatCard 
+          title="Live Items" 
+          value={items.length.toString()} 
+          change="+3 since last week" 
+          accentColor="border-l-[#0D2137]" 
+          changeColor="text-emerald-600" 
+        />
+        <StatCard 
+          title="Daily Orders" 
+          value="186" 
+          change="84% peak capacity" 
+          accentColor="border-l-[#E8924A]" 
+          changeColor="text-slate-400" 
+        />
+        <StatCard 
+          title="Avg. Ticket" 
+          value="$74.50" 
+          change="Main Dining Hall" 
+          accentColor="border-l-[#5F738C]" 
+          changeColor="text-slate-400" 
+        />
       </div>
 
       {/* ── Toolbar: Categories & Search ─────────────── */}
