@@ -264,8 +264,8 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
           </Button>
           <Button 
             onClick={() => {
-              const headers = ["Attribute", "Value"];
-              const rows = [
+              const profileHeaders = ["Attribute", "Value"];
+              const profileRows = [
                 ["Staff ID", staff.id],
                 ["Name", staff.name],
                 ["Email", staff.email],
@@ -275,7 +275,18 @@ export default function StaffProfilePage({ params }: { params: Promise<{ id: str
                 ["Salary", staff.salary],
                 ["Performance", staff.performance]
               ];
-              const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+              
+              const activityHeaders = ["Timestamp", "Activity / Event", "Details"];
+              const activityRows = [
+                ["TODAY, 09:12 AM", "Clock-in Recorded", "Front Desk Terminal A (Physical Entry)"],
+                ["YESTERDAY", "Keycard Re-authorization", "Updated access for VIP hosting"],
+                ["JUL 18, 2024", "Profile Detail Update", "Base salary adjusted per annual review cycle (Admin: J. Sterling)"]
+              ];
+
+              const profileSection = [profileHeaders.join(","), ...profileRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+              const activitySection = ["", "SYSTEM LOGS & ACTIVITY", activityHeaders.join(","), ...activityRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+              
+              const csvContent = profileSection + "\n" + activitySection;
               const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
