@@ -351,7 +351,7 @@ export default function StaffDirectory() {
                   </div>
 
                   {/* Personal Information */}
-                  <div className="space-y-6">
+                  <div className="space-y-6 border-l-4 border-l-[#0D2137] pl-6">
                     <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
                         <UserCircle className="w-5 h-5" />
@@ -401,7 +401,7 @@ export default function StaffDirectory() {
                   </div>
 
                   {/* Administrative Assignment */}
-                  <div className="space-y-6">
+                  <div className="space-y-6 border-l-4 border-l-[#0D2137] pl-6">
                     <div className="flex items-center justify-center md:justify-start gap-3 text-[#E8924A]">
                       <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] flex items-center justify-center">
                         <Briefcase className="w-5 h-5" />
@@ -562,41 +562,66 @@ export default function StaffDirectory() {
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-tertiary shadow-sm hover:shadow-xl transition-all group">
+        {/* Total Staff Card */}
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-[#0D2137] shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
-              Total Personnel
+              Total Staff
             </p>
-            <Users className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-tertiary transition-colors" />
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-[#0D2137] transition-colors" />
           </div>
-          <h2 className="manrope-bold text-3xl md:text-5xl text-jagamn-primary mb-3">
+          <h2 className="manrope-bold text-3xl md:text-5xl text-[#0D2137] mb-3">
             128
           </h2>
-          <p className="text-[10px] md:text-[11px] text-jagamn-tertiary font-black uppercase tracking-widest">
-            +4 NEW ENROLLMENTS
+          <p className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+            <span className="text-[#E8924A] font-black">+4</span> this month
           </p>
         </div>
-        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-jagamn-primary shadow-sm hover:shadow-xl transition-all group">
+
+        {/* Departmental Split Card */}
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 border-l-4 border-l-[#E8924A] shadow-sm hover:shadow-xl transition-all group">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Departmental Split
             </p>
-            <PieChart className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-jagamn-primary transition-colors" />
+            <PieChart className="w-5 h-5 md:w-6 md:h-6 text-gray-200 group-hover:text-[#E8924A] transition-colors" />
           </div>
-          <div className="flex gap-1.5 h-8 md:h-10 mb-5">
-            <div className="flex-1 bg-jagamn-primary rounded-lg shadow-inner" />
-            <div className="flex-[0.6] bg-jagamn-tertiary shadow-inner" />
-            <div className="flex-[0.3] bg-slate-100 rounded-lg shadow-inner" />
+          {/* Sharp-edged solid segment blocks matching Image 1 */}
+          <div className="flex h-8 md:h-10 mb-5 rounded-md overflow-hidden">
+            <div className="flex-1 bg-[#0D2137]" />
+            <div className="flex-[0.6] bg-[#E8924A] ml-[2px]" />
+            <div className="flex-[0.3] bg-[#D8E2EF] ml-[2px]" />
           </div>
           <p className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-widest">
-            F&B holding 42% share
+            F&B holding majority share (42%)
           </p>
         </div>
-        <div className="bg-jagamn-primary p-6 md:p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
-            Monthly Payroll Forecast
-          </p>
-          <h2 className="manrope-bold text-3xl md:text-5xl mb-6">$242,500</h2>
+
+        {/* Monthly Payroll Forecast Card */}
+        <div className="bg-[#0D2137] p-6 md:p-8 rounded-2xl text-white shadow-2xl relative overflow-hidden group hover:scale-[1.01] transition-transform flex flex-col justify-between">
+          <div>
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
+              Monthly Payroll Forecast
+            </p>
+            <h2 className="manrope-bold text-3xl md:text-5xl">$242,500</h2>
+          </div>
+          {/* Face avatars list + Next payroll run label */}
+          <div className="flex items-center gap-3 mt-4">
+            <div className="flex -space-x-2.5 overflow-hidden">
+              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-slate-400 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
+                JD
+              </div>
+              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-amber-400 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
+                RK
+              </div>
+              <div className="w-8 h-8 rounded-full border-2 border-[#0D2137] bg-slate-500 overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-bold text-white">
+                EM
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold text-slate-300">
+              Next payroll run: Oct 28th
+            </span>
+          </div>
           <div className="absolute bottom-[-20%] right-[-10%] w-40 h-40 bg-white/5 rounded-full blur-2xl" />
         </div>
       </div>
