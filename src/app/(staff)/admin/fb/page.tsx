@@ -18,6 +18,7 @@ import {
   X,
   Info,
   Camera,
+  Edit2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -50,16 +50,19 @@ const MENU_ITEMS = [
     description: "Hand-picked seasonal greens, goat cheese croquette, walnut...",
     image: "/images/food1.png",
     status: "Available",
+    ingredients: ["GOAT CHEESE", "WALNUTS", "SEASONAL GREENS"],
+    dietary: { glutenFree: true, containsNuts: true, dairyFree: false, vegan: false }
   },
   {
     id: "M-002",
     name: "Palace Reserve Ribeye",
-    category: "Grill",
+    category: "Main Course",
     price: 85.0,
     description: "45-day dry-aged wagyu, smoked bone marrow butter...",
     image: "/images/food2.png",
     status: "Available",
-    subCategory: "Grill",
+    ingredients: ["WAGYU BEEF", "SEA SALT", "BUTTER"],
+    dietary: { glutenFree: true, containsNuts: false, dairyFree: false, vegan: false }
   },
   {
     id: "M-003",
@@ -69,6 +72,8 @@ const MENU_ITEMS = [
     description: "Crisp shortcrust, vanilla bean custard, macerated seasonal...",
     image: "/images/food3.png",
     status: "Out of Stock",
+    ingredients: ["GOLDEN BERRIES", "VANILLA BEAN", "BUTTER"],
+    dietary: { glutenFree: false, containsNuts: false, dairyFree: false, vegan: false }
   },
   {
     id: "M-004",
@@ -78,7 +83,8 @@ const MENU_ITEMS = [
     description: "Private barrel selection bourbon, clarified cherry wood...",
     image: "/images/food4.png",
     status: "Available",
-    subCategory: "Beverage",
+    ingredients: ["CHAMPAGNE", "Clarified Cherry Wood"],
+    dietary: { glutenFree: true, containsNuts: false, dairyFree: true, vegan: true }
   },
 ];
 
@@ -108,6 +114,10 @@ export default function FBManagementPage() {
   const [items, setItems] = useState(MENU_ITEMS);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Dialog & Edit states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+
   // Global Search Integration
   useEffect(() => {
     const handleGlobalSearch = (e: any) => {
@@ -129,6 +139,24 @@ export default function FBManagementPage() {
     setItems(items.filter(item => item.id !== id));
   };
 
+  const handleEditClick = (item: any) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveMenuItem = (savedItem: any) => {
+    if (editingItem) {
+      // Update
+      setItems(prev => prev.map(x => x.id === savedItem.id ? { ...x, ...savedItem } : x));
+    } else {
+      // Create
+      const newId = `M-${String(items.length + 1).padStart(3, '0')}`;
+      setItems(prev => [...prev, { ...savedItem, id: newId }]);
+    }
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const q = searchQuery.toLowerCase();
@@ -136,7 +164,6 @@ export default function FBManagementPage() {
         item.name.toLowerCase().includes(q) ||
         item.id.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
-        (item.subCategory && item.subCategory.toLowerCase().includes(q)) ||
         item.status.toLowerCase().includes(q);
 
       const matchesCategory = activeCategory === "All Items" || item.category === activeCategory;
@@ -156,13 +183,18 @@ export default function FBManagementPage() {
             Refine the culinary offerings of the Palace. Curate seasonal specialties and manage real-time availability.
           </p>
         </div>
-        <Dialog>
+        <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) setEditingItem(null); }}>
           <DialogTrigger asChild>
-            <Button className="h-16 px-10 bg-[#E8924A] hover:bg-[#E8924A]/90 text-white manrope-bold rounded-2xl flex items-center gap-3 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02]">
+            <Button onClick={() => setEditingItem(null)} className="h-16 px-10 bg-[#E8924A] hover:bg-[#E8924A]/90 text-white manrope-bold rounded-2xl flex items-center gap-3 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02]">
               <Plus className="w-5 h-5" /> Add Menu Item
             </Button>
           </DialogTrigger>
-          <AddMenuModal />
+          <MenuModal 
+            open={isModalOpen} 
+            item={editingItem} 
+            onSave={handleSaveMenuItem}
+            onDiscard={() => { setIsModalOpen(false); setEditingItem(null); }}
+          />
         </Dialog>
       </div>
 
@@ -242,7 +274,7 @@ export default function FBManagementPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400 rounded-lg px-3 py-1">
-                    {item.subCategory || item.category}
+                    {item.category}
                   </Badge>
                   <span className="manrope-bold text-2xl text-[#0D2137]">${item.price.toFixed(2)}</span>
                 </div>
@@ -256,7 +288,8 @@ export default function FBManagementPage() {
                 <Button onClick={() => toggleStatus(item.id)} variant="outline" className={cn("flex-1 h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border-gray-100", item.status === "Available" ? "text-slate-400 hover:bg-gray-50 hover:text-[#0D2137]" : "bg-[#4B5E71] text-white border-0 hover:bg-[#3A4A5A] shadow-lg")}>
                   {item.status === "Available" ? <><EyeOff className="w-4 h-4" /> Mark Unavailable</> : <><Eye className="w-4 h-4" /> Restore Item</>}
                 </Button>
-                <Button onClick={() => deleteItem(item.id)} variant="outline" className="w-14 h-14 rounded-2xl border-gray-100 text-red-400 hover:bg-red-50 hover:border-red-100 hover:text-red-500 p-0 shrink-0"><Trash2 className="w-5 h-5" /></Button>
+                <Button onClick={() => handleEditClick(item)} variant="outline" className="w-14 h-14 rounded-2xl border-gray-100 text-amber-500 hover:bg-amber-50 hover:border-amber-100 hover:text-amber-600 p-0 shrink-0 flex items-center justify-center"><Edit2 className="w-5 h-5" /></Button>
+                <Button onClick={() => deleteItem(item.id)} variant="outline" className="w-14 h-14 rounded-2xl border-gray-100 text-red-400 hover:bg-red-50 hover:border-red-100 hover:text-red-500 p-0 shrink-0 flex items-center justify-center"><Trash2 className="w-5 h-5" /></Button>
               </div>
             </div>
           </div>
@@ -284,10 +317,38 @@ export default function FBManagementPage() {
   );
 }
 
-function AddMenuModal() {
+// ── INVENTORY KITCHEN SUGGESTIONS ───────────────────
+const INVENTORY_SUGGESTIONS = [
+  "WAGYU BEEF",
+  "ATLANTIC SALMON",
+  "TRUFFLE OIL",
+  "FOIE GRAS",
+  "CHAMPAGNE",
+  "VALRHONA CHOCOLATE",
+  "SAFFRON",
+  "CAVIAR",
+  "SEA SALT",
+  "BEEF PRIME CUT",
+  "AVOCADO",
+  "GOAT CHEESE",
+  "WALNUTS",
+  "GOLDEN BERRIES",
+  "VANILLA BEAN",
+  "Clarified Cherry Wood",
+  "GINGER",
+  "BLACK PEPPER",
+  "OLIVE OIL",
+  "BUTTER"
+];
+
+function MenuModal({ open, item, onSave, onDiscard }: any) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("main");
+  const [description, setDescription] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [ingredients, setIngredients] = useState(["BEEF PRIME CUT", "SEA SALT"]);
+  const [ingredients, setIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState("");
   const [dietary, setDietary] = useState({
     glutenFree: false,
@@ -295,6 +356,50 @@ function AddMenuModal() {
     dairyFree: false,
     vegan: false,
   });
+
+  // Populate data when editing
+  useEffect(() => {
+    if (item) {
+      setName(item.name || "");
+      setPrice(item.price ? String(item.price) : "");
+      setCategory(item.category === "Breakfast" ? "breakfast" : 
+                  item.category === "Wine & Spirits" ? "wine" : 
+                  item.category === "Desserts" ? "desserts" : 
+                  item.category === "Room Service Only" ? "room" : "main");
+      setDescription(item.description || "");
+      setPreviewUrl(item.image || null);
+      setIngredients(item.ingredients || ["BEEF PRIME CUT", "SEA SALT"]);
+      setDietary(item.dietary || {
+        glutenFree: false,
+        containsNuts: false,
+        dairyFree: false,
+        vegan: false,
+      });
+    } else {
+      setName("");
+      setPrice("");
+      setCategory("main");
+      setDescription("");
+      setPreviewUrl(null);
+      setIngredients(["BEEF PRIME CUT", "SEA SALT"]);
+      setDietary({
+        glutenFree: false,
+        containsNuts: false,
+        dairyFree: false,
+        vegan: false,
+      });
+    }
+    setIngredientInput("");
+  }, [item, open]);
+
+  // Dynamic Suggestion Search list
+  const filteredSuggestions = useMemo(() => {
+    if (!ingredientInput.trim()) return [];
+    const query = ingredientInput.toUpperCase();
+    return INVENTORY_SUGGESTIONS.filter(item => 
+      item.toUpperCase().includes(query) && !ingredients.includes(item.toUpperCase())
+    );
+  }, [ingredientInput, ingredients]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -310,14 +415,41 @@ function AddMenuModal() {
   };
 
   const addIngredient = () => {
-    if (ingredientInput.trim() && !ingredients.includes(ingredientInput.trim().toUpperCase())) {
-      setIngredients([...ingredients, ingredientInput.trim().toUpperCase()]);
+    const cleaned = ingredientInput.trim().toUpperCase();
+    if (cleaned && !ingredients.includes(cleaned)) {
+      setIngredients([...ingredients, cleaned]);
       setIngredientInput("");
     }
   };
 
   const removeIngredient = (tag: string) => {
     setIngredients(ingredients.filter((t) => t !== tag));
+  };
+
+  const handleFormSave = () => {
+    if (!name.trim()) {
+      alert("Please enter a menu item name.");
+      return;
+    }
+    const catMap: Record<string, string> = {
+      breakfast: "Breakfast",
+      main: "Main Course",
+      wine: "Wine & Spirits",
+      desserts: "Desserts",
+      room: "Room Service Only"
+    };
+
+    onSave({
+      id: item?.id || "",
+      name,
+      price: parseFloat(price) || 0,
+      category: catMap[category] || "Main Course",
+      description,
+      image: previewUrl,
+      ingredients,
+      dietary,
+      status: item?.status || "Available"
+    });
   };
 
   return (
@@ -328,7 +460,7 @@ function AddMenuModal() {
             Culinary Administration
           </p>
           <DialogTitle className="manrope-bold text-4xl text-[#0D2137] tracking-tight">
-            Add New Menu Item
+            {item ? `Edit Menu Item: ${item.id}` : "Add New Menu Item"}
           </DialogTitle>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -370,6 +502,7 @@ function AddMenuModal() {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={removeImage}
                       className="absolute top-4 right-4 bg-white/90 hover:bg-white p-2 rounded-xl shadow-lg z-20 text-red-500 transition-all hover:scale-110"
                     >
@@ -388,7 +521,7 @@ function AddMenuModal() {
                   </>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-medium leading-relaxed leading-normal">
+              <p className="text-[10px] text-slate-400 font-medium leading-normal">
                 High-resolution PNG or JPG recommended. Minimum 1080x1080px for premium digital menu display.
               </p>
             </div>
@@ -404,6 +537,8 @@ function AddMenuModal() {
                   placeholder="0.00"
                   type="number"
                   step="0.01"
+                  value={price}
+                  onChange={e => setPrice(e.target.value)}
                   className="h-20 bg-[#F1F5F9] border-0 rounded-2xl pl-12 text-3xl manrope-bold text-[#0D2137] placeholder:text-slate-300 focus-visible:ring-0"
                 />
               </div>
@@ -419,6 +554,8 @@ function AddMenuModal() {
                 </label>
                 <Input
                   placeholder="e.g. Wagyu Beef Tartare"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
                   className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm font-semibold text-[#0D2137] placeholder:text-slate-300 focus-visible:ring-0"
                 />
               </div>
@@ -426,7 +563,7 @@ function AddMenuModal() {
                 <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
                   Category
                 </label>
-                <Select>
+                <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="h-16 bg-[#F1F5F9] border-0 rounded-2xl px-6 text-sm font-semibold text-[#0D2137] placeholder:text-slate-300 focus:ring-0">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
@@ -446,6 +583,8 @@ function AddMenuModal() {
               </label>
               <textarea
                 placeholder="Craft a compelling story for this dish..."
+                value={description}
+                onChange={e => setDescription(e.target.value)}
                 className="w-full h-40 bg-[#F1F5F9] border-0 rounded-2xl p-6 text-sm font-semibold text-[#0D2137] resize-none outline-none focus:ring-0 focus:ring-offset-0 placeholder:text-slate-300"
               />
             </div>
@@ -453,7 +592,7 @@ function AddMenuModal() {
             {/* Bottom side-by-side section: Ingredients vs Dietary */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Inventory Integration */}
-              <div className="space-y-4">
+              <div className="space-y-4 relative">
                 <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
                   Inventory Integration (Ingredients)
                 </label>
@@ -472,6 +611,27 @@ function AddMenuModal() {
                     className="h-14 bg-[#F1F5F9] border-0 rounded-2xl pl-12 text-sm font-semibold text-[#0D2137] placeholder:text-slate-400 focus-visible:ring-0"
                   />
                 </div>
+
+                {/* Suggestions Dropdown */}
+                {filteredSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[85px] bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-300 max-h-48 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                    {filteredSuggestions.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setIngredients([...ingredients, item.toUpperCase()]);
+                          setIngredientInput("");
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-xs font-semibold text-[#0D2137] flex items-center justify-between transition-colors group"
+                      >
+                        <span>{item}</span>
+                        <span className="text-[9px] font-black text-[#E8924A] opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">+ Add</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   {ingredients.map((tag) => (
                     <Badge
@@ -480,13 +640,21 @@ function AddMenuModal() {
                       className="bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[#0369A1] font-black text-[9px] uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 border-0 animate-in fade-in"
                     >
                       {tag}
-                      <X
-                        className="w-3.5 h-3.5 cursor-pointer text-[#0369A1]/60 hover:text-[#0369A1] transition-colors"
-                        onClick={() => removeIngredient(tag)}
-                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          removeIngredient(tag);
+                        }}
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-sky-200 text-[#0369A1]/60 hover:text-[#0369A1] transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </Badge>
                   ))}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       addIngredient();
@@ -575,10 +743,10 @@ function AddMenuModal() {
         </div>
       </div>
       <div className="p-8 md:p-12 border-t border-gray-100 bg-[#F8FAFC] flex items-center justify-end gap-6">
-        <button className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors">
+        <button type="button" onClick={onDiscard} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors">
           DISCARD DRAFT
         </button>
-        <Button className="h-[56px] px-10 bg-[#E8924A] hover:bg-[#D4813B] text-white manrope-bold rounded-xl shadow-xl shadow-orange-500/5 transition-all hover:scale-[1.02]">
+        <Button onClick={handleFormSave} className="h-[56px] px-10 bg-[#E8924A] hover:bg-[#D4813B] text-white manrope-bold rounded-xl shadow-xl shadow-orange-500/5 transition-all hover:scale-[1.02]">
           SAVE TO MENU
         </Button>
       </div>
