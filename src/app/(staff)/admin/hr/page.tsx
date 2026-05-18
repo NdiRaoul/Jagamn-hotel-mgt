@@ -293,6 +293,33 @@ function LeaveManagementView({
   const [isAvailabilityExpanded, setIsAvailabilityExpanded] = useState(false);
   const [manualFromDate, setManualFromDate] = useState("");
   const [manualToDate, setManualToDate] = useState("");
+  const handleExport = () => {
+    if (!requests || requests.length === 0) return;
+    const headers = ["ID", "Staff Name", "Department", "Role", "Category", "From Date", "To Date", "Status", "Duration"];
+    const rows = requests.map((req: any) => [
+      req.id,
+      req.staff?.name || "",
+      req.staff?.dept || "",
+      req.staff?.role || "",
+      req.category || "",
+      req.from || "",
+      req.to || "",
+      req.status || "",
+      req.duration || ""
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `palace_leave_requests_export_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-10">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -301,6 +328,7 @@ function LeaveManagementView({
         </h1>
         <div className="flex items-center gap-3">
           <Button
+            onClick={handleExport}
             variant="ghost"
             className="h-12 px-6 rounded-xl border border-gray-100 bg-white text-xs font-bold text-slate-400 shadow-sm flex items-center gap-2"
           >
