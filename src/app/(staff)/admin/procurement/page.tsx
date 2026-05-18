@@ -128,7 +128,7 @@ export default function ProcurementPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
+      <div className="mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
         
         {/* ── Page Header ────────────────────────────── */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
