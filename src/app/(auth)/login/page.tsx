@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,7 +21,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(
+    searchParams.get("tab") === "signup" ? "signup" : "signin",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -42,11 +44,6 @@ function LoginContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const supabase = createSupabaseBrowserClient();
-
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "signup") setActiveTab("signup");
-  }, [searchParams]);
 
   const redirectTo = searchParams.get("redirect") || "/dashboard";
 
@@ -106,20 +103,13 @@ function LoginContent() {
       return;
     }
 
-    // Insert guest_profile row
-    if (data.user) {
-      await supabase.from("guest_profiles").upsert(
-        {
-          id: data.user.id,
-          full_name: fullName,
-          email: signUpEmail,
-        },
-        { onConflict: "id", ignoreDuplicates: true },
-      );
-    }
-
-    // If session is immediately available (email confirmation disabled), redirect
+    // If session is immediately available (email confirmation disabled), create profile and redirect
     if (data.session) {
+      await fetch("/api/auth/create-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email: signUpEmail }),
+      });
       router.push(redirectTo);
       router.refresh();
       return;
@@ -149,6 +139,7 @@ function LoginContent() {
           src="/images/login-image.png"
           alt="Jagamn Palace Lobby"
           fill
+          sizes="45vw"
           className="object-cover"
           priority
         />

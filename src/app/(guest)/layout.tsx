@@ -26,25 +26,43 @@ export default function GuestLayout({
         </div>
 
         <nav className="hidden md:flex gap-8 text-sm font-medium">
-          <Link href="/rooms" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="/rooms"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             Rooms & Suites
           </Link>
-          <Link href="#dining" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="#dining"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             Fine Dining
           </Link>
-          <Link href="#spa" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="#spa"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             The Spa
           </Link>
-          <Link href="#offers" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="#offers"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             Offers
           </Link>
         </nav>
 
         <div className="hidden lg:flex items-center gap-6 text-sm font-medium">
-          <Link href="/login" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="/login"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             Sign In
           </Link>
-          <Link href="/login?tab=signup" className="hover:text-jagamn-tertiary transition-colors">
+          <Link
+            href="/login?tab=signup"
+            className="hover:text-jagamn-tertiary transition-colors"
+          >
             Register
           </Link>
           <Link href="/rooms">
@@ -58,7 +76,11 @@ export default function GuestLayout({
         <div className="lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-white/10">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-white hover:bg-white/10"
+              >
                 <Menu />
               </Button>
             </DropdownMenuTrigger>
@@ -94,39 +116,110 @@ export default function GuestLayout({
         <div className="max-w-7xl mx-auto px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1">
-              <h3 className="font-bold text-xl mb-4 uppercase tracking-[0.2em]">Jagamn Palace</h3>
+              <h3 className="font-bold text-xl mb-4 uppercase tracking-[0.2em]">
+                Jagamn Palace
+              </h3>
               <p className="text-sm text-white/60 leading-relaxed font-manrope">
-                Where heritage architecture meets contemporary luxury. Experience the hospitality of kings.
+                Where heritage architecture meets contemporary luxury.
+                Experience the hospitality of kings.
               </p>
               <div className="w-fit flex items-center gap-5 mt-5">
-                <span className="border border-white/20 rounded-xl p-2"><EarthIcon /></span>
-                <span className="border border-white/20 rounded-xl p-2"><Share2 /></span>
+                <span className="border border-white/20 rounded-xl p-2">
+                  <EarthIcon />
+                </span>
+                <span className="border border-white/20 rounded-xl p-2">
+                  <Share2 />
+                </span>
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">Explore</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">
+                Explore
+              </h4>
               <ul className="space-y-3 text-sm text-white/80 font-manrope">
-                <li><Link href="/rooms" className="hover:text-jagamn-tertiary transition-colors">Rooms & Suites</Link></li>
-                <li><Link href="#dining" className="hover:text-jagamn-tertiary transition-colors">Dining Experiences</Link></li>
-                <li><Link href="#spa" className="hover:text-jagamn-tertiary transition-colors">Wellness & Spa</Link></li>
-                <li><Link href="#tours" className="hover:text-jagamn-tertiary transition-colors">Palace Tours</Link></li>
+                <li>
+                  <Link
+                    href="/rooms"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Rooms & Suites
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#dining"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Dining Experiences
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#spa"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Wellness & Spa
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#tours"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Palace Tours
+                  </Link>
+                </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">Concierge</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">
+                Concierge
+              </h4>
               <ul className="space-y-3 text-sm text-white/80 font-manrope">
-                <li><Link href="/rooms" className="hover:text-jagamn-tertiary transition-colors">Make a Booking</Link></li>
-                <li><Link href="#events" className="hover:text-jagamn-tertiary transition-colors">Group Events</Link></li>
-                <li><Link href="#weddings" className="hover:text-jagamn-tertiary transition-colors">Weddings</Link></li>
-                <li><Link href="#contact" className="hover:text-jagamn-tertiary transition-colors">Contact Us</Link></li>
+                <li>
+                  <Link
+                    href="/rooms"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Make a Booking
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#events"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Group Events
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#weddings"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Weddings
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#contact"
+                    className="hover:text-jagamn-tertiary transition-colors"
+                  >
+                    Contact Us
+                  </Link>
+                </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">Newsletter</h4>
-              <p className="text-sm text-white/60 mb-4 font-manrope">Join our elite circle for exclusive palace offers.</p>
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-6 text-white/50">
+                Newsletter
+              </h4>
+              <p className="text-sm text-white/60 mb-4 font-manrope">
+                Join our elite circle for exclusive palace offers.
+              </p>
               <div className="flex">
                 <input
                   type="email"
@@ -141,10 +234,28 @@ export default function GuestLayout({
           </div>
 
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/40 font-manrope">
-            <p>&copy; 2026 JAGAMN PALACE HOTELS & RESORTS. ALL RIGHTS RESERVED.</p>
+            <p>
+              &copy; 2026 JAGAMN PALACE HOTELS & RESORTS. ALL RIGHTS RESERVED.
+            </p>
             <div className="flex gap-6">
-              <Link href="#privacy" className="hover:text-white transition-colors">PRIVACY POLICY</Link>
-              <Link href="#terms" className="hover:text-white transition-colors">TERMS OF SERVICE</Link>
+              <Link
+                href="#privacy"
+                className="hover:text-white transition-colors"
+              >
+                PRIVACY POLICY
+              </Link>
+              <Link
+                href="#terms"
+                className="hover:text-white transition-colors"
+              >
+                TERMS OF SERVICE
+              </Link>
+              <Link
+                href="/staff-login"
+                className="hover:text-white transition-colors"
+              >
+                STAFF LOGIN
+              </Link>
             </div>
           </div>
         </div>
