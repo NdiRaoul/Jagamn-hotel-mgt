@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { format, differenceInDays, startOfDay } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import {
   User,
   CreditCard,
@@ -60,21 +60,11 @@ function BookingContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Fapshi polling state
   const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
   const [fapshiPolling, setFapshiPolling] = useState(false);
   const [fapshiPhone, setFapshiPhone] = useState("");
-  const [fapshiBookingRef, setFapshiBookingRef] = useState<string | null>(null);
-  // "mtn" | "orange" — tracks which wallet was chosen for the USSD fallback
-  const [fapshiMediumLabel, setFapshiMediumLabel] = useState<"mtn" | "orange">(
-    "mtn",
-  );
-
-  // Resort fee — seeded from room static data (0 by default), then refreshed
-  // from the API so the server-authoritative value is always used.
-  const [resortFee, setResortFee] = useState<number>(room?.resortFee ?? 0);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -85,29 +75,16 @@ function BookingContent() {
     idNumber: "",
     specialRequests: "",
     mobileMoneyPhone: "",
-    mobileMoneyMedium: "mtn mobile money",
+    mobileMoneyMedium: "mobile money",
     password: "",
     confirmPassword: "",
   });
 
-  // Password validation state
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<
-    string | null
-  >(null);
-  // Phone validation for mobile money
-  const [mobilePhoneError, setMobilePhoneError] = useState<string | null>(null);
-
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const roomTotal = room ? room.price * nights : 0;
+  const resortFee = 150;
   const tax = Math.round(roomTotal * 0.12);
   const totalPrice = roomTotal + resortFee + tax;
-
-  // Past date error — computed, not state
-  const pastDateError =
-    checkIn && startOfDay(checkIn) < startOfDay(new Date())
-      ? "Your check-in date has passed. Please select new dates."
-      : null;
 
   // Pre-fill from session
   useEffect(() => {
@@ -116,11 +93,10 @@ function BookingContent() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        setIsLoggedIn(true);
         const { data: profile } = await supabase
-          .from("users")
+          .from("guest_profiles")
           .select("*")
-          .eq("auth_user_id", user.id)
+          .eq("id", user.id)
           .single();
         setFormData((prev) => ({
           ...prev,
@@ -134,26 +110,7 @@ function BookingContent() {
       }
     }
     prefill();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Fetch authoritative resort fee from the API (server-side value wins)
-  useEffect(() => {
-    if (!roomSlug) return;
-    fetch(`/api/rooms`)
-      .then((r) => r.json())
-      .then((data) => {
-        const match = (
-          data.rooms as Array<{ slug: string; resort_fee?: number }>
-        )?.find((rt) => rt.slug === roomSlug);
-        if (match && typeof match.resort_fee === "number") {
-          setResortFee(match.resort_fee);
-        }
-      })
-      .catch(() => {
-        // Keep the static default on error
-      });
-  }, [roomSlug]);
 
   // Fapshi polling
   useEffect(() => {
@@ -171,10 +128,9 @@ function BookingContent() {
       }
 
       try {
-        const query = new URLSearchParams({ transId: fapshiTransId });
-        if (fapshiBookingRef) query.set("bookingRef", fapshiBookingRef);
-
-        const res = await fetch(`/api/payments/fapshi?${query.toString()}`);
+        const res = await fetch(
+          `/api/payments/fapshi?transId=${fapshiTransId}`,
+        );
         const data = await res.json();
 
         if (data.status === "SUCCESSFUL") {
@@ -182,10 +138,8 @@ function BookingContent() {
           setFapshiPolling(false);
           // Update booking payment status
           await fetch(`/api/bookings`, { method: "GET" }); // trigger refresh
-          const bookingRefForRedirect =
-            fapshiBookingRef || data.externalId || "";
           router.push(
-            `/booking/confirmed?ref=${bookingRefForRedirect}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
+            `/booking/confirmed?ref=${data.externalId || ""}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
           );
         } else if (data.status === "FAILED" || data.status === "EXPIRED") {
           clearInterval(interval);
@@ -198,16 +152,7 @@ function BookingContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [
-    fapshiTransId,
-    fapshiPolling,
-    fapshiBookingRef,
-    router,
-    roomSlug,
-    checkInStr,
-    checkOutStr,
-    guestsStr,
-  ]);
+  }, [fapshiTransId, fapshiPolling]);
 
   if (!room || !checkIn || !checkOut) {
     return (
@@ -246,75 +191,15 @@ function BookingContent() {
         check_out: checkOutStr,
         nights,
         guests: guestCount,
+        room_price_per_night: room!.price,
+        resort_fee: resortFee,
+        tax_amount: tax,
+        total_amount: totalPrice,
         payment_method: paymentMethodStr,
         special_requests: formData.specialRequests || null,
       }),
     });
     return res.json();
-  }
-
-  // ── Password strength ─────────────────────────────────────────────────────
-  function getPasswordStrength(pw: string): {
-    level: "weak" | "fair" | "strong";
-    label: string;
-    color: string;
-    width: string;
-  } {
-    if (pw.length < 4)
-      return {
-        level: "weak",
-        label: "Too short",
-        color: "bg-red-500",
-        width: "w-1/4",
-      };
-    if (pw.length < 8) {
-      return {
-        level: "weak",
-        label: "Weak",
-        color: "bg-red-500",
-        width: "w-1/3",
-      };
-    }
-    const hasLower = /[a-z]/.test(pw);
-    const hasUpper = /[A-Z]/.test(pw);
-    const hasDigit = /\d/.test(pw);
-    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
-    const typeCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(
-      Boolean,
-    ).length;
-    if (pw.length >= 10 && typeCount >= 3) {
-      return {
-        level: "strong",
-        label: "Strong",
-        color: "bg-green-500",
-        width: "w-full",
-      };
-    }
-    return {
-      level: "fair",
-      label: "Fair",
-      color: "bg-amber-500",
-      width: "w-2/3",
-    };
-  }
-
-  // ── Cameroonian mobile number validation ──────────────────────────────────
-  // Valid: 9 digits starting with 65x, 67x, 68x (MTN) or 65x, 69x (Orange)
-  const CM_MOBILE_REGEX = /^6(?:5|7|8|9)\d{7}$/;
-
-  function validateCmPhone(raw: string): string | null {
-    // Strip +237 prefix if present
-    const local = raw.replace(/^\+237/, "").replace(/\s/g, "");
-    if (!CM_MOBILE_REGEX.test(local)) {
-      return "Enter a valid Cameroonian number (e.g. 676982949 or 699123456)";
-    }
-    return null;
-  }
-
-  // Fapshi requires a bare 9-digit local number — NO country code, NO +237, NO spaces.
-  // e.g. "676982949", NOT "+237676982949"
-  function normalizeCmPhone(raw: string): string {
-    return raw.replace(/^\+237/, "").replace(/\s/g, "");
   }
 
   async function handleCreateAccount(bookingId: string) {
@@ -330,15 +215,18 @@ function BookingContent() {
         options: { data: { full_name: formData.fullName } },
       });
       if (!error && data.user) {
-        // Call the server route to create/upgrade the users row
-        await fetch("/api/auth/create-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullName: formData.fullName,
+        await supabase.from("guest_profiles").upsert(
+          {
+            id: data.user.id,
+            full_name: formData.fullName,
             email: formData.email,
-          }),
-        });
+            phone: formData.phone,
+            country: formData.country,
+            id_type: formData.idType,
+            id_number: formData.idNumber,
+          },
+          { onConflict: "id", ignoreDuplicates: true },
+        );
         // Link booking to new user
         await fetch("/api/bookings/link", {
           method: "POST",
@@ -357,27 +245,6 @@ function BookingContent() {
       setPaymentError("Please accept the terms and conditions.");
       return;
     }
-
-    // Block if past date
-    if (pastDateError) {
-      setPaymentError("Please select valid check-in dates before proceeding.");
-      return;
-    }
-
-    // Validate account creation password
-    if (createAccount) {
-      if (!formData.password || formData.password.length < 4) {
-        setPasswordError("Password must be at least 4 characters.");
-        setPaymentError("Please fix the password errors before continuing.");
-        return;
-      }
-      if (formData.password !== formData.confirmPassword) {
-        setConfirmPasswordError("Passwords do not match.");
-        setPaymentError("Please fix the password errors before continuing.");
-        return;
-      }
-    }
-
     setPaymentError(null);
     setIsProcessing(true);
 
@@ -397,12 +264,13 @@ function BookingContent() {
           return;
         }
 
-        // Create PaymentIntent — amount is loaded server-side from the booking
+        // Create PaymentIntent
         const piRes = await fetch("/api/payments/stripe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             bookingRef: bookingData.bookingRef,
+            totalAmount: totalPrice,
             currency: "usd",
           }),
         });
@@ -451,38 +319,22 @@ function BookingContent() {
           return;
         }
 
-        // Validate Cameroonian number
-        const phoneErr = validateCmPhone(phone);
-        if (phoneErr) {
-          setPaymentError(phoneErr);
-          setIsProcessing(false);
-          return;
-        }
-
-        // Strip +237 prefix — Fapshi expects a bare 9-digit local number
-        const normalizedPhone = normalizeCmPhone(phone);
-
-        // Fapshi requires exact lowercase values: "mobile money" (MTN) or "orange money" (Orange)
-        const fapshiMedium =
-          formData.mobileMoneyMedium === "mtn mobile money"
-            ? "mobile money"
-            : "orange money";
-
         // Create booking
-        const bookingData = await createBooking(fapshiMedium);
+        const bookingData = await createBooking(formData.mobileMoneyMedium);
         if (bookingData.error) {
           setPaymentError(bookingData.error);
           setIsProcessing(false);
           return;
         }
 
-        // Initiate Fapshi payment — amount is loaded server-side from the booking
+        // Initiate Fapshi payment
         const fapshiRes = await fetch("/api/payments/fapshi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            phone: normalizedPhone,
-            medium: fapshiMedium,
+            amount: totalPrice,
+            phone,
+            medium: formData.mobileMoneyMedium,
             bookingRef: bookingData.bookingRef,
             email: formData.email,
             name: formData.fullName,
@@ -501,11 +353,7 @@ function BookingContent() {
         }
 
         setFapshiTransId(fapshiData.transId);
-        setFapshiBookingRef(bookingData.bookingRef);
-        setFapshiPhone(normalizedPhone);
-        setFapshiMediumLabel(
-          fapshiMedium === "orange money" ? "orange" : "mtn",
-        );
+        setFapshiPhone(phone);
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
         setIsProcessing(false);
@@ -522,20 +370,14 @@ function BookingContent() {
           `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
         );
       }
-    } catch (err: unknown) {
-      setPaymentError(
-        err instanceof Error ? err.message : "An unexpected error occurred.",
-      );
+    } catch (err: any) {
+      setPaymentError(err.message || "An unexpected error occurred.");
       setIsProcessing(false);
     }
   };
 
   // Fapshi waiting overlay
   if (fapshiPolling) {
-    const ussdCode = fapshiMediumLabel === "orange" ? "#150*50#" : "*126#";
-    const networkName =
-      fapshiMediumLabel === "orange" ? "Orange Money" : "MTN Mobile Money";
-
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
         <div className="text-center space-y-6 max-w-sm mx-auto px-4">
@@ -543,38 +385,15 @@ function BookingContent() {
             <Phone className="w-10 h-10 text-jagamn-tertiary animate-pulse" />
           </div>
           <h2 className="manrope-bold text-2xl text-jagamn-primary">
-            Confirm Payment on Your Phone
+            Check Your Phone
           </h2>
-          <p className="text-sm text-gray-600">
-            A secure {networkName} payment request has been sent to{" "}
-            <strong>+237{fapshiPhone}</strong>. Open the prompt on your phone
-            and enter your Mobile Money PIN to approve the payment.
+          <p className="text-sm text-gray-500">
+            Waiting for your approval on <strong>{fapshiPhone}</strong>. Please
+            approve the payment prompt on your phone.
           </p>
-
-          {/* USSD fallback */}
-          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-left text-sm text-amber-800">
-            <p className="font-semibold mb-1">Didn&apos;t get a prompt?</p>
-            <p>
-              Dial <strong>{ussdCode}</strong> on your phone, follow the menu,
-              and enter your secret PIN to complete the payment manually.
-            </p>
-          </div>
-
-          {/* Security note */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-800 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p>
-              You enter your PIN <strong>only on your own phone</strong> — never
-              on this website. Jagamn Palace will never ask for your PIN here.
-            </p>
-          </div>
-
           <div className="flex justify-center">
             <div className="w-8 h-8 border-4 border-jagamn-tertiary border-t-transparent rounded-full animate-spin" />
           </div>
-          <p className="text-xs text-gray-400">
-            Waiting for payment confirmation…
-          </p>
           <button
             onClick={() => {
               setFapshiPolling(false);
@@ -592,23 +411,8 @@ function BookingContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 flex flex-col lg:flex-row gap-12 mt-20">
-      {/* ── Past date error banner ── */}
-      {pastDateError && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-lg">
-          <p className="text-sm font-semibold">{pastDateError}</p>
-          <Link
-            href={roomSlug ? `/rooms/${roomSlug}` : "/rooms"}
-            className="ml-4 bg-white text-red-600 text-xs font-bold px-4 py-2 rounded-md hover:bg-red-50 transition-colors flex-shrink-0"
-          >
-            Choose New Dates
-          </Link>
-        </div>
-      )}
-
       {/* ── Left Column: Forms ── */}
-      <div
-        className={`flex-1 space-y-12 ${pastDateError ? "pointer-events-none opacity-50 mt-16" : ""}`}
-      >
+      <div className="flex-1 space-y-12">
         {/* Step 1: Guest Details */}
         <section>
           <div className="flex items-center gap-4 mb-8">
@@ -621,26 +425,10 @@ function BookingContent() {
           </div>
 
           <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-6">
-            {/* Logged-in notice */}
-            {isLoggedIn && (
-              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
-                <p className="text-xs font-semibold text-emerald-700">
-                  Your profile details have been pre-filled. Fields marked with
-                  a lock are from your account.
-                </p>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
                   Full Name *
-                  {isLoggedIn && formData.fullName && (
-                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
-                      From profile
-                    </span>
-                  )}
                 </Label>
                 <Input
                   value={formData.fullName}
@@ -648,18 +436,13 @@ function BookingContent() {
                     setFormData({ ...formData, fullName: e.target.value })
                   }
                   placeholder="Johnathan Doe"
-                  className={`h-12 ${isLoggedIn && formData.fullName ? "bg-gray-50 border-gray-100 text-jagamn-primary font-semibold" : "bg-gray-50 border-none"}`}
+                  className="bg-gray-50 border-none h-12"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
                   Email Address *
-                  {isLoggedIn && formData.email && (
-                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
-                      From profile
-                    </span>
-                  )}
                 </Label>
                 <Input
                   type="email"
@@ -668,19 +451,13 @@ function BookingContent() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   placeholder="john@example.com"
-                  readOnly={isLoggedIn && !!formData.email}
-                  className={`h-12 ${isLoggedIn && formData.email ? "bg-gray-100 border-gray-100 text-jagamn-primary font-semibold cursor-not-allowed" : "bg-gray-50 border-none"}`}
+                  className="bg-gray-50 border-none h-12"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
                   Phone Number *
-                  {isLoggedIn && formData.phone && (
-                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
-                      From profile
-                    </span>
-                  )}
                 </Label>
                 <PhoneInput
                   value={formData.phone}
@@ -691,13 +468,8 @@ function BookingContent() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
                   Country of Residence *
-                  {isLoggedIn && formData.country && (
-                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
-                      From profile
-                    </span>
-                  )}
                 </Label>
                 <CountrySelect
                   value={formData.country}
@@ -711,13 +483,8 @@ function BookingContent() {
 
             {/* Identification — full width */}
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 Identification *
-                {isLoggedIn && formData.idNumber && (
-                  <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded">
-                    From profile
-                  </span>
-                )}
               </Label>
               <IdInput
                 idType={formData.idType}
@@ -744,114 +511,57 @@ function BookingContent() {
               />
             </div>
 
-            {/* Create account — only shown to guests */}
-            {!isLoggedIn && (
-              <div className="bg-[#F8F9FA] rounded-md p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="create-account"
-                    checked={createAccount}
-                    onCheckedChange={(c) => setCreateAccount(!!c)}
-                    className="border-gray-300 data-[state=checked]:bg-[#00152A]"
-                  />
-                  <Label
-                    htmlFor="create-account"
-                    className="text-sm text-gray-600 font-medium cursor-pointer"
-                  >
-                    Save my details and create a free Palace Club account
-                  </Label>
-                </div>
-                {createAccount && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                        Choose Password
-                      </Label>
-                      <Input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            password: e.target.value,
-                          });
-                          setPasswordError(null);
-                        }}
-                        onBlur={() => {
-                          if (
-                            formData.password &&
-                            formData.password.length < 4
-                          ) {
-                            setPasswordError(
-                              "Password must be at least 4 characters.",
-                            );
-                          } else {
-                            setPasswordError(null);
-                          }
-                        }}
-                        placeholder="••••••••"
-                        className="bg-white h-11"
-                      />
-                      {/* Password strength bar */}
-                      {formData.password.length > 0 &&
-                        (() => {
-                          const s = getPasswordStrength(formData.password);
-                          return (
-                            <div className="space-y-1">
-                              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${s.color} ${s.width}`}
-                                />
-                              </div>
-                              <p
-                                className={`text-[10px] font-bold ${s.level === "strong" ? "text-green-600" : s.level === "fair" ? "text-amber-600" : "text-red-500"}`}
-                              >
-                                {s.label}
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      {passwordError && (
-                        <p className="text-xs text-red-600">{passwordError}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                        Confirm Password
-                      </Label>
-                      <Input
-                        type="password"
-                        value={formData.confirmPassword}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            confirmPassword: e.target.value,
-                          });
-                          setConfirmPasswordError(null);
-                        }}
-                        onBlur={() => {
-                          if (
-                            formData.confirmPassword &&
-                            formData.confirmPassword !== formData.password
-                          ) {
-                            setConfirmPasswordError("Passwords do not match.");
-                          } else {
-                            setConfirmPasswordError(null);
-                          }
-                        }}
-                        placeholder="••••••••"
-                        className="bg-white h-11"
-                      />
-                      {confirmPasswordError && (
-                        <p className="text-xs text-red-600">
-                          {confirmPasswordError}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+            <div className="bg-[#F8F9FA] rounded-md p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="create-account"
+                  checked={createAccount}
+                  onCheckedChange={(c) => setCreateAccount(!!c)}
+                  className="border-gray-300 data-[state=checked]:bg-[#00152A]"
+                />
+                <Label
+                  htmlFor="create-account"
+                  className="text-sm text-gray-600 font-medium cursor-pointer"
+                >
+                  Save my details and create a free Palace Club account
+                </Label>
               </div>
-            )}
+              {createAccount && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Choose Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      placeholder="••••••••"
+                      className="bg-white h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Confirm Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      placeholder="••••••••"
+                      className="bg-white h-11"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -948,12 +658,12 @@ function BookingContent() {
                       onClick={() =>
                         setFormData({
                           ...formData,
-                          mobileMoneyMedium: "mtn mobile money",
+                          mobileMoneyMedium: "mobile money",
                         })
                       }
                       className={cn(
                         "px-4 py-2 rounded-full text-xs font-bold transition-all",
-                        formData.mobileMoneyMedium === "mtn mobile money"
+                        formData.mobileMoneyMedium === "mobile money"
                           ? "bg-[#00152A] text-white"
                           : "bg-gray-200 text-gray-500",
                       )}
@@ -979,51 +689,20 @@ function BookingContent() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Phone Number
+                      Phone Number (6XXXXXXXX)
                     </Label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={formData.mobileMoneyPhone}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, "");
-                        setFormData({ ...formData, mobileMoneyPhone: v });
-                        setMobilePhoneError(null);
-                        if (v.length >= 9) {
-                          setMobilePhoneError(validateCmPhone(v));
-                        }
-                      }}
-                      placeholder="6XXXXXXXX"
-                      maxLength={9}
-                      className="w-full h-12 bg-gray-50 border border-gray-200 rounded-md px-3 text-sm text-jagamn-primary focus:outline-none focus:border-jagamn-primary placeholder:text-gray-400"
+                      onChange={(v) =>
+                        setFormData({ ...formData, mobileMoneyPhone: v })
+                      }
+                      placeholder="670000000"
+                      defaultCountryCode="CM"
                     />
-                    {mobilePhoneError && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {mobilePhoneError}
-                      </p>
-                    )}
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-md p-4 text-sm text-slate-700">
-                    <p className="font-semibold">
-                      Mobile money payment details
-                    </p>
-                    <p className="mt-2">
-                      A secure{" "}
-                      {formData.mobileMoneyMedium === "orange money"
-                        ? "Orange Money"
-                        : "MTN Mobile Money"}{" "}
-                      prompt will be sent to your phone. Approve it and enter
-                      your PIN on your phone to complete the payment.
-                    </p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      If the prompt does not appear within 30 seconds, dial{" "}
-                      <strong>
-                        {formData.mobileMoneyMedium === "orange money"
-                          ? "#150*50#"
-                          : "*126#"}
-                      </strong>{" "}
-                      on your phone and follow the menu. Your PIN is entered
-                      only on your phone — never on this website.
-                    </p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
+                    You will receive a payment prompt on your phone. Approve it
+                    to complete your booking.
                   </div>
                 </div>
               )}
@@ -1084,7 +763,7 @@ function BookingContent() {
             </div>
             <Button
               onClick={handlePayment}
-              disabled={isProcessing || !termsAccepted || !!pastDateError}
+              disabled={isProcessing || !termsAccepted}
               className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20 disabled:opacity-50"
             >
               {isProcessing
@@ -1103,7 +782,6 @@ function BookingContent() {
               src={room.images.main}
               alt={room.name}
               fill
-              sizes="400px"
               className="object-cover opacity-60"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#00152A] to-transparent" />
@@ -1143,12 +821,10 @@ function BookingContent() {
                 </span>
                 <span className="font-bold">${roomTotal.toLocaleString()}</span>
               </div>
-              {resortFee > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Palace Resort Fee</span>
-                  <span className="font-bold">${resortFee}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Palace Resort Fee</span>
+                <span className="font-bold">${resortFee}</span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Estimated Taxes (12%)</span>
                 <span className="font-bold">${tax}</span>

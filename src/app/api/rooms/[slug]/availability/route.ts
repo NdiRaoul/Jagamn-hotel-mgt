@@ -1,52 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { ROOMS } from "@/lib/data/rooms";
-import { getCached } from "@/lib/redis/cache";
 
 type Props = { params: Promise<{ slug: string }> };
-
-type RoomAvailabilityCacheEntry = {
-  roomTypeId: string;
-  unavailableDates: Array<{
-    from_date: string;
-    to_date: string;
-    alternate_room_slugs?: string[];
-    alternate_dates?: Array<{ from: string; to: string }>;
-  }>;
-};
-
-async function loadRoomAvailability(
-  slug: string,
-): Promise<RoomAvailabilityCacheEntry | null> {
-  return getCached<RoomAvailabilityCacheEntry>(
-    `availability:slug:${slug}`,
-    60,
-    async () => {
-      const { data: roomType } = await supabaseAdmin
-        .from("room_types")
-        .select("id, room_type_unavailable_dates(*)")
-        .eq("slug", slug)
-        .single();
-
-      if (!roomType) {
-        return null;
-      }
-
-      return {
-        roomTypeId: roomType.id,
-        unavailableDates: roomType.room_type_unavailable_dates || [],
-      };
-    },
-  );
-}
-
-function rangeOverlaps(
-  checkIn: string,
-  checkOut: string,
-  range: { from_date: string; to_date: string },
-) {
-  return range.from_date <= checkOut && range.to_date >= checkIn;
-}
 
 export async function GET(request: NextRequest, { params }: Props) {
   const { slug } = await params;
@@ -55,38 +11,38 @@ export async function GET(request: NextRequest, { params }: Props) {
   const checkOut = searchParams.get("checkOut");
 
   if (!checkIn || !checkOut) {
-    // Return all unavailable date ranges for this room (for calendar display)
-    try {
-      const availability = await loadRoomAvailability(slug);
-      return NextResponse.json({
-        unavailable: availability?.unavailableDates || [],
-        available: true,
-      });
-    } catch {
-      return NextResponse.json({ unavailable: [], available: true });
-    }
+    return NextResponse.json(
+      { error: "checkIn and checkOut are required" },
+      { status: 400 }
+    );
   }
 
   try {
-    const availability = await loadRoomAvailability(slug);
+    // Get room type
+    const { data: roomType, error: rtError } = await supabaseAdmin
+      .from("room_types")
+      .select("id, slug, name")
+      .eq("slug", slug)
+      .single();
 
-    if (!availability) {
-      return NextResponse.json({
-        available: true,
-        conflicts: [],
-        alternateRooms: [],
-        alternateDates: [],
-      });
+    if (rtError || !roomType) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    const conflicts = availability.unavailableDates.filter((range) =>
-      rangeOverlaps(checkIn, checkOut, range),
-    );
-    const available = conflicts.length === 0;
+    // Check unavailable dates for this room type
+    const { data: conflicts } = await supabaseAdmin
+      .from("room_type_unavailable_dates")
+      .select("*")
+      .eq("room_type_id", roomType.id)
+      .lte("from_date", checkOut)
+      .gte("to_date", checkIn);
 
-    let alternateRooms: unknown[] = [];
-    if (!available && conflicts.length > 0) {
-      const altSlugs = conflicts[0].alternate_room_slugs || [];
+    const available = !conflicts || conflicts.length === 0;
+
+    // Fetch alternate rooms if unavailable
+    let alternateRooms: any[] = [];
+    if (!available && conflicts && conflicts.length > 0) {
+      const altSlugs: string[] = conflicts[0].alternate_room_slugs || [];
       if (altSlugs.length > 0) {
         const { data: alts } = await supabaseAdmin
           .from("room_types")
@@ -98,7 +54,7 @@ export async function GET(request: NextRequest, { params }: Props) {
 
     return NextResponse.json({
       available,
-      conflicts,
+      conflicts: conflicts || [],
       alternateRooms,
       alternateDates: conflicts?.[0]?.alternate_dates || [],
     });
@@ -112,7 +68,7 @@ export async function GET(request: NextRequest, { params }: Props) {
     const ci = new Date(checkIn);
     const co = new Date(checkOut);
     const conflict = room.unavailableDates.find(
-      (r) => ci <= new Date(r.to) && co >= new Date(r.from),
+      (r) => ci <= new Date(r.to) && co >= new Date(r.from)
     );
     return NextResponse.json({
       available: !conflict,

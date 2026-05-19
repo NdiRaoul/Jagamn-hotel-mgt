@@ -2,10 +2,7 @@
  * Jagamn Palace — Database Seed Script
  * Run: npx ts-node --project tsconfig.json scripts/seed.ts
  *
- * Idempotent: clears all seeded tables then re-inserts.
- * All room types are seeded with NO unavailable-date blocks so every
- * room is immediately bookable.
- * Also seeds menu_categories + menu_items for the dining feature.
+ * Idempotent: checks by slug before inserting.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -235,71 +232,91 @@ const AMENITIES: Record<string, { icon: string; label: string }[]> = {
 };
 
 // ── Physical room units ──────────────────────────────────────────────────────
-// Conventional hotel numbering: <floor><2-digit room on floor>
-// e.g. 201 = floor 2, room 01.  All room types occupy floors 2–6.
-//
-// Layout:
-//   Garden Terrace       12 rooms  floors 2–3  (6/floor)  201–206, 301–306
-//   Classic Heritage     20 rooms  floors 2–5  (5/floor)  210–214, 310–314, 410–414, 510–514
-//   Palace Deluxe         8 rooms  floors 4–5  (4/floor)  420–423, 520–523
-//   Royal Grand Suite     4 rooms  floor 6     (4 rooms)  601–604
-//   Maharaja Presidential 2 rooms  floor 6     (2 rooms)  610–611
 
-function buildFloorUnits(
-  startNumbers: { floor: number; roomStart: number; count: number }[],
-): { unit_code: string; floor: number }[] {
-  const units: { unit_code: string; floor: number }[] = [];
-  for (const { floor, roomStart, count } of startNumbers) {
-    for (let r = 0; r < count; r++) {
-      const roomNum = roomStart + r;
-      units.push({
-        unit_code: `${floor}${String(roomNum).padStart(2, "0")}`,
-        floor,
-      });
-    }
-  }
-  return units;
+function buildUnits(prefix: string, count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    unit_code: `${prefix}-${String(i + 1).padStart(3, "0")}`,
+  }));
 }
 
-const ROOM_UNITS: Record<string, { unit_code: string; floor: number }[]> = {
-  // 12 rooms across floors 2–3, 6 per floor, starting at x01
-  "garden-terrace": buildFloorUnits([
-    { floor: 2, roomStart: 1, count: 6 },
-    { floor: 3, roomStart: 1, count: 6 },
-  ]),
-
-  // 20 rooms across floors 2–5, 5 per floor, starting at x10
-  "classic-heritage": buildFloorUnits([
-    { floor: 2, roomStart: 10, count: 5 },
-    { floor: 3, roomStart: 10, count: 5 },
-    { floor: 4, roomStart: 10, count: 5 },
-    { floor: 5, roomStart: 10, count: 5 },
-  ]),
-
-  // 8 rooms across floors 4–5, 4 per floor, starting at x20
-  "palace-deluxe": buildFloorUnits([
-    { floor: 4, roomStart: 20, count: 4 },
-    { floor: 5, roomStart: 20, count: 4 },
-  ]),
-
-  // 4 rooms on floor 6, starting at 601
-  "royal-grand-suite": buildFloorUnits([{ floor: 6, roomStart: 1, count: 4 }]),
-
-  // 2 rooms on floor 6, starting at 610 (penthouse wing)
-  "maharaja-presidential": buildFloorUnits([
-    { floor: 6, roomStart: 10, count: 2 },
-  ]),
+const ROOM_UNITS: Record<string, { unit_code: string }[]> = {
+  "garden-terrace": buildUnits("GT", 20),
+  "classic-heritage": buildUnits("CH", 12),
+  "palace-deluxe": buildUnits("PD", 8),
+  "royal-grand-suite": buildUnits("RG", 4),
+  "maharaja-presidential": buildUnits("MP", 2),
 };
 
 // ── Unavailable date ranges ──────────────────────────────────────────────────
-// Empty — all room types are fully available for booking.
+
 const UNAVAILABLE_DATES: {
   slug: string;
   from_date: string;
   to_date: string;
   alternate_room_slugs: string[];
   alternate_dates?: { from: string; to: string }[];
-}[] = [];
+}[] = [
+  {
+    slug: "classic-heritage",
+    from_date: "2026-05-12",
+    to_date: "2026-05-19",
+    alternate_room_slugs: ["palace-deluxe", "royal-grand-suite"],
+    alternate_dates: [
+      { from: "2026-05-07", to: "2026-05-11" },
+      { from: "2026-05-20", to: "2026-05-25" },
+    ],
+  },
+  {
+    slug: "classic-heritage",
+    from_date: "2026-06-01",
+    to_date: "2026-06-07",
+    alternate_room_slugs: ["palace-deluxe"],
+    alternate_dates: [
+      { from: "2026-05-28", to: "2026-05-31" },
+      { from: "2026-06-08", to: "2026-06-12" },
+    ],
+  },
+  {
+    slug: "palace-deluxe",
+    from_date: "2026-05-15",
+    to_date: "2026-05-22",
+    alternate_room_slugs: ["classic-heritage", "royal-grand-suite"],
+    alternate_dates: [
+      { from: "2026-05-10", to: "2026-05-14" },
+      { from: "2026-05-23", to: "2026-05-28" },
+    ],
+  },
+  {
+    slug: "royal-grand-suite",
+    from_date: "2026-05-20",
+    to_date: "2026-05-27",
+    alternate_room_slugs: ["palace-deluxe"],
+    alternate_dates: [
+      { from: "2026-05-15", to: "2026-05-19" },
+      { from: "2026-05-28", to: "2026-06-02" },
+    ],
+  },
+  {
+    slug: "garden-terrace",
+    from_date: "2026-05-25",
+    to_date: "2026-06-02",
+    alternate_room_slugs: ["classic-heritage"],
+    alternate_dates: [
+      { from: "2026-05-20", to: "2026-05-24" },
+      { from: "2026-06-03", to: "2026-06-08" },
+    ],
+  },
+  {
+    slug: "maharaja-presidential",
+    from_date: "2026-06-10",
+    to_date: "2026-06-20",
+    alternate_room_slugs: ["royal-grand-suite"],
+    alternate_dates: [
+      { from: "2026-06-05", to: "2026-06-09" },
+      { from: "2026-06-21", to: "2026-06-28" },
+    ],
+  },
+];
 
 // ── Hotel amenities ──────────────────────────────────────────────────────────
 
@@ -338,259 +355,6 @@ const HOTEL_AMENITIES = [
   },
 ];
 
-// ── Menu categories + items (dining feature) ─────────────────────────────────
-
-type MenuCategoryInsert = {
-  name: string;
-  sort_order: number;
-  is_active: boolean;
-};
-
-type MenuItemInsert = {
-  name: string;
-  description: string;
-  price: number; // whole XAF
-  currency: string;
-  is_special: boolean;
-  is_available: boolean;
-  sort_order: number;
-  image_url: string | null;
-};
-
-const MENU_CATEGORIES: (MenuCategoryInsert & {
-  items: MenuItemInsert[];
-})[] = [
-  {
-    name: "Breakfast",
-    sort_order: 1,
-    is_active: true,
-    items: [
-      {
-        name: "Palace Continental",
-        description:
-          "Freshly baked croissants, seasonal fruit, yoghurt, and artisan preserves",
-        price: 8500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 1,
-        image_url: "/images/food1.png",
-      },
-      {
-        name: "Royal Full Breakfast",
-        description:
-          "Eggs your way, grilled tomatoes, sautéed mushrooms, turkey bacon, and sourdough toast",
-        price: 12500,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 2,
-        image_url: "/images/food2.png",
-      },
-      {
-        name: "Avocado & Poached Eggs",
-        description:
-          "Smashed avocado on toasted brioche with two poached eggs and chilli flakes",
-        price: 9500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 3,
-        image_url: null,
-      },
-      {
-        name: "Fresh Fruit Platter",
-        description: "Seasonal tropical fruits, honey drizzle, and mint",
-        price: 6000,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 4,
-        image_url: null,
-      },
-    ],
-  },
-  {
-    name: "Starters",
-    sort_order: 2,
-    is_active: true,
-    items: [
-      {
-        name: "Saffron Bisque",
-        description:
-          "Velvety lobster bisque with saffron cream and toasted brioche croutons",
-        price: 11000,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 1,
-        image_url: "/images/food3.png",
-      },
-      {
-        name: "Palace Garden Salad",
-        description:
-          "Heritage tomatoes, burrata, basil oil, and aged balsamic reduction",
-        price: 8500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 2,
-        image_url: null,
-      },
-      {
-        name: "Spiced Lamb Kofta",
-        description:
-          "Hand-rolled lamb kofta with tzatziki, pomegranate, and flatbread",
-        price: 13500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 3,
-        image_url: null,
-      },
-    ],
-  },
-  {
-    name: "Main Course",
-    sort_order: 3,
-    is_active: true,
-    items: [
-      {
-        name: "Grilled Sea Bass",
-        description:
-          "Line-caught sea bass, lemon beurre blanc, wilted spinach, and saffron potatoes",
-        price: 28000,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 1,
-        image_url: "/images/food4.png",
-      },
-      {
-        name: "Maharaja Lamb Shank",
-        description:
-          "Slow-braised lamb shank in aromatic spices, served with saffron rice and naan",
-        price: 32000,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 2,
-        image_url: null,
-      },
-      {
-        name: "Truffle Risotto",
-        description:
-          "Arborio rice, black truffle, aged Parmesan, and wild mushroom ragù",
-        price: 24000,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 3,
-        image_url: null,
-      },
-      {
-        name: "Palace Chicken Supreme",
-        description:
-          "Free-range chicken breast, tarragon jus, dauphinoise potatoes, and haricots verts",
-        price: 22000,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 4,
-        image_url: null,
-      },
-    ],
-  },
-  {
-    name: "Desserts",
-    sort_order: 4,
-    is_active: true,
-    items: [
-      {
-        name: "Mango Panna Cotta",
-        description:
-          "Silky vanilla panna cotta with fresh mango coulis and toasted coconut",
-        price: 7500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 1,
-        image_url: null,
-      },
-      {
-        name: "Warm Chocolate Fondant",
-        description:
-          "Valrhona dark chocolate fondant with salted caramel ice cream",
-        price: 9000,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 2,
-        image_url: null,
-      },
-      {
-        name: "Palace Cheese Board",
-        description:
-          "Selection of five artisan cheeses, quince paste, walnuts, and crackers",
-        price: 12000,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 3,
-        image_url: null,
-      },
-    ],
-  },
-  {
-    name: "Beverages",
-    sort_order: 5,
-    is_active: true,
-    items: [
-      {
-        name: "Freshly Squeezed Juice",
-        description: "Orange, mango, pineapple, or watermelon",
-        price: 3500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 1,
-        image_url: null,
-      },
-      {
-        name: "Palace Afternoon Tea",
-        description:
-          "Assorted finger sandwiches, scones with clotted cream, and a pot of loose-leaf tea",
-        price: 15000,
-        currency: "XAF",
-        is_special: true,
-        is_available: true,
-        sort_order: 2,
-        image_url: null,
-      },
-      {
-        name: "Nespresso Selection",
-        description: "Espresso, lungo, cappuccino, or flat white",
-        price: 2500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 3,
-        image_url: null,
-      },
-      {
-        name: "Sparkling Mineral Water",
-        description: "750 ml chilled sparkling or still",
-        price: 1500,
-        currency: "XAF",
-        is_special: false,
-        is_available: true,
-        sort_order: 4,
-        image_url: null,
-      },
-    ],
-  },
-];
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(step: string, ok: boolean, detail?: string) {
@@ -605,77 +369,6 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function seed() {
   console.log("\n🌱  Starting Jagamn Palace seed...\n");
 
-  // ── 0. Clean up tables that are being replaced ─────────────────────────────
-  console.log("── Cleanup ─────────────────────────────────────────────────");
-
-  // New tables added in the current schema.
-  for (const table of [
-    "dining_order_items",
-    "dining_orders",
-    "notifications",
-    "stay_preferences",
-    "webhook_events",
-    "payment_methods",
-    "menu_items",
-    "menu_categories",
-  ]) {
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-    log(`${table}: cleared`, !error, error?.message);
-  }
-
-  // Delete all bookings (cascades to payments via booking_id)
-  const { error: delBookings } = await supabase
-    .from("bookings")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  log("bookings: cleared", !delBookings, delBookings?.message);
-
-  // Delete all payments
-  const { error: delPayments } = await supabase
-    .from("payments")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  log("payments: cleared", !delPayments, delPayments?.message);
-
-  // Delete all users (our custom table, not auth.users)
-  const { error: delUsers } = await supabase
-    .from("users")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  log("users: cleared", !delUsers, delUsers?.message);
-
-  // Delete room amenities, unavailable dates, rooms, room types
-  await supabase
-    .from("room_amenities")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  await supabase
-    .from("room_type_unavailable_dates")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  await supabase
-    .from("rooms")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  await supabase
-    .from("room_types")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  await supabase
-    .from("hotel_amenities")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  log(
-    "room data: cleared",
-    true,
-    "room_types, amenities, rooms, unavailable_dates, hotel_amenities",
-  );
-
-  console.log("");
-
   const summary: { step: string; status: "ok" | "error"; detail: string }[] =
     [];
 
@@ -683,40 +376,59 @@ async function seed() {
   console.log("── Room Types ──────────────────────────────────────────");
   const slugMap: Record<string, string> = {}; // slug → id
 
-  // Insert all room types fresh (we cleared them above)
-  let inserted: { id: string; slug: string }[] = [];
-  let insertError: { message: string } | null = null;
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    const result = await supabase
-      .from("room_types")
-      .insert(ROOM_TYPES)
-      .select("id, slug");
-    inserted = result.data ?? [];
-    insertError = result.error;
-    if (!insertError) break;
-    console.log(`  ↻ retry ${attempt}/5 for batch room_types insert…`);
-    await sleep(1500 * attempt);
+  // First, load any already-existing room types
+  const { data: existingRoomTypes } = await supabase
+    .from("room_types")
+    .select("id, slug");
+
+  for (const rt of existingRoomTypes ?? []) {
+    slugMap[rt.slug] = rt.id;
   }
 
-  if (insertError) {
-    log("room_types: batch insert", false, insertError.message);
+  const existingSlugs = new Set(Object.keys(slugMap));
+  const toInsert = ROOM_TYPES.filter((rt) => !existingSlugs.has(rt.slug));
+
+  if (toInsert.length === 0) {
+    log("room_types: all 5", true, "already exist — skipped");
     for (const rt of ROOM_TYPES) {
-      summary.push({
-        step: `room_type:${rt.slug}`,
-        status: "error",
-        detail: insertError.message,
-      });
+      summary.push({ step: `room_type:${rt.slug}`, status: "ok", detail: "skipped" });
     }
   } else {
-    for (const row of inserted) {
-      slugMap[row.slug] = row.id;
-      log(`room_types: ${row.slug}`, true, `id=${row.id}`);
-      summary.push({
-        step: `room_type:${row.slug}`,
-        status: "ok",
-        detail: "inserted",
-      });
+    // Batch insert all missing room types in one request
+    let inserted: any[] = [];
+    let insertError: any = null;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const result = await supabase
+        .from("room_types")
+        .insert(toInsert as any[])
+        .select("id, slug");
+      inserted = result.data ?? [];
+      insertError = result.error;
+      if (!insertError) break;
+      console.log(`  ↻ retry ${attempt}/5 for batch room_types insert…`);
+      await sleep(1500 * attempt);
     }
+
+    if (insertError) {
+      log("room_types: batch insert", false, insertError.message);
+      for (const rt of toInsert) {
+        summary.push({ step: `room_type:${rt.slug}`, status: "error", detail: insertError.message });
+      }
+    } else {
+      for (const row of inserted) {
+        slugMap[row.slug] = row.id;
+        log(`room_types: ${row.slug}`, true, `id=${row.id}`);
+        summary.push({ step: `room_type:${row.slug}`, status: "ok", detail: "inserted" });
+      }
+    }
+  }
+
+  // Re-fetch slugMap to make sure we have all IDs (handles partial prior runs)
+  const { data: allRoomTypes } = await supabase
+    .from("room_types")
+    .select("id, slug");
+  for (const rt of allRoomTypes ?? []) {
+    slugMap[rt.slug] = rt.id;
   }
 
   // ── 2. Room Amenities ──────────────────────────────────────
@@ -729,6 +441,22 @@ async function seed() {
         step: `amenities:${slug}`,
         status: "error",
         detail: "room_type_id missing",
+      });
+      continue;
+    }
+
+    // Check if amenities already exist for this room type
+    const { count } = await supabase
+      .from("room_amenities")
+      .select("id", { count: "exact", head: true })
+      .eq("room_type_id", roomTypeId);
+
+    if (count && count > 0) {
+      log(`amenities: ${slug}`, true, `${count} already exist — skipped`);
+      summary.push({
+        step: `amenities:${slug}`,
+        status: "ok",
+        detail: "skipped",
       });
       continue;
     }
@@ -772,10 +500,20 @@ async function seed() {
       continue;
     }
 
+    const { count } = await supabase
+      .from("rooms")
+      .select("id", { count: "exact", head: true })
+      .eq("room_type_id", roomTypeId);
+
+    if (count && count > 0) {
+      log(`rooms: ${slug}`, true, `${count} already exist — skipped`);
+      summary.push({ step: `rooms:${slug}`, status: "ok", detail: "skipped" });
+      continue;
+    }
+
     const rows = units.map((u) => ({
       room_type_id: roomTypeId,
       unit_code: u.unit_code,
-      floor: u.floor,
       is_active: true,
     }));
 
@@ -815,6 +553,26 @@ async function seed() {
       continue;
     }
 
+    const { count } = await supabase
+      .from("room_type_unavailable_dates")
+      .select("id", { count: "exact", head: true })
+      .eq("room_type_id", roomTypeId)
+      .eq("from_date", ud.from_date);
+
+    if (count && count > 0) {
+      log(
+        `unavailable: ${ud.slug} ${ud.from_date}`,
+        true,
+        "already exists — skipped",
+      );
+      summary.push({
+        step: `unavailable:${ud.slug}:${ud.from_date}`,
+        status: "ok",
+        detail: "skipped",
+      });
+      continue;
+    }
+
     const { error } = await supabase
       .from("room_type_unavailable_dates")
       .insert({
@@ -849,6 +607,21 @@ async function seed() {
   // ── 5. Hotel Amenities ─────────────────────────────────────
   console.log("\n── Hotel Amenities ─────────────────────────────────────");
   for (const ha of HOTEL_AMENITIES) {
+    const { count } = await supabase
+      .from("hotel_amenities")
+      .select("id", { count: "exact", head: true })
+      .eq("name", ha.name);
+
+    if (count && count > 0) {
+      log(`hotel_amenity: ${ha.name}`, true, "already exists — skipped");
+      summary.push({
+        step: `hotel_amenity:${ha.name}`,
+        status: "ok",
+        detail: "skipped",
+      });
+      continue;
+    }
+
     const { error } = await supabase.from("hotel_amenities").insert(ha);
     if (error) {
       log(`hotel_amenity: ${ha.name}`, false, error.message);
@@ -863,64 +636,6 @@ async function seed() {
         step: `hotel_amenity:${ha.name}`,
         status: "ok",
         detail: "inserted",
-      });
-    }
-  }
-
-  // ── 6. Menu Categories + Items ─────────────────────────────
-  console.log("\n── Menu Categories + Items ─────────────────────────────");
-  for (const cat of MENU_CATEGORIES) {
-    // Insert category
-    const { data: catRow, error: catErr } = await supabase
-      .from("menu_categories")
-      .insert({
-        name: cat.name,
-        sort_order: cat.sort_order,
-        is_active: cat.is_active,
-      })
-      .select("id")
-      .single();
-
-    if (catErr || !catRow) {
-      log(`menu_category: ${cat.name}`, false, catErr?.message ?? "no row");
-      summary.push({
-        step: `menu_category:${cat.name}`,
-        status: "error",
-        detail: catErr?.message ?? "no row returned",
-      });
-      continue;
-    }
-
-    log(`menu_category: ${cat.name}`, true, `id=${catRow.id}`);
-    summary.push({
-      step: `menu_category:${cat.name}`,
-      status: "ok",
-      detail: "inserted",
-    });
-
-    // Insert items for this category
-    const itemRows = cat.items.map((item) => ({
-      ...item,
-      category_id: catRow.id,
-    }));
-
-    const { error: itemErr } = await supabase
-      .from("menu_items")
-      .insert(itemRows);
-
-    if (itemErr) {
-      log(`  menu_items: ${cat.name}`, false, itemErr.message);
-      summary.push({
-        step: `menu_items:${cat.name}`,
-        status: "error",
-        detail: itemErr.message,
-      });
-    } else {
-      log(`  menu_items: ${cat.name}`, true, `${itemRows.length} inserted`);
-      summary.push({
-        step: `menu_items:${cat.name}`,
-        status: "ok",
-        detail: `${itemRows.length} inserted`,
       });
     }
   }
