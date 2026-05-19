@@ -295,7 +295,17 @@ function LeaveManagementView({
   const [manualToDate, setManualToDate] = useState("");
   const handleExport = () => {
     if (!requests || requests.length === 0) return;
-    const headers = ["ID", "Staff Name", "Department", "Role", "Category", "From Date", "To Date", "Status", "Duration"];
+    const headers = [
+      "ID",
+      "Staff Name",
+      "Department",
+      "Role",
+      "Category",
+      "From Date",
+      "To Date",
+      "Status",
+      "Duration",
+    ];
     const rows = requests.map((req: any) => [
       req.id,
       req.staff?.name || "",
@@ -305,16 +315,23 @@ function LeaveManagementView({
       req.from || "",
       req.to || "",
       req.status || "",
-      req.duration || ""
+      req.duration || "",
     ]);
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .map((row) =>
+        row
+          .map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(","),
+      )
       .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `palace_leave_requests_export_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute(
+      "download",
+      `palace_leave_requests_export_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -447,8 +464,10 @@ function LeaveManagementView({
                     placeholder="Provide justification for this manual entry..."
                   />
                 </div>
-                <div 
-                  onClick={() => document.getElementById("manual-entry-doc")?.click()}
+                <div
+                  onClick={() =>
+                    document.getElementById("manual-entry-doc")?.click()
+                  }
                   className="border-2 border-dashed border-gray-100 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50/50 group hover:border-[#E8924A]/30 transition-all cursor-pointer relative"
                 >
                   <input
@@ -943,7 +962,8 @@ function DeductionsView({ requests }: any) {
       tag: "UNEXCUSED",
       amount: "145.00",
       time: "Applied Today, 09:15 AM",
-      quote: "Employee failed to report for the morning shift without prior notification. Coverage had to be outsourced at an emergency rate."
+      quote:
+        "Employee failed to report for the morning shift without prior notification. Coverage had to be outsourced at an emergency rate.",
     },
     {
       id: "D-902",
@@ -957,8 +977,9 @@ function DeductionsView({ requests }: any) {
       tag: "EQUIPMENT",
       amount: "320.00",
       time: "Applied Yesterday",
-      quote: "Replacement of tablet workstation damaged during handover. Deducted as per resource policy (partial coverage)."
-    }
+      quote:
+        "Replacement of tablet workstation damaged during handover. Deducted as per resource policy (partial coverage).",
+    },
   ];
 
   return (
@@ -970,7 +991,9 @@ function DeductionsView({ requests }: any) {
             Deductions & Penalties
           </h2>
           <p className="text-gray-400 text-xs md:text-sm font-medium max-w-2xl leading-relaxed">
-            Enforce professional standards through precise financial adjustments. Manage disciplinary actions and resource recovery with editorial clarity.
+            Enforce professional standards through precise financial
+            adjustments. Manage disciplinary actions and resource recovery with
+            editorial clarity.
           </p>
         </div>
 
@@ -980,9 +1003,7 @@ function DeductionsView({ requests }: any) {
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
               MONTHLY IMPACT
             </p>
-            <h3 className="manrope-bold text-2xl text-[#0D2137]">
-              $4,820.00
-            </h3>
+            <h3 className="manrope-bold text-2xl text-[#0D2137]">$4,820.00</h3>
           </div>
           <div className="text-red-500 shrink-0">
             <TrendingDown className="w-5 h-5" />
@@ -1012,9 +1033,15 @@ function DeductionsView({ requests }: any) {
                   <SelectValue placeholder="Select an employee..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="julian">Julian Thorne (Front Desk)</SelectItem>
-                  <SelectItem value="elena">Elena Rodriguez (Concierge)</SelectItem>
-                  <SelectItem value="sterling">Sterling (Front Desk)</SelectItem>
+                  <SelectItem value="julian">
+                    Julian Thorne (Front Desk)
+                  </SelectItem>
+                  <SelectItem value="elena">
+                    Elena Rodriguez (Concierge)
+                  </SelectItem>
+                  <SelectItem value="sterling">
+                    Sterling (Front Desk)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1089,7 +1116,10 @@ function DeductionsView({ requests }: any) {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-[#0D2137]/5 flex items-center justify-center text-[#0D2137] text-xs font-black border-2 border-white shadow-sm overflow-hidden">
-                      {d.staff.name.split(" ").map(n => n[0]).join("")}
+                      {d.staff.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
                     </div>
                     <div>
                       <h4 className="manrope-bold text-sm text-[#0D2137]">
@@ -1099,9 +1129,14 @@ function DeductionsView({ requests }: any) {
                         {d.staff.dept} • {d.staff.role}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge className={cn("border-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shadow-none", 
-                          d.type === "ABSENCE" ? "bg-red-50 text-red-500 hover:bg-red-100" : "bg-orange-50 text-orange-500 hover:bg-orange-100"
-                        )}>
+                        <Badge
+                          className={cn(
+                            "border-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shadow-none",
+                            d.type === "ABSENCE"
+                              ? "bg-red-50 text-red-500 hover:bg-red-100"
+                              : "bg-orange-50 text-orange-500 hover:bg-orange-100",
+                          )}
+                        >
                           {d.type}
                         </Badge>
                         <Badge className="border-0 bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md hover:bg-slate-100 shadow-none">
@@ -1134,17 +1169,26 @@ function DeductionsView({ requests }: any) {
             <div className="space-y-2 relative z-10 max-w-md">
               <h4 className="manrope-bold text-lg">Policy Compliance</h4>
               <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                94% of deductions were successfully resolved through the employee grievance portal this quarter.
+                94% of deductions were successfully resolved through the
+                employee grievance portal this quarter.
               </p>
             </div>
             <div className="flex items-center gap-8 relative z-10 shrink-0">
               <div className="text-center md:text-left">
-                <span className="manrope-bold text-3xl md:text-4xl text-white">12</span>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">PENDING</p>
+                <span className="manrope-bold text-3xl md:text-4xl text-white">
+                  12
+                </span>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                  PENDING
+                </p>
               </div>
               <div className="text-center md:text-left">
-                <span className="manrope-bold text-3xl md:text-4xl text-[#FFB77A]">156</span>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">RESOLVED</p>
+                <span className="manrope-bold text-3xl md:text-4xl text-[#FFB77A]">
+                  156
+                </span>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                  RESOLVED
+                </p>
               </div>
             </div>
             {/* Decorative background element */}
