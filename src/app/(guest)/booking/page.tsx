@@ -6,19 +6,16 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format, differenceInDays } from "date-fns";
 import {
-  Lock,
-  ChevronRight,
   User,
   CreditCard,
   Smartphone,
-  Check,
   ShieldCheck,
   Coffee,
   Car,
   Wifi,
   Sparkles,
-  ArrowRight,
   ArrowLeftRight,
+  Phone,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -29,26 +26,25 @@ import {
 } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { CountrySelect } from "@/components/ui/country-select";
+import { IdInput } from "@/components/ui/id-input";
 import { cn } from "@/lib/utils";
 import { getRoomBySlug } from "@/lib/data/rooms";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-// Replace with your actual Stripe publishable key
-const stripePromise = loadStripe("pk_test_51O...placeholder");
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+);
 
 function BookingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stripe = useStripe();
   const elements = useElements();
+  const supabase = createSupabaseBrowserClient();
 
   const roomSlug = searchParams.get("room");
   const checkInStr = searchParams.get("checkIn");
@@ -62,17 +58,26 @@ function BookingContent() {
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [createAccount, setCreateAccount] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Form states
+  // Fapshi polling state
+  const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
+  const [fapshiPolling, setFapshiPolling] = useState(false);
+  const [fapshiPhone, setFapshiPhone] = useState("");
+
   const [formData, setFormData] = useState({
-    fullName: "Johnathan Doe",
-    email: "john@example.com",
-    phone: "+1 (555) 000-0000",
-    country: "US",
-    idType: "Passport",
-    idNumber: "X12345678",
+    fullName: "",
+    email: "",
+    phone: "",
+    country: "CM",
+    idType: "passport",
+    idNumber: "",
+    specialRequests: "",
     mobileMoneyPhone: "",
-    mobileMoneyMedium: "mobile money", // or orange money
+    mobileMoneyMedium: "mobile money",
+    password: "",
+    confirmPassword: "",
   });
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
@@ -81,54 +86,332 @@ function BookingContent() {
   const tax = Math.round(roomTotal * 0.12);
   const totalPrice = roomTotal + resortFee + tax;
 
+  // Pre-fill from session
+  useEffect(() => {
+    async function prefill() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("guest_profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setFormData((prev) => ({
+          ...prev,
+          fullName: profile?.full_name || user.user_metadata?.full_name || "",
+          email: user.email || "",
+          phone: profile?.phone || "",
+          country: profile?.country || "CM",
+          idType: profile?.id_type || "passport",
+          idNumber: profile?.id_number || "",
+        }));
+      }
+    }
+    prefill();
+  }, []);
+
+  // Fapshi polling
+  useEffect(() => {
+    if (!fapshiTransId || !fapshiPolling) return;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes at 5s intervals
+
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        setFapshiPolling(false);
+        setPaymentError("Payment timed out. Please try again.");
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/payments/fapshi?transId=${fapshiTransId}`,
+        );
+        const data = await res.json();
+
+        if (data.status === "SUCCESSFUL") {
+          clearInterval(interval);
+          setFapshiPolling(false);
+          // Update booking payment status
+          await fetch(`/api/bookings`, { method: "GET" }); // trigger refresh
+          router.push(
+            `/booking/confirmed?ref=${data.externalId || ""}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
+          );
+        } else if (data.status === "FAILED" || data.status === "EXPIRED") {
+          clearInterval(interval);
+          setFapshiPolling(false);
+          setPaymentError("Payment failed. Please try again.");
+        }
+      } catch {
+        // continue polling
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fapshiTransId, fapshiPolling]);
+
   if (!room || !checkIn || !checkOut) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="manrope-bold text-2xl mb-4">Invalid Booking Session</h2>
+          <h2 className="manrope-bold text-2xl mb-4">
+            Invalid Booking Session
+          </h2>
           <Button onClick={() => router.push("/rooms")}>Return to Rooms</Button>
         </div>
       </div>
     );
   }
 
+  async function createBooking(paymentMethodStr: string) {
+    const guestCount = guestsStr.includes("2a2c")
+      ? 4
+      : guestsStr.includes("2a1c")
+        ? 3
+        : guestsStr.includes("2a")
+          ? 2
+          : 1;
+
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guest_name: formData.fullName,
+        guest_email: formData.email,
+        guest_phone: formData.phone,
+        guest_country: formData.country,
+        guest_id_type: formData.idType,
+        guest_id_number: formData.idNumber,
+        room_slug: roomSlug,
+        check_in: checkInStr,
+        check_out: checkOutStr,
+        nights,
+        guests: guestCount,
+        room_price_per_night: room!.price,
+        resort_fee: resortFee,
+        tax_amount: tax,
+        total_amount: totalPrice,
+        payment_method: paymentMethodStr,
+        special_requests: formData.specialRequests || null,
+      }),
+    });
+    return res.json();
+  }
+
+  async function handleCreateAccount(bookingId: string) {
+    if (!createAccount || !formData.password) return;
+    if (formData.password !== formData.confirmPassword) {
+      setPaymentError("Passwords do not match.");
+      return;
+    }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: { data: { full_name: formData.fullName } },
+      });
+      if (!error && data.user) {
+        await supabase.from("guest_profiles").upsert(
+          {
+            id: data.user.id,
+            full_name: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            country: formData.country,
+            id_type: formData.idType,
+            id_number: formData.idNumber,
+          },
+          { onConflict: "id", ignoreDuplicates: true },
+        );
+        // Link booking to new user
+        await fetch("/api/bookings/link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId, userId: data.user.id }),
+        });
+      }
+    } catch {
+      // Don't block booking completion
+    }
+  }
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!termsAccepted) {
+      setPaymentError("Please accept the terms and conditions.");
+      return;
+    }
+    setPaymentError(null);
     setIsProcessing(true);
 
-    // Generate reference
-    const ref = `JP-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(
-      65 + Math.floor(Math.random() * 26)
-    )}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+    try {
+      if (paymentMethod === "card") {
+        if (!stripe || !elements) {
+          setPaymentError("Stripe is not loaded. Please refresh.");
+          setIsProcessing(false);
+          return;
+        }
 
-    if (paymentMethod === "card") {
-      // Simulate Stripe payment
-      setTimeout(() => {
-        router.push(
-          `/booking/confirmed?ref=${ref}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`
+        // Create booking first
+        const bookingData = await createBooking("card");
+        if (bookingData.error) {
+          setPaymentError(bookingData.error);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Create PaymentIntent
+        const piRes = await fetch("/api/payments/stripe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingRef: bookingData.bookingRef,
+            totalAmount: totalPrice,
+            currency: "usd",
+          }),
+        });
+        const { clientSecret, error: piError } = await piRes.json();
+        if (piError) {
+          setPaymentError(piError);
+          setIsProcessing(false);
+          return;
+        }
+
+        const cardElement = elements.getElement(CardElement);
+        if (!cardElement) {
+          setPaymentError("Card element not found.");
+          setIsProcessing(false);
+          return;
+        }
+
+        const { error: confirmError } = await stripe.confirmCardPayment(
+          clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: formData.fullName,
+                email: formData.email,
+              },
+            },
+          },
         );
-      }, 2000);
-    } else if (paymentMethod === "mobile") {
-      // Simulate Fapshi payment
-      console.log("Initiating Fapshi payment for", formData.mobileMoneyPhone);
-      setTimeout(() => {
+
+        if (confirmError) {
+          setPaymentError(confirmError.message || "Payment failed.");
+          setIsProcessing(false);
+          return;
+        }
+
+        await handleCreateAccount(bookingData.bookingId);
         router.push(
-          `/booking/confirmed?ref=${ref}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`
+          `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
         );
-      }, 2000);
-    } else {
-      // Other methods
-      setTimeout(() => {
+      } else if (paymentMethod === "mobile") {
+        const phone = formData.mobileMoneyPhone.trim();
+        if (!phone) {
+          setPaymentError("Please enter your mobile money phone number.");
+          setIsProcessing(false);
+          return;
+        }
+
+        // Create booking
+        const bookingData = await createBooking(formData.mobileMoneyMedium);
+        if (bookingData.error) {
+          setPaymentError(bookingData.error);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Initiate Fapshi payment
+        const fapshiRes = await fetch("/api/payments/fapshi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: totalPrice,
+            phone,
+            medium: formData.mobileMoneyMedium,
+            bookingRef: bookingData.bookingRef,
+            email: formData.email,
+            name: formData.fullName,
+          }),
+        });
+        const fapshiData = await fapshiRes.json();
+
+        if (fapshiData.error || !fapshiData.transId) {
+          setPaymentError(
+            fapshiData.error ||
+              fapshiData.message ||
+              "Mobile money initiation failed.",
+          );
+          setIsProcessing(false);
+          return;
+        }
+
+        setFapshiTransId(fapshiData.transId);
+        setFapshiPhone(phone);
+        setFapshiPolling(true);
+        await handleCreateAccount(bookingData.bookingId);
+        setIsProcessing(false);
+      } else {
+        // Google Pay / Apple Pay — create booking and redirect
+        const bookingData = await createBooking(paymentMethod);
+        if (bookingData.error) {
+          setPaymentError(bookingData.error);
+          setIsProcessing(false);
+          return;
+        }
+        await handleCreateAccount(bookingData.bookingId);
         router.push(
-          `/booking/confirmed?ref=${ref}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`
+          `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
         );
-      }, 2000);
+      }
+    } catch (err: any) {
+      setPaymentError(err.message || "An unexpected error occurred.");
+      setIsProcessing(false);
     }
   };
 
+  // Fapshi waiting overlay
+  if (fapshiPolling) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
+        <div className="text-center space-y-6 max-w-sm mx-auto px-4">
+          <div className="w-20 h-20 rounded-full bg-jagamn-neutral flex items-center justify-center mx-auto">
+            <Phone className="w-10 h-10 text-jagamn-tertiary animate-pulse" />
+          </div>
+          <h2 className="manrope-bold text-2xl text-jagamn-primary">
+            Check Your Phone
+          </h2>
+          <p className="text-sm text-gray-500">
+            Waiting for your approval on <strong>{fapshiPhone}</strong>. Please
+            approve the payment prompt on your phone.
+          </p>
+          <div className="flex justify-center">
+            <div className="w-8 h-8 border-4 border-jagamn-tertiary border-t-transparent rounded-full animate-spin" />
+          </div>
+          <button
+            onClick={() => {
+              setFapshiPolling(false);
+              setFapshiTransId(null);
+              setPaymentError("Payment cancelled.");
+            }}
+            className="text-xs text-gray-400 underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 flex flex-col lg:flex-row gap-12 mt-20">
-      {/* ── Left Column: Forms ──────────────────────── */}
+      {/* ── Left Column: Forms ── */}
       <div className="flex-1 space-y-12">
         {/* Step 1: Guest Details */}
         <section>
@@ -136,74 +419,96 @@ function BookingContent() {
             <div className="w-8 h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold">
               1
             </div>
-            <h2 className="manrope-bold text-2xl text-[#00152A]">Guest Details</h2>
+            <h2 className="manrope-bold text-2xl text-[#00152A]">
+              Guest Details
+            </h2>
           </div>
 
           <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Full Name</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                  Full Name *
+                </Label>
                 <Input
                   value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, fullName: e.target.value })
+                  }
                   placeholder="Johnathan Doe"
                   className="bg-gray-50 border-none h-12"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Email Address</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                  Email Address *
+                </Label>
                 <Input
+                  type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   placeholder="john@example.com"
                   className="bg-gray-50 border-none h-12"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Phone Number</Label>
-                <Input
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                  Phone Number *
+                </Label>
+                <PhoneInput
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
-                  className="bg-gray-50 border-none h-12"
+                  onChange={(v) => setFormData({ ...formData, phone: v })}
+                  placeholder="670000000"
+                  defaultCountryCode="CM"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Country of Residence</Label>
-                <Select defaultValue={formData.country}>
-                  <SelectTrigger className="bg-gray-50 border-none h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="US">United States</SelectItem>
-                    <SelectItem value="CM">Cameroon</SelectItem>
-                    <SelectItem value="IN">India</SelectItem>
-                    <SelectItem value="GB">United Kingdom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Identification Type</Label>
-                <Select defaultValue={formData.idType}>
-                  <SelectTrigger className="bg-gray-50 border-none h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Passport">Passport</SelectItem>
-                    <SelectItem value="National ID">National ID</SelectItem>
-                    <SelectItem value="Driver's License">Driver's License</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">ID Number</Label>
-                <Input
-                  value={formData.idNumber}
-                  onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
-                  placeholder="X12345678"
-                  className="bg-gray-50 border-none h-12"
+                <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                  Country of Residence *
+                </Label>
+                <CountrySelect
+                  value={formData.country}
+                  onChange={(code) =>
+                    setFormData({ ...formData, country: code })
+                  }
+                  placeholder="Select your country"
                 />
               </div>
+            </div>
+
+            {/* Identification — full width */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                Identification *
+              </Label>
+              <IdInput
+                idType={formData.idType}
+                idNumber={formData.idNumber}
+                onTypeChange={(v) => setFormData({ ...formData, idType: v })}
+                onNumberChange={(v) =>
+                  setFormData({ ...formData, idNumber: v })
+                }
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                Special Requests
+              </Label>
+              <textarea
+                value={formData.specialRequests}
+                onChange={(e) =>
+                  setFormData({ ...formData, specialRequests: e.target.value })
+                }
+                placeholder="Any special requests or preferences..."
+                className="w-full bg-gray-50 rounded-md px-4 py-3 text-sm h-24 resize-none focus:outline-none focus:ring-1 focus:ring-jagamn-primary"
+              />
             </div>
 
             <div className="bg-[#F8F9FA] rounded-md p-6 space-y-4">
@@ -211,23 +516,48 @@ function BookingContent() {
                 <Checkbox
                   id="create-account"
                   checked={createAccount}
-                  onCheckedChange={(checked) => setCreateAccount(!!checked)}
+                  onCheckedChange={(c) => setCreateAccount(!!c)}
                   className="border-gray-300 data-[state=checked]:bg-[#00152A]"
                 />
-                <Label htmlFor="create-account" className="text-sm text-gray-600 font-medium cursor-pointer">
+                <Label
+                  htmlFor="create-account"
+                  className="text-sm text-gray-600 font-medium cursor-pointer"
+                >
                   Save my details and create a free Palace Club account
                 </Label>
               </div>
-
               {createAccount && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Choose Password</Label>
-                    <Input type="password" placeholder="••••••••" className="bg-white h-11" />
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Choose Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      placeholder="••••••••"
+                      className="bg-white h-11"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Confirm Password</Label>
-                    <Input type="password" placeholder="••••••••" className="bg-white h-11" />
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Confirm Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      placeholder="••••••••"
+                      className="bg-white h-11"
+                    />
                   </div>
                 </div>
               )}
@@ -241,98 +571,81 @@ function BookingContent() {
             <div className="w-8 h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold">
               2
             </div>
-            <h2 className="manrope-bold text-2xl text-[#00152A]">Payment Information</h2>
+            <h2 className="manrope-bold text-2xl text-[#00152A]">
+              Payment Information
+            </h2>
           </div>
 
           <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Payment Option: Card */}
-              <div
-                onClick={() => setPaymentMethod("card")}
-                className={cn(
-                  "flex items-center justify-between p-4 border rounded-md cursor-pointer transition-all",
-                  paymentMethod === "card" ? "border-[#00152A] bg-gray-50" : "border-gray-100 hover:border-gray-200"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <CreditCard className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm font-bold text-[#00152A]">Mastercard / Visa</span>
+              {[
+                { key: "card", icon: CreditCard, label: "Mastercard / Visa" },
+                {
+                  key: "mobile",
+                  icon: Smartphone,
+                  label: "MTN / Orange Money",
+                },
+                { key: "google", icon: null, label: "Google Pay" },
+                { key: "apple", icon: null, label: "Apple Pay" },
+              ].map((opt) => (
+                <div
+                  key={opt.key}
+                  onClick={() => setPaymentMethod(opt.key)}
+                  className={cn(
+                    "flex items-center justify-between p-4 border rounded-md cursor-pointer transition-all",
+                    paymentMethod === opt.key
+                      ? "border-[#00152A] bg-gray-50"
+                      : "border-gray-100 hover:border-gray-200",
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    {opt.icon ? (
+                      <opt.icon className="w-5 h-5 text-gray-600" />
+                    ) : (
+                      <span className="text-xs font-bold text-gray-600">
+                        {opt.label.split(" ")[0]}
+                      </span>
+                    )}
+                    <span className="text-sm font-bold text-[#00152A]">
+                      {opt.label}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border flex items-center justify-center",
+                      paymentMethod === opt.key
+                        ? "border-[#00152A]"
+                        : "border-gray-300",
+                    )}
+                  >
+                    {paymentMethod === opt.key && (
+                      <div className="w-2 h-2 rounded-full bg-[#00152A]" />
+                    )}
+                  </div>
                 </div>
-                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", paymentMethod === "card" ? "border-[#00152A]" : "border-gray-300")}>
-                  {paymentMethod === "card" && <div className="w-2 h-2 rounded-full bg-[#00152A]" />}
-                </div>
-              </div>
-
-              {/* Payment Option: Fapshi */}
-              <div
-                onClick={() => setPaymentMethod("mobile")}
-                className={cn(
-                  "flex items-center justify-between p-4 border rounded-md cursor-pointer transition-all",
-                  paymentMethod === "mobile" ? "border-[#00152A] bg-gray-50" : "border-gray-100 hover:border-gray-200"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Smartphone className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm font-bold text-[#00152A]">MTN / Orange Money</span>
-                </div>
-                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", paymentMethod === "mobile" ? "border-[#00152A]" : "border-gray-300")}>
-                  {paymentMethod === "mobile" && <div className="w-2 h-2 rounded-full bg-[#00152A]" />}
-                </div>
-              </div>
-
-              {/* Payment Option: Google Pay */}
-              <div
-                onClick={() => setPaymentMethod("google")}
-                className={cn(
-                  "flex items-center justify-between p-4 border rounded-md cursor-pointer transition-all",
-                  paymentMethod === "google" ? "border-[#00152A] bg-gray-50" : "border-gray-100 hover:border-gray-200"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Image src="https://upload.wikimedia.org/wikipedia/commons/f/f2/Google_Pay_Logo.svg" alt="GPay" width={40} height={20} className="h-4" />
-                  <span className="text-sm font-bold text-[#00152A]">Google Pay</span>
-                </div>
-                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", paymentMethod === "google" ? "border-[#00152A]" : "border-gray-300")}>
-                  {paymentMethod === "google" && <div className="w-2 h-2 rounded-full bg-[#00152A]" />}
-                </div>
-              </div>
-
-              {/* Payment Option: Apple Pay */}
-              <div
-                onClick={() => setPaymentMethod("apple")}
-                className={cn(
-                  "flex items-center justify-between p-4 border rounded-md cursor-pointer transition-all",
-                  paymentMethod === "apple" ? "border-[#00152A] bg-gray-50" : "border-gray-100 hover:border-gray-200"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Image src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Apple_Pay_logo.svg" alt="ApplePay" width={40} height={20} className="h-4" />
-                  <span className="text-sm font-bold text-[#00152A]">Apple Pay</span>
-                </div>
-                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", paymentMethod === "apple" ? "border-[#00152A]" : "border-gray-300")}>
-                  {paymentMethod === "apple" && <div className="w-2 h-2 rounded-full bg-[#00152A]" />}
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Dynamic Payment Forms */}
             <div className="bg-gray-50 rounded-md p-8">
               {paymentMethod === "card" && (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Card Number</Label>
-                    <div className="bg-white h-12 px-4 rounded border-none flex items-center">
-                      <CardElement className="w-full" options={{ style: { base: { fontSize: '16px', color: '#00152A', '::placeholder': { color: '#A0AEC0' } } } }} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Expiry Date</Label>
-                      <Input placeholder="MM / YY" className="bg-white h-12 border-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">CVV / CVC</Label>
-                      <Input placeholder="•••" className="bg-white h-12 border-none" />
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Card Details
+                    </Label>
+                    <div className="bg-white h-12 px-4 rounded border border-gray-200 flex items-center">
+                      <CardElement
+                        className="w-full"
+                        options={{
+                          style: {
+                            base: {
+                              fontSize: "16px",
+                              color: "#00152A",
+                              "::placeholder": { color: "#A0AEC0" },
+                            },
+                          },
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -342,127 +655,201 @@ function BookingContent() {
                 <div className="space-y-6">
                   <div className="flex gap-4 mb-4">
                     <button
-                      onClick={() => setFormData({ ...formData, mobileMoneyMedium: 'mobile money' })}
-                      className={cn("px-4 py-2 rounded-full text-xs font-bold transition-all", formData.mobileMoneyMedium === 'mobile money' ? "bg-[#00152A] text-white" : "bg-gray-200 text-gray-500")}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          mobileMoneyMedium: "mobile money",
+                        })
+                      }
+                      className={cn(
+                        "px-4 py-2 rounded-full text-xs font-bold transition-all",
+                        formData.mobileMoneyMedium === "mobile money"
+                          ? "bg-[#00152A] text-white"
+                          : "bg-gray-200 text-gray-500",
+                      )}
                     >
                       MTN
                     </button>
                     <button
-                      onClick={() => setFormData({ ...formData, mobileMoneyMedium: 'orange money' })}
-                      className={cn("px-4 py-2 rounded-full text-xs font-bold transition-all", formData.mobileMoneyMedium === 'orange money' ? "bg-orange-500 text-white" : "bg-gray-200 text-gray-500")}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          mobileMoneyMedium: "orange money",
+                        })
+                      }
+                      className={cn(
+                        "px-4 py-2 rounded-full text-xs font-bold transition-all",
+                        formData.mobileMoneyMedium === "orange money"
+                          ? "bg-orange-500 text-white"
+                          : "bg-gray-200 text-gray-500",
+                      )}
                     >
                       ORANGE
                     </button>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Phone Number (6XXXXXXXX)</Label>
-                    <Input
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Phone Number (6XXXXXXXX)
+                    </Label>
+                    <PhoneInput
                       value={formData.mobileMoneyPhone}
-                      onChange={(e) => setFormData({ ...formData, mobileMoneyPhone: e.target.value })}
+                      onChange={(v) =>
+                        setFormData({ ...formData, mobileMoneyPhone: v })
+                      }
                       placeholder="670000000"
-                      className="bg-white h-12 border-none"
+                      defaultCountryCode="CM"
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400">You will receive a payment request on your phone after clicking Confirm & Pay.</p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
+                    You will receive a payment prompt on your phone. Approve it
+                    to complete your booking.
+                  </div>
                 </div>
               )}
 
               {(paymentMethod === "google" || paymentMethod === "apple") && (
                 <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                  <p className="text-sm text-gray-500">Pay securely with your saved details.</p>
-                  <Button className="bg-black text-white h-14 px-12 rounded-md hover:bg-gray-900 w-full md:w-auto">
-                    {paymentMethod === "google" ? "Pay with Google Pay" : "Pay with Apple Pay"}
-                  </Button>
+                  <p className="text-sm text-gray-500">
+                    You will be redirected to complete payment with{" "}
+                    {paymentMethod === "google" ? "Google Pay" : "Apple Pay"}.
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Click &quot;Confirm &amp; Pay&quot; below to proceed.
+                  </p>
                 </div>
               )}
             </div>
           </div>
         </section>
 
+        {/* Error */}
+        {paymentError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-md">
+            {paymentError}
+          </div>
+        )}
+
         {/* Legal & CTA */}
         <div className="space-y-8">
           <div className="flex items-start gap-3">
-            <Checkbox id="terms" className="mt-1 border-gray-300 data-[state=checked]:bg-[#00152A]" />
-            <Label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed">
-              I have read and agree to the <Link href="#" className="text-[#00152A] font-bold underline">Terms of Service</Link> and the <Link href="#" className="text-[#00152A] font-bold underline">Cancellation Policy</Link>. I understand that cancellations made within 48 hours of check-in are subject to a one-night fee.
+            <Checkbox
+              id="terms"
+              checked={termsAccepted}
+              onCheckedChange={(c) => setTermsAccepted(!!c)}
+              className="mt-1 border-gray-300 data-[state=checked]:bg-[#00152A]"
+            />
+            <Label
+              htmlFor="terms"
+              className="text-xs text-gray-500 leading-relaxed"
+            >
+              I have read and agree to the{" "}
+              <Link href="#" className="text-[#00152A] font-bold underline">
+                Terms of Service
+              </Link>{" "}
+              and the{" "}
+              <Link href="#" className="text-[#00152A] font-bold underline">
+                Cancellation Policy
+              </Link>
+              .
             </Label>
           </div>
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6 border-t border-gray-100">
             <div className="flex items-center gap-2 text-gray-400">
               <ShieldCheck className="w-5 h-5" />
-              <span className="text-xs font-semibold uppercase tracking-wider">256-bit Secure Encrypted Payment</span>
+              <span className="text-xs font-semibold uppercase tracking-wider">
+                256-bit Secure Encrypted Payment
+              </span>
             </div>
             <Button
               onClick={handlePayment}
-              disabled={isProcessing}
-              className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20"
+              disabled={isProcessing || !termsAccepted}
+              className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20 disabled:opacity-50"
             >
-              {isProcessing ? "Processing..." : "Confirm & Pay"}
+              {isProcessing
+                ? "Processing..."
+                : `Confirm & Pay $${totalPrice.toLocaleString()}`}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* ── Right Column: Sidebar ───────────────────── */}
+      {/* ── Right Column: Sidebar ── */}
       <aside className="w-full lg:w-[400px] space-y-6">
         <div className="bg-[#00152A] rounded-md overflow-hidden text-white shadow-xl">
-          {/* Room Header */}
           <div className="relative h-48">
-            <Image src={room.images.main} alt={room.name} fill className="object-cover opacity-60" />
+            <Image
+              src={room.images.main}
+              alt={room.name}
+              fill
+              className="object-cover opacity-60"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-[#00152A] to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#FFB77A] mb-1 block">Selected Room</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#FFB77A] mb-1 block">
+                Selected Room
+              </span>
               <h3 className="manrope-bold text-xl">{room.name}</h3>
             </div>
           </div>
 
-          {/* Stay Info */}
           <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Check-in</p>
-                <p className="text-sm font-bold">{format(checkIn, "MMM d, yyyy")}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+                  Check-in
+                </p>
+                <p className="text-sm font-bold">
+                  {format(checkIn, "MMM d, yyyy")}
+                </p>
               </div>
               <ArrowLeftRight className="w-4 h-4 text-[#FFB77A]" />
               <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Check-out</p>
-                <p className="text-sm font-bold">{format(checkOut, "MMM d, yyyy")}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+                  Check-out
+                </p>
+                <p className="text-sm font-bold">
+                  {format(checkOut, "MMM d, yyyy")}
+                </p>
               </div>
             </div>
 
-            {/* Price Breakdown */}
             <div className="space-y-4 border-y border-white/10 py-6">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">{room.name} ({nights} Nights)</span>
-                <span className="font-bold">${roomTotal.toLocaleString()}.00</span>
+                <span className="text-gray-400">
+                  {room.name} ({nights} Night{nights !== 1 ? "s" : ""})
+                </span>
+                <span className="font-bold">${roomTotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Palace Resort Fee</span>
-                <span className="font-bold">${resortFee.toLocaleString()}.00</span>
+                <span className="font-bold">${resortFee}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Estimated Taxes (12%)</span>
-                <span className="font-bold">${tax.toLocaleString()}.00</span>
+                <span className="font-bold">${tax}</span>
               </div>
             </div>
 
-            {/* Total */}
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Total Price</p>
-                <p className="text-3xl manrope-bold">${totalPrice.toLocaleString()}.00</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+                  Total Price
+                </p>
+                <p className="text-3xl manrope-bold">
+                  ${totalPrice.toLocaleString()}
+                </p>
               </div>
               <span className="text-[10px] text-gray-500">All inclusive</span>
             </div>
 
-            {/* Perks */}
             <div className="grid grid-cols-2 gap-y-4 pt-6 border-t border-white/10">
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <Wifi className="w-3.5 h-3.5 text-[#FFB77A]" /> Complimentary
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Coffee className="w-3.5 h-3.5 text-[#FFB77A]" /> Breakfast incl.
+                <Coffee className="w-3.5 h-3.5 text-[#FFB77A]" /> Breakfast
+                incl.
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <Car className="w-3.5 h-3.5 text-[#FFB77A]" /> Valet Parking
@@ -471,24 +858,18 @@ function BookingContent() {
                 <Sparkles className="w-3.5 h-3.5 text-[#FFB77A]" /> Spa Access
               </div>
             </div>
-
-            {/* Badge */}
-            <div className="pt-4 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 border border-gray-800 rounded px-4 py-1.5">
-                Best Price Guaranteed
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Support Card */}
         <div className="bg-white rounded-md border border-dashed border-gray-300 p-6 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
             <User className="w-5 h-5 text-gray-500" />
           </div>
           <div>
             <p className="text-sm font-bold text-[#00152A]">Need assistance?</p>
-            <p className="text-xs text-gray-500">Our Palace Concierge is online.</p>
+            <p className="text-xs text-gray-500">
+              Our Palace Concierge is online.
+            </p>
           </div>
         </div>
       </aside>

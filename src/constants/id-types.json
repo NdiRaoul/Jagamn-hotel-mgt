@@ -1,0 +1,43 @@
+[
+  {
+    "value": "passport",
+    "label": "Passport",
+    "icon": "✈️",
+    "placeholder": "e.g. A12345678",
+    "hint": "International travel document issued by your government",
+    "format": "Alphanumeric, 6–9 characters"
+  },
+  {
+    "value": "national_id",
+    "label": "National ID Card",
+    "icon": "🪪",
+    "placeholder": "e.g. 123456789012",
+    "hint": "Government-issued national identity card",
+    "format": "Numeric or alphanumeric"
+  },
+  {
+    "value": "drivers_license",
+    "label": "Driver's License",
+    "icon": "🚗",
+    "placeholder": "e.g. DL-987654321",
+    "hint": "Valid driving licence issued by a national authority",
+    "format": "Alphanumeric"
+  },
+  {
+    "value": "residence_permit",
+    "label": "Residence Permit",
+    "icon": "🏠",
+    "placeholder": "e.g. RP-20240001",
+    "hint": "Permit authorising residence in a country",
+    "format": "Alphanumeric"
+  },
+  {
+    "value": "voter_id",
+    "label": "Voter ID Card",
+    "icon": "🗳️",
+    "placeholder": "e.g. VTR-00123456",
+    "hint": "Electoral identity card issued by your government",
+    "format": "Alphanumeric"
+  }
+
+]
