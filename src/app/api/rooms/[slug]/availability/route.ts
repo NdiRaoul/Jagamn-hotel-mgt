@@ -11,10 +11,30 @@ export async function GET(request: NextRequest, { params }: Props) {
   const checkOut = searchParams.get("checkOut");
 
   if (!checkIn || !checkOut) {
-    return NextResponse.json(
-      { error: "checkIn and checkOut are required" },
-      { status: 400 }
-    );
+    // Return all unavailable date ranges for this room (for calendar display)
+    try {
+      const { data: roomType } = await supabaseAdmin
+        .from("room_types")
+        .select("id")
+        .eq("slug", slug)
+        .single();
+
+      if (!roomType) {
+        return NextResponse.json({ unavailable: [], available: true });
+      }
+
+      const { data: unavailDates } = await supabaseAdmin
+        .from("room_type_unavailable_dates")
+        .select("from_date, to_date")
+        .eq("room_type_id", roomType.id);
+
+      return NextResponse.json({
+        unavailable: unavailDates || [],
+        available: true,
+      });
+    } catch {
+      return NextResponse.json({ unavailable: [], available: true });
+    }
   }
 
   try {
@@ -26,7 +46,13 @@ export async function GET(request: NextRequest, { params }: Props) {
       .single();
 
     if (rtError || !roomType) {
-      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      // Room not in DB — return fully available (no blocked dates)
+      return NextResponse.json({
+        available: true,
+        conflicts: [],
+        alternateRooms: [],
+        alternateDates: [],
+      });
     }
 
     // Check unavailable dates for this room type
@@ -68,7 +94,7 @@ export async function GET(request: NextRequest, { params }: Props) {
     const ci = new Date(checkIn);
     const co = new Date(checkOut);
     const conflict = room.unavailableDates.find(
-      (r) => ci <= new Date(r.to) && co >= new Date(r.from)
+      (r) => ci <= new Date(r.to) && co >= new Date(r.from),
     );
     return NextResponse.json({
       available: !conflict,

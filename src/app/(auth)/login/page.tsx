@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,14 +14,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(
+    searchParams.get("tab") === "signup" ? "signup" : "signin",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -35,6 +36,10 @@ function LoginContent() {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | null
+  >(null);
 
   // Password visibility toggles
   const [showSignInPassword, setShowSignInPassword] = useState(false);
@@ -43,10 +48,50 @@ function LoginContent() {
 
   const supabase = createSupabaseBrowserClient();
 
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "signup") setActiveTab("signup");
-  }, [searchParams]);
+  // ── Password strength ──────────────────────────────────────────────────────
+  function getPasswordStrength(pw: string): {
+    level: "weak" | "fair" | "strong";
+    label: string;
+    color: string;
+    width: string;
+  } {
+    if (pw.length < 4)
+      return {
+        level: "weak",
+        label: "Too short",
+        color: "bg-red-500",
+        width: "w-1/4",
+      };
+    if (pw.length < 8) {
+      return {
+        level: "weak",
+        label: "Weak",
+        color: "bg-red-500",
+        width: "w-1/3",
+      };
+    }
+    const hasLower = /[a-z]/.test(pw);
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasDigit = /\d/.test(pw);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+    const typeCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(
+      Boolean,
+    ).length;
+    if (pw.length >= 10 && typeCount >= 3) {
+      return {
+        level: "strong",
+        label: "Strong",
+        color: "bg-green-500",
+        width: "w-full",
+      };
+    }
+    return {
+      level: "fair",
+      label: "Fair",
+      color: "bg-amber-500",
+      width: "w-2/3",
+    };
+  }
 
   const redirectTo = searchParams.get("redirect") || "/dashboard";
 
@@ -85,12 +130,26 @@ function LoginContent() {
       setError("Passwords do not match.");
       return;
     }
-    if (signUpPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (signUpPassword.length < 4) {
+      setError("Password must be at least 4 characters.");
       return;
     }
 
     setIsSubmitting(true);
+
+    // Check if a member account already exists with this email
+    // (guest rows are fine — they get upgraded; only block if already a member)
+    const checkRes = await fetch(
+      `/api/auth/check-email?email=${encodeURIComponent(signUpEmail)}`,
+    );
+    if (checkRes.ok) {
+      const { role } = await checkRes.json();
+      if (role === "member") {
+        setError("An account with this email already exists. Please sign in.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: signUpEmail,
@@ -129,7 +188,7 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
   };
@@ -345,7 +404,19 @@ function LoginContent() {
                   <Input
                     type={showSignUpPassword ? "text" : "password"}
                     value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
+                    onChange={(e) => {
+                      setSignUpPassword(e.target.value);
+                      setPasswordError(null);
+                    }}
+                    onBlur={() => {
+                      if (signUpPassword && signUpPassword.length < 4) {
+                        setPasswordError(
+                          "Password must be at least 4 characters.",
+                        );
+                      } else {
+                        setPasswordError(null);
+                      }
+                    }}
                     placeholder="••••••••"
                     className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 pr-8 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
                     required
@@ -363,6 +434,28 @@ function LoginContent() {
                     )}
                   </button>
                 </div>
+                {/* Password strength bar */}
+                {signUpPassword.length > 0 &&
+                  (() => {
+                    const s = getPasswordStrength(signUpPassword);
+                    return (
+                      <div className="space-y-1 pt-1">
+                        <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${s.color} ${s.width}`}
+                          />
+                        </div>
+                        <p
+                          className={`text-[10px] font-bold ${s.level === "strong" ? "text-green-600" : s.level === "fair" ? "text-amber-600" : "text-red-500"}`}
+                        >
+                          {s.label}
+                        </p>
+                      </div>
+                    );
+                  })()}
+                {passwordError && (
+                  <p className="text-xs text-red-600 mt-1">{passwordError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
@@ -372,7 +465,20 @@ function LoginContent() {
                   <Input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setConfirmPasswordError(null);
+                    }}
+                    onBlur={() => {
+                      if (
+                        confirmPassword &&
+                        confirmPassword !== signUpPassword
+                      ) {
+                        setConfirmPasswordError("Passwords do not match.");
+                      } else {
+                        setConfirmPasswordError(null);
+                      }
+                    }}
                     placeholder="••••••••"
                     className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 pr-8 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
                     required
@@ -390,6 +496,11 @@ function LoginContent() {
                     )}
                   </button>
                 </div>
+                {confirmPasswordError && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {confirmPasswordError}
+                  </p>
+                )}
               </div>
 
               <Button

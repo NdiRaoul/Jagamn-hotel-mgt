@@ -11,6 +11,7 @@ import {
   subMonths,
   isSameDay,
   isWithinInterval,
+  startOfDay,
 } from "date-fns";
 import {
   CalendarIcon,
@@ -71,6 +72,9 @@ export function RoomBookingWidget({ room }: Props) {
 
   // The month displayed in the inline availability calendar
   const [calMonth, setCalMonth] = useState<Date>(new Date());
+
+  // today at midnight for comparisons
+  const today = startOfDay(new Date());
 
   // Load auth state
   useEffect(() => {
@@ -214,11 +218,17 @@ export function RoomBookingWidget({ room }: Props) {
                 mode="single"
                 selected={checkIn}
                 onSelect={(d) => {
+                  // Guard: reject past dates
+                  if (!d || startOfDay(d) < today) return;
+                  // Guard: reject dates on or after check-out
+                  if (checkOut && d >= checkOut) return;
                   setCheckIn(d);
                   setConflict(false);
                   setConflictRange(null);
-                  if (d) setCalMonth(d);
+                  setCalMonth(d);
                 }}
+                disabled={(date) => startOfDay(date) < today}
+                fromDate={today}
                 initialFocus
               />
             </PopoverContent>
@@ -249,10 +259,21 @@ export function RoomBookingWidget({ room }: Props) {
                 mode="single"
                 selected={checkOut}
                 onSelect={(d) => {
+                  // Guard: reject past dates and dates on/before check-in
+                  if (!d || startOfDay(d) < today) return;
+                  if (checkIn && d <= checkIn) return;
                   setCheckOut(d);
                   setConflict(false);
                   setConflictRange(null);
                 }}
+                disabled={(date) => {
+                  if (startOfDay(date) < today) return true;
+                  if (checkIn && date <= checkIn) return true;
+                  return false;
+                }}
+                fromDate={
+                  checkIn ? new Date(checkIn.getTime() + 86400000) : today
+                }
                 initialFocus
               />
             </PopoverContent>
@@ -324,24 +345,61 @@ export function RoomBookingWidget({ room }: Props) {
 
               const inRange = isDayInRange(day);
               const unavail = isDayUnavailable(day);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const isPast = day < today;
+              const isPast = startOfDay(day) < today;
+              const isCheckIn = checkIn ? isSameDay(day, checkIn) : false;
+              const isCheckOut = checkOut ? isSameDay(day, checkOut) : false;
 
               return (
                 <div
                   key={day.toISOString()}
+                  onClick={() => {
+                    // Block past and unavailable days
+                    if (isPast || unavail) return;
+                    // If no check-in set, set check-in
+                    if (!checkIn) {
+                      setCheckIn(day);
+                      setCalMonth(day);
+                      return;
+                    }
+                    // If check-in set but no check-out, set check-out (must be after check-in)
+                    if (!checkOut) {
+                      if (day > checkIn) {
+                        setCheckOut(day);
+                      } else {
+                        // Reset and set new check-in
+                        setCheckIn(day);
+                        setCalMonth(day);
+                      }
+                      return;
+                    }
+                    // Both set — reset and start over
+                    setCheckIn(day);
+                    setCheckOut(undefined);
+                    setCalMonth(day);
+                    setConflict(false);
+                    setConflictRange(null);
+                  }}
                   className={cn(
                     "flex items-center justify-center text-xs h-7 w-full rounded-sm font-medium transition-colors",
-                    inRange
-                      ? "bg-jagamn-primary text-white"
+                    inRange && !isPast
+                      ? isCheckIn || isCheckOut
+                        ? "bg-jagamn-primary text-white ring-2 ring-jagamn-tertiary"
+                        : "bg-jagamn-primary text-white"
                       : unavail
                         ? "bg-red-50 text-red-500 line-through cursor-not-allowed"
                         : isPast
                           ? "text-gray-300 cursor-not-allowed"
                           : "text-jagamn-primary hover:bg-jagamn-primary/10 cursor-pointer",
                   )}
-                  title={unavail ? "Unavailable" : undefined}
+                  title={
+                    unavail
+                      ? "Unavailable"
+                      : isCheckIn
+                        ? "Check-in"
+                        : isCheckOut
+                          ? "Check-out"
+                          : undefined
+                  }
                 >
                   {format(day, "d")}
                 </div>
@@ -363,7 +421,32 @@ export function RoomBookingWidget({ room }: Props) {
                 Unavailable
               </span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-gray-100" />
+              <span className="text-[9px] text-gray-400 uppercase tracking-wider">
+                Past
+              </span>
+            </div>
           </div>
+
+          {/* Selected dates summary */}
+          {(checkIn || checkOut) && (
+            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-jagamn-secondary">
+              <span>
+                {checkIn ? format(checkIn, "MMM d") : "—"} →{" "}
+                {checkOut ? format(checkOut, "MMM d") : "—"}
+              </span>
+              {checkIn && checkOut && (
+                <span className="font-bold text-jagamn-primary">
+                  {Math.round(
+                    (checkOut.getTime() - checkIn.getTime()) /
+                      (1000 * 60 * 60 * 24),
+                  )}{" "}
+                  night(s)
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Book Button ───────────────────────────── */}
