@@ -5,7 +5,15 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { EarthIcon, Menu, Share2, User, LayoutDashboard, LogOut, ChevronDown } from "lucide-react";
+import {
+  EarthIcon,
+  Menu,
+  Share2,
+  User,
+  LayoutDashboard,
+  LogOut,
+  ChevronDown,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +43,9 @@ export default function GuestLayout({
 
   useEffect(() => {
     async function loadAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setAuthUser(null);
         setAuthLoading(false);
@@ -62,7 +72,9 @@ export default function GuestLayout({
 
     loadAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
       loadAuth();
     });
 
@@ -144,8 +156,12 @@ export default function GuestLayout({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
-                  <p className="font-bold text-jagamn-primary truncate">{authUser.name}</p>
-                  <p className="text-xs text-gray-400 font-normal truncate">{authUser.email}</p>
+                  <p className="font-bold text-jagamn-primary truncate">
+                    {authUser.name}
+                  </p>
+                  <p className="text-xs text-gray-400 font-normal truncate">
+                    {authUser.email}
+                  </p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -243,8 +259,12 @@ export default function GuestLayout({
               {authUser ? (
                 <>
                   <DropdownMenuLabel>
-                    <p className="font-bold text-jagamn-primary truncate">{authUser.name}</p>
-                    <p className="text-xs text-gray-400 font-normal truncate">{authUser.email}</p>
+                    <p className="font-bold text-jagamn-primary truncate">
+                      {authUser.name}
+                    </p>
+                    <p className="text-xs text-gray-400 font-normal truncate">
+                      {authUser.email}
+                    </p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -433,6 +453,12 @@ export default function GuestLayout({
                 className="hover:text-white transition-colors"
               >
                 TERMS OF SERVICE
+              </Link>
+              <Link
+                href="/staff-login"
+                className="hover:text-white transition-colors"
+              >
+                STAFF LOGIN
               </Link>
             </div>
           </div>
