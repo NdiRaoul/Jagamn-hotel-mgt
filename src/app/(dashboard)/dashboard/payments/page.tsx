@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { PhoneInput } from "@/components/ui/phone-input";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { PaymentMethod, Payment } from "@/types/database";
@@ -608,12 +607,18 @@ export default function PaymentsPage() {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                   Phone Number
                 </Label>
-                <PhoneInput
-                  value={mobilePhone}
-                  onChange={setMobilePhone}
-                  placeholder="670000000"
-                  defaultCountryCode="CM"
-                />
+                <div className="flex items-stretch">
+                  <input
+                    type="tel"
+                    value={mobilePhone}
+                    onChange={(e) =>
+                      setMobilePhone(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="6XXXXXXXX"
+                    maxLength={9}
+                    className="w-full h-11 bg-gray-50 border border-gray-200 rounded-md px-3 text-sm text-jagamn-primary focus:outline-none focus:border-jagamn-primary placeholder:text-gray-400"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">

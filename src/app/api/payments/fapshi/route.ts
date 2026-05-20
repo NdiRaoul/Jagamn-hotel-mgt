@@ -36,47 +36,6 @@ function normaliseMedium(raw: string): string {
   return raw;
 }
 
-/**
- * Normalise a phone number to the E.164 format Fapshi expects.
- *
- * Handles all of these inputs:
- *   "676982949"          → "+237676982949"
- *   "+237676982949"      → "+237676982949"
- *   "237676982949"       → "+237676982949"
- *   "00237676982949"     → "+237676982949"
- *   "+1 650 555 1234"    → "+16505551234"  (non-CM numbers kept as-is)
- *
- * For Cameroonian numbers (9 digits starting with 6) the +237 country code
- * is always attached even if the caller omitted it.
- */
-function normalisePhone(raw: string): string {
-  // Strip all whitespace and dashes
-  let digits = raw.replace(/[\s\-]/g, "");
-
-  // Convert 00-prefix international format to +
-  if (digits.startsWith("00")) {
-    digits = "+" + digits.slice(2);
-  }
-
-  // Already has a + — return as-is (E.164)
-  if (digits.startsWith("+")) {
-    return digits;
-  }
-
-  // Starts with 237 (CM country code without +)
-  if (digits.startsWith("237") && digits.length >= 12) {
-    return "+" + digits;
-  }
-
-  // Bare 9-digit Cameroonian local number (starts with 6)
-  if (/^6\d{8}$/.test(digits)) {
-    return "+237" + digits;
-  }
-
-  // Fallback: prepend + and hope for the best
-  return "+" + digits;
-}
-
 // POST /api/payments/fapshi
 // body: { amount, phone, medium, bookingRef, email?, name?, mode? }
 // mode = "direct" (default) — pushes USSD prompt to phone
@@ -189,19 +148,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalisedPhone = normalisePhone(phone);
     const normalisedMedium = normaliseMedium(medium);
 
     console.log("[fapshi POST] normalised values:", {
-      rawPhone: phone,
-      normalisedPhone,
+      phone,
       rawMedium: medium,
       normalisedMedium,
     });
 
     const payload = {
       amount: xafAmount,
-      phone: normalisedPhone,
+      phone,
       medium: normalisedMedium,
       externalId: bookingRef,
       message: "Jagamn Palace Booking",
