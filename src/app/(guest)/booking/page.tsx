@@ -265,8 +265,8 @@ function BookingContent() {
   }
 
   // ── Cameroonian mobile number validation ──────────────────────────────────
-  // Valid: 9 digits starting with 67x, 65x (MTN) or 69x (Orange) or 68x (MTN)
-  const CM_MOBILE_REGEX = /^6[5679]\d{7}$/;
+  // Valid: 9 digits starting with 65x, 67x, 68x (MTN) or 65x, 69x (Orange)
+  const CM_MOBILE_REGEX = /^6(?:5|7|8|9)\d{7}$/;
 
   function validateCmPhone(raw: string): string | null {
     // Strip +237 prefix if present
