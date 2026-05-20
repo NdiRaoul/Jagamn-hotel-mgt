@@ -915,21 +915,22 @@ function BookingContent() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Phone Number (6XXXXXXXX)
+                      Phone Number
                     </Label>
-                    <PhoneInput
+                    <input
+                      type="tel"
                       value={formData.mobileMoneyPhone}
-                      onChange={(v) => {
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, "");
                         setFormData({ ...formData, mobileMoneyPhone: v });
                         setMobilePhoneError(null);
-                        if (
-                          v.replace(/^\+237/, "").replace(/\s/g, "").length >= 9
-                        ) {
+                        if (v.length >= 9) {
                           setMobilePhoneError(validateCmPhone(v));
                         }
                       }}
-                      placeholder="670000000"
-                      defaultCountryCode="CM"
+                      placeholder="6XXXXXXXX"
+                      maxLength={9}
+                      className="w-full h-12 bg-gray-50 border border-gray-200 rounded-md px-3 text-sm text-jagamn-primary focus:outline-none focus:border-jagamn-primary placeholder:text-gray-400"
                     />
                     {mobilePhoneError && (
                       <p className="text-xs text-red-600 mt-1">
