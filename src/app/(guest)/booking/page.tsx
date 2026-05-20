@@ -431,8 +431,8 @@ function BookingContent() {
         // Map medium to exact Fapshi values
         const fapshiMedium =
           formData.mobileMoneyMedium === "mtn mobile money"
-            ? "mtn mobile money"
-            : "orange money";
+            ? "MTN Mobile Money"
+            : "Orange Money";
 
         // Create booking
         const bookingData = await createBooking(fapshiMedium);

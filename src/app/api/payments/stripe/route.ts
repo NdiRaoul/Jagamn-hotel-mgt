@@ -9,7 +9,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { bookingRef, totalAmount, currency = "usd" } = body;
+    const {
+      bookingRef,
+      totalAmount,
+      currency = "usd",
+      savedPaymentMethodId,
+    } = body;
 
     if (!bookingRef || !totalAmount) {
       return NextResponse.json(
@@ -18,19 +23,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const paymentIntent = await stripe.paymentIntents.create(
-      {
-        amount: Math.round(totalAmount * 100), // convert to cents
-        currency,
-        metadata: { bookingRef },
-      },
-      { idempotencyKey: `booking-${bookingRef}` },
-    );
+    const piParams: Stripe.PaymentIntentCreateParams = {
+      amount: Math.round(totalAmount * 100),
+      currency,
+      metadata: { bookingRef },
+      ...(savedPaymentMethodId
+        ? {
+            payment_method: savedPaymentMethodId,
+            confirm: true,
+            off_session: true,
+          }
+        : {}),
+    };
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
-  } catch (err: any) {
+    const paymentIntent = await stripe.paymentIntents.create(piParams, {
+      idempotencyKey: `booking-${bookingRef}`,
+    });
+
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      status: paymentIntent.status,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[POST /api/payments/stripe] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -42,8 +59,9 @@ export async function PUT(request: NextRequest) {
     });
 
     return NextResponse.json({ clientSecret: setupIntent.client_secret });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[PUT /api/payments/stripe] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -62,6 +62,7 @@ export interface User {
   loyalty_tier: string;
   special_requests: string | null;
   avatar_url: string | null;
+  stripe_customer_id: string | null;
   created_at: string;
   updated_at: string;
 }
