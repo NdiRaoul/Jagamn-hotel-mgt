@@ -45,8 +45,8 @@ function ResetPasswordContent() {
       setError("Passwords do not match.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 4) {
+      setError("Password must be at least 4 characters.");
       return;
     }
 
@@ -143,7 +143,7 @@ function ResetPasswordContent() {
                         placeholder="••••••••"
                         className="border-none bg-transparent h-12 px-0 focus-visible:ring-0 text-jagamn-primary pr-10"
                         required
-                        minLength={6}
+                        minLength={4}
                       />
                       <button
                         type="button"

@@ -79,20 +79,22 @@ export default function ProfilePage() {
     setSaveMsg(null);
     setSaveError(null);
 
-    const { error } = await supabase
-      .from("users")
-      .update({
+    const { error } = await supabase.from("users").upsert(
+      {
+        auth_user_id: userId,
         full_name: form.fullName,
         phone: form.phone || null,
         country: form.country || null,
         id_type: form.idType || null,
         id_number: form.idNumber || null,
         updated_at: new Date().toISOString(),
-      })
-      .eq("auth_user_id", userId);
+      },
+      { onConflict: "auth_user_id" },
+    );
 
     if (error) {
-      setSaveError("Failed to save profile. Please try again.");
+      console.error("[profile] save error:", error);
+      setSaveError(`Failed to save profile: ${error.message}`);
     } else {
       setSaveMsg("Profile saved successfully.");
     }

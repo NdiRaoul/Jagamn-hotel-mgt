@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfDay } from "date-fns";
 import {
   User,
   CreditCard,
@@ -76,16 +76,30 @@ function BookingContent() {
     idNumber: "",
     specialRequests: "",
     mobileMoneyPhone: "",
-    mobileMoneyMedium: "mobile money",
+    mobileMoneyMedium: "mtn mobile money",
     password: "",
     confirmPassword: "",
   });
+
+  // Password validation state
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | null
+  >(null);
+  // Phone validation for mobile money
+  const [mobilePhoneError, setMobilePhoneError] = useState<string | null>(null);
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const roomTotal = room ? room.price * nights : 0;
   const resortFee = 150;
   const tax = Math.round(roomTotal * 0.12);
   const totalPrice = roomTotal + resortFee + tax;
+
+  // Past date error — computed, not state
+  const pastDateError =
+    checkIn && startOfDay(checkIn) < startOfDay(new Date())
+      ? "Your check-in date has passed. Please select new dates."
+      : null;
 
   // Pre-fill from session
   useEffect(() => {
@@ -112,6 +126,7 @@ function BookingContent() {
       }
     }
     prefill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fapshi polling
@@ -204,6 +219,69 @@ function BookingContent() {
     return res.json();
   }
 
+  // ── Password strength ─────────────────────────────────────────────────────
+  function getPasswordStrength(pw: string): {
+    level: "weak" | "fair" | "strong";
+    label: string;
+    color: string;
+    width: string;
+  } {
+    if (pw.length < 4)
+      return {
+        level: "weak",
+        label: "Too short",
+        color: "bg-red-500",
+        width: "w-1/4",
+      };
+    if (pw.length < 8) {
+      return {
+        level: "weak",
+        label: "Weak",
+        color: "bg-red-500",
+        width: "w-1/3",
+      };
+    }
+    const hasLower = /[a-z]/.test(pw);
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasDigit = /\d/.test(pw);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+    const typeCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(
+      Boolean,
+    ).length;
+    if (pw.length >= 10 && typeCount >= 3) {
+      return {
+        level: "strong",
+        label: "Strong",
+        color: "bg-green-500",
+        width: "w-full",
+      };
+    }
+    return {
+      level: "fair",
+      label: "Fair",
+      color: "bg-amber-500",
+      width: "w-2/3",
+    };
+  }
+
+  // ── Cameroonian mobile number validation ──────────────────────────────────
+  // Valid: 9 digits starting with 67x, 65x (MTN) or 69x (Orange) or 68x (MTN)
+  const CM_MOBILE_REGEX = /^6[5679]\d{7}$/;
+
+  function validateCmPhone(raw: string): string | null {
+    // Strip +237 prefix if present
+    const local = raw.replace(/^\+237/, "").replace(/\s/g, "");
+    if (!CM_MOBILE_REGEX.test(local)) {
+      return "Enter a valid Cameroonian number (e.g. 676982949 or 699123456)";
+    }
+    return null;
+  }
+
+  function normalizeCmPhone(raw: string): string {
+    const local = raw.replace(/^\+237/, "").replace(/\s/g, "");
+    return `+237${local}`;
+  }
+
   async function handleCreateAccount(bookingId: string) {
     if (!createAccount || !formData.password) return;
     if (formData.password !== formData.confirmPassword) {
@@ -244,6 +322,27 @@ function BookingContent() {
       setPaymentError("Please accept the terms and conditions.");
       return;
     }
+
+    // Block if past date
+    if (pastDateError) {
+      setPaymentError("Please select valid check-in dates before proceeding.");
+      return;
+    }
+
+    // Validate account creation password
+    if (createAccount) {
+      if (!formData.password || formData.password.length < 4) {
+        setPasswordError("Password must be at least 4 characters.");
+        setPaymentError("Please fix the password errors before continuing.");
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setConfirmPasswordError("Passwords do not match.");
+        setPaymentError("Please fix the password errors before continuing.");
+        return;
+      }
+    }
+
     setPaymentError(null);
     setIsProcessing(true);
 
@@ -318,8 +417,25 @@ function BookingContent() {
           return;
         }
 
+        // Validate Cameroonian number
+        const phoneErr = validateCmPhone(phone);
+        if (phoneErr) {
+          setPaymentError(phoneErr);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Normalize to +237XXXXXXXXX
+        const normalizedPhone = normalizeCmPhone(phone);
+
+        // Map medium to exact Fapshi values
+        const fapshiMedium =
+          formData.mobileMoneyMedium === "mtn mobile money"
+            ? "mtn mobile money"
+            : "orange money";
+
         // Create booking
-        const bookingData = await createBooking(formData.mobileMoneyMedium);
+        const bookingData = await createBooking(fapshiMedium);
         if (bookingData.error) {
           setPaymentError(bookingData.error);
           setIsProcessing(false);
@@ -332,8 +448,8 @@ function BookingContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: totalPrice,
-            phone,
-            medium: formData.mobileMoneyMedium,
+            phone: normalizedPhone,
+            medium: fapshiMedium,
             bookingRef: bookingData.bookingRef,
             email: formData.email,
             name: formData.fullName,
@@ -352,7 +468,7 @@ function BookingContent() {
         }
 
         setFapshiTransId(fapshiData.transId);
-        setFapshiPhone(phone);
+        setFapshiPhone(normalizedPhone);
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
         setIsProcessing(false);
@@ -369,8 +485,10 @@ function BookingContent() {
           `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
         );
       }
-    } catch (err: any) {
-      setPaymentError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setPaymentError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
       setIsProcessing(false);
     }
   };
@@ -410,8 +528,23 @@ function BookingContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 flex flex-col lg:flex-row gap-12 mt-20">
+      {/* ── Past date error banner ── */}
+      {pastDateError && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-lg">
+          <p className="text-sm font-semibold">{pastDateError}</p>
+          <Link
+            href={roomSlug ? `/rooms/${roomSlug}` : "/rooms"}
+            className="ml-4 bg-white text-red-600 text-xs font-bold px-4 py-2 rounded-md hover:bg-red-50 transition-colors flex-shrink-0"
+          >
+            Choose New Dates
+          </Link>
+        </div>
+      )}
+
       {/* ── Left Column: Forms ── */}
-      <div className="flex-1 space-y-12">
+      <div
+        className={`flex-1 space-y-12 ${pastDateError ? "pointer-events-none opacity-50 mt-16" : ""}`}
+      >
         {/* Step 1: Guest Details */}
         <section>
           <div className="flex items-center gap-4 mb-8">
@@ -573,12 +706,50 @@ function BookingContent() {
                       <Input
                         type="password"
                         value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            password: e.target.value,
+                          });
+                          setPasswordError(null);
+                        }}
+                        onBlur={() => {
+                          if (
+                            formData.password &&
+                            formData.password.length < 4
+                          ) {
+                            setPasswordError(
+                              "Password must be at least 4 characters.",
+                            );
+                          } else {
+                            setPasswordError(null);
+                          }
+                        }}
                         placeholder="••••••••"
                         className="bg-white h-11"
                       />
+                      {/* Password strength bar */}
+                      {formData.password.length > 0 &&
+                        (() => {
+                          const s = getPasswordStrength(formData.password);
+                          return (
+                            <div className="space-y-1">
+                              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${s.color} ${s.width}`}
+                                />
+                              </div>
+                              <p
+                                className={`text-[10px] font-bold ${s.level === "strong" ? "text-green-600" : s.level === "fair" ? "text-amber-600" : "text-red-500"}`}
+                              >
+                                {s.label}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      {passwordError && (
+                        <p className="text-xs text-red-600">{passwordError}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -587,15 +758,31 @@ function BookingContent() {
                       <Input
                         type="password"
                         value={formData.confirmPassword}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setFormData({
                             ...formData,
                             confirmPassword: e.target.value,
-                          })
-                        }
+                          });
+                          setConfirmPasswordError(null);
+                        }}
+                        onBlur={() => {
+                          if (
+                            formData.confirmPassword &&
+                            formData.confirmPassword !== formData.password
+                          ) {
+                            setConfirmPasswordError("Passwords do not match.");
+                          } else {
+                            setConfirmPasswordError(null);
+                          }
+                        }}
                         placeholder="••••••••"
                         className="bg-white h-11"
                       />
+                      {confirmPasswordError && (
+                        <p className="text-xs text-red-600">
+                          {confirmPasswordError}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -697,12 +884,12 @@ function BookingContent() {
                       onClick={() =>
                         setFormData({
                           ...formData,
-                          mobileMoneyMedium: "mobile money",
+                          mobileMoneyMedium: "mtn mobile money",
                         })
                       }
                       className={cn(
                         "px-4 py-2 rounded-full text-xs font-bold transition-all",
-                        formData.mobileMoneyMedium === "mobile money"
+                        formData.mobileMoneyMedium === "mtn mobile money"
                           ? "bg-[#00152A] text-white"
                           : "bg-gray-200 text-gray-500",
                       )}
@@ -732,12 +919,23 @@ function BookingContent() {
                     </Label>
                     <PhoneInput
                       value={formData.mobileMoneyPhone}
-                      onChange={(v) =>
-                        setFormData({ ...formData, mobileMoneyPhone: v })
-                      }
+                      onChange={(v) => {
+                        setFormData({ ...formData, mobileMoneyPhone: v });
+                        setMobilePhoneError(null);
+                        if (
+                          v.replace(/^\+237/, "").replace(/\s/g, "").length >= 9
+                        ) {
+                          setMobilePhoneError(validateCmPhone(v));
+                        }
+                      }}
                       placeholder="670000000"
                       defaultCountryCode="CM"
                     />
+                    {mobilePhoneError && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {mobilePhoneError}
+                      </p>
+                    )}
                   </div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
                     You will receive a payment prompt on your phone. Approve it
@@ -802,7 +1000,7 @@ function BookingContent() {
             </div>
             <Button
               onClick={handlePayment}
-              disabled={isProcessing || !termsAccepted}
+              disabled={isProcessing || !termsAccepted || !!pastDateError}
               className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20 disabled:opacity-50"
             >
               {isProcessing

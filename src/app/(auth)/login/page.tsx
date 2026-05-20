@@ -1,43 +1,196 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import {
+  ShieldCheck,
+  ArrowRight,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-/** Reads ?tab= from the URL and syncs the active tab — must be inside <Suspense>. */
-function TabSync({
-  onTab,
-}: {
-  onTab: (tab: "signin" | "signup") => void;
-}) {
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "signup") onTab("signup");
-  }, [searchParams, onTab]);
-  return null;
-}
-
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(
+    searchParams.get("tab") === "signup" ? "signup" : "signin",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleSignIn = (e: React.FormEvent) => {
+  // Sign-in fields
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+
+  // Sign-up fields
+  const [fullName, setFullName] = useState("");
+  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpPassword, setSignUpPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | null
+  >(null);
+
+  // Password visibility toggles
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const supabase = createSupabaseBrowserClient();
+
+  // ── Password strength ──────────────────────────────────────────────────────
+  function getPasswordStrength(pw: string): {
+    level: "weak" | "fair" | "strong";
+    label: string;
+    color: string;
+    width: string;
+  } {
+    if (pw.length < 4)
+      return {
+        level: "weak",
+        label: "Too short",
+        color: "bg-red-500",
+        width: "w-1/4",
+      };
+    if (pw.length < 8) {
+      return {
+        level: "weak",
+        label: "Weak",
+        color: "bg-red-500",
+        width: "w-1/3",
+      };
+    }
+    const hasLower = /[a-z]/.test(pw);
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasDigit = /\d/.test(pw);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+    const typeCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(
+      Boolean,
+    ).length;
+    if (pw.length >= 10 && typeCount >= 3) {
+      return {
+        level: "strong",
+        label: "Strong",
+        color: "bg-green-500",
+        width: "w-full",
+      };
+    }
+    return {
+      level: "fair",
+      label: "Fair",
+      color: "bg-amber-500",
+      width: "w-2/3",
+    };
+  }
+
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
+
+  // ── Sign In ────────────────────────────────────────────────
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsSubmitting(true);
-    // Simulate login
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 1500);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: signInEmail,
+      password: signInPassword,
+    });
+
+    if (error) {
+      setError("Invalid email or password. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.push(redirectTo);
+    router.refresh();
+  };
+
+  // ── Sign Up ────────────────────────────────────────────────
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+
+    if (!fullName.trim()) {
+      setError("Full name is required.");
+      return;
+    }
+    if (signUpPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (signUpPassword.length < 4) {
+      setError("Password must be at least 4 characters.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Check if a member account already exists with this email
+    // (guest rows are fine — they get upgraded; only block if already a member)
+    const checkRes = await fetch(
+      `/api/auth/check-email?email=${encodeURIComponent(signUpEmail)}`,
+    );
+    if (checkRes.ok) {
+      const { role } = await checkRes.json();
+      if (role === "member") {
+        setError("An account with this email already exists. Please sign in.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: signUpEmail,
+      password: signUpPassword,
+      options: {
+        data: { full_name: fullName },
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // If session is immediately available (email confirmation disabled), create profile and redirect
+    if (data.session) {
+      await fetch("/api/auth/create-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email: signUpEmail }),
+      });
+      router.push(redirectTo);
+      router.refresh();
+      return;
+    }
+
+    setSuccessMsg(
+      "Account created! Check your email to confirm your account before signing in.",
+    );
+    setIsSubmitting(false);
+  };
+
+  // ── Google OAuth ───────────────────────────────────────────
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/api/auth/callback`,
+      },
+    });
   };
 
   return (
@@ -48,13 +201,11 @@ export default function LoginPage() {
           src="/images/login-image.png"
           alt="Jagamn Palace Lobby"
           fill
+          sizes="45vw"
           className="object-cover"
           priority
         />
-        {/* Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-jagamn-primary via-transparent to-transparent opacity-80" />
-
-        {/* Content */}
         <div className="absolute bottom-20 left-20 right-20 space-y-10">
           <div className="space-y-4">
             <h2 className="manrope-bold text-white text-xl">Jagamn Palace</h2>
@@ -63,7 +214,6 @@ export default function LoginPage() {
               digital precision. Step into your private sanctuary.
             </p>
           </div>
-
           <div className="flex items-center gap-6">
             <div className="h-[1px] w-12 bg-jagamn-tertiary" />
             <span className="manrope-bold text-jagamn-tertiary text-xs uppercase tracking-[0.3em]">
@@ -71,8 +221,6 @@ export default function LoginPage() {
             </span>
           </div>
         </div>
-
-        {/* Security Badge */}
         <div className="absolute bottom-6 left-6 bg-white/20 backdrop-blur-md rounded-md p-3 flex items-center gap-3 border border-white/20 shadow-xl">
           <div className="w-8 h-8 rounded-full bg-jagamn-tertiary flex items-center justify-center">
             <ShieldCheck className="w-4 h-4 text-white" />
@@ -90,21 +238,26 @@ export default function LoginPage() {
 
       {/* ── Right Side: Auth Forms ─────────────────── */}
       <div className="flex-1 flex flex-col justify-center px-8 md:px-24 lg:px-32 xl:px-48 bg-[#FAFAFA]">
-        <div className="max-w-md w-full space-y-12">
-          {/* Header */}
+        <div className="max-w-md w-full space-y-10">
           <div className="space-y-2">
             <h1 className="manrope-bold text-2xl text-jagamn-primary">
-              Welcome Back
+              {activeTab === "signin" ? "Welcome Back" : "Create Account"}
             </h1>
             <p className="text-sm text-gray-500">
-              Access your guest dashboard and managed bookings.
+              {activeTab === "signin"
+                ? "Access your guest dashboard and managed bookings."
+                : "Join the Palace Club for exclusive benefits."}
             </p>
           </div>
 
           {/* Tabs */}
           <div className="flex border-b border-gray-100">
             <button
-              onClick={() => setActiveTab("signin")}
+              onClick={() => {
+                setActiveTab("signin");
+                setError(null);
+                setSuccessMsg(null);
+              }}
               className={cn(
                 "pb-4 px-2 text-xs font-bold uppercase tracking-widest transition-all relative",
                 activeTab === "signin"
@@ -118,7 +271,11 @@ export default function LoginPage() {
               )}
             </button>
             <button
-              onClick={() => setActiveTab("signup")}
+              onClick={() => {
+                setActiveTab("signup");
+                setError(null);
+                setSuccessMsg(null);
+              }}
               className={cn(
                 "pb-4 px-10 text-xs font-bold uppercase tracking-widest transition-all relative",
                 activeTab === "signup"
@@ -133,68 +290,229 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Form */}
-          <form className="space-y-8" onSubmit={handleSignIn}>
-            <div className="space-y-6">
-              {/* Email */}
+          {/* Error / Success messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-md">
+              {error}
+            </div>
+          )}
+          {successMsg && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-md">
+              {successMsg}
+            </div>
+          )}
+
+          {/* ── Sign In Form ── */}
+          {activeTab === "signin" && (
+            <form className="space-y-8" onSubmit={handleSignIn}>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    Email Address
+                  </Label>
+                  <Input
+                    type="email"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    placeholder="guest@jagamnpalace.com"
+                    className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      Password
+                    </Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest hover:underline"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showSignInPassword ? "text" : "password"}
+                      value={signInPassword}
+                      onChange={(e) => setSignInPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 pr-8 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignInPassword(!showSignInPassword)}
+                      className="absolute right-0 text-gray-300 hover:text-jagamn-primary transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showSignInPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-14 bg-jagamn-primary hover:bg-jagamn-primary/90 text-white font-bold rounded-md flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? "Securing Entry..." : "Sign Into Palace"}
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </form>
+          )}
+
+          {/* ── Sign Up Form ── */}
+          {activeTab === "signup" && (
+            <form className="space-y-6" onSubmit={handleSignUp}>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Full Name
+                </Label>
+                <Input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Johnathan Doe"
+                  className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
+                  required
+                />
+              </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                   Email Address
                 </Label>
                 <Input
                   type="email"
+                  value={signUpEmail}
+                  onChange={(e) => setSignUpEmail(e.target.value)}
                   placeholder="guest@jagamnpalace.com"
                   className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
                   required
                 />
               </div>
-
-              {/* Password */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                    Password
-                  </Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest hover:underline"
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Password
+                </Label>
+                <div className="relative flex items-center">
+                  <Input
+                    type={showSignUpPassword ? "text" : "password"}
+                    value={signUpPassword}
+                    onChange={(e) => {
+                      setSignUpPassword(e.target.value);
+                      setPasswordError(null);
+                    }}
+                    onBlur={() => {
+                      if (signUpPassword && signUpPassword.length < 4) {
+                        setPasswordError(
+                          "Password must be at least 4 characters.",
+                        );
+                      } else {
+                        setPasswordError(null);
+                      }
+                    }}
+                    placeholder="••••••••"
+                    className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 pr-8 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                    className="absolute right-0 text-gray-300 hover:text-jagamn-primary transition-colors"
+                    tabIndex={-1}
                   >
-                    Forgot Password?
-                  </Link>
+                    {showSignUpPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
-                  required
-                />
+                {/* Password strength bar */}
+                {signUpPassword.length > 0 &&
+                  (() => {
+                    const s = getPasswordStrength(signUpPassword);
+                    return (
+                      <div className="space-y-1 pt-1">
+                        <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${s.color} ${s.width}`}
+                          />
+                        </div>
+                        <p
+                          className={`text-[10px] font-bold ${s.level === "strong" ? "text-green-600" : s.level === "fair" ? "text-amber-600" : "text-red-500"}`}
+                        >
+                          {s.label}
+                        </p>
+                      </div>
+                    );
+                  })()}
+                {passwordError && (
+                  <p className="text-xs text-red-600 mt-1">{passwordError}</p>
+                )}
               </div>
-            </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Confirm Password
+                </Label>
+                <div className="relative flex items-center">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setConfirmPasswordError(null);
+                    }}
+                    onBlur={() => {
+                      if (
+                        confirmPassword &&
+                        confirmPassword !== signUpPassword
+                      ) {
+                        setConfirmPasswordError("Passwords do not match.");
+                      } else {
+                        setConfirmPasswordError(null);
+                      }
+                    }}
+                    placeholder="••••••••"
+                    className="border-0 border-b border-gray-100 rounded-none bg-transparent h-12 px-0 pr-8 focus-visible:ring-0 focus-visible:border-jagamn-primary transition-colors placeholder:text-gray-200"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-0 text-gray-300 hover:text-jagamn-primary transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {confirmPasswordError && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {confirmPasswordError}
+                  </p>
+                )}
+              </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center gap-3">
-              <Checkbox
-                id="remember"
-                className="border-gray-200 data-[state=checked]:bg-jagamn-primary"
-              />
-              <Label
-                htmlFor="remember"
-                className="text-[10px] font-bold text-gray-500 uppercase tracking-widest cursor-pointer"
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-14 bg-jagamn-primary hover:bg-jagamn-primary/90 text-white font-bold rounded-md flex items-center justify-center gap-2"
               >
-                Keep me signed in for 30 days
-              </Label>
-            </div>
-
-            {/* Submit */}
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full h-14 bg-jagamn-primary hover:bg-jagamn-primary/90 text-white font-bold rounded-md flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? "Securing Entry..." : "Sign Into Palace"}
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </form>
+                {isSubmitting ? "Creating Account..." : "Create Palace Account"}
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </form>
+          )}
 
           {/* Divider */}
           <div className="relative">
@@ -208,9 +526,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Social Auth */}
+          {/* Google OAuth */}
           <Button
+            type="button"
             variant="outline"
+            onClick={handleGoogleSignIn}
             className="w-full h-14 border-gray-100 bg-white hover:bg-gray-50 text-gray-600 font-bold text-sm flex items-center justify-center gap-3"
           >
             <Image
@@ -218,20 +538,39 @@ export default function LoginPage() {
               alt="Google"
               width={20}
               height={20}
-              className=""
             />
             Sign in with Google
           </Button>
 
-          {/* Quote */}
-          <div className="pt-8 text-center">
-            <p className="text-[10px] text-gray-400 italic leading-relaxed">
+          <div className="pt-4 flex flex-col items-center gap-4">
+            <p className="text-[10px] text-gray-400 italic leading-relaxed text-center">
               &ldquo;Elegance is the only beauty that never fades.&rdquo; —
               Jagamn Concierge
             </p>
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 hover:text-jagamn-primary uppercase tracking-widest transition-colors"
+            >
+              <ChevronLeft className="w-3 h-3" />
+              Back to Jagamn Palace
+            </Link>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
