@@ -1,8 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { ROOMS } from "@/lib/data/rooms";
+import { drainReconcileQueue } from "@/lib/redis/reconcile";
+import { getCached } from "@/lib/redis/cache";
+
+type RoomCatalogueEntry = {
+  id: string;
+  slug: string;
+  [key: string]: unknown;
+};
+
+type RoomAvailabilityEntry = {
+  unavailableDates: Array<{ from_date: string; to_date: string }>;
+};
+
+function rangeOverlaps(
+  checkIn: string,
+  checkOut: string,
+  range: { from_date: string; to_date: string },
+) {
+  return range.from_date <= checkOut && range.to_date >= checkIn;
+}
+
+async function loadRoomAvailabilityBySlug(
+  slug: string,
+  roomTypeId: string,
+): Promise<RoomAvailabilityEntry> {
+  return (
+    (await getCached<RoomAvailabilityEntry>(
+      `availability:slug:${slug}`,
+      60,
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from("room_type_unavailable_dates")
+          .select("from_date, to_date")
+          .eq("room_type_id", roomTypeId);
+
+        if (error) throw error;
+        return { unavailableDates: data || [] };
+      },
+    )) ?? { unavailableDates: [] }
+  );
+}
 
 export async function GET(request: NextRequest) {
+  // Opportunistic reconcile drain (Fix 2) — fire-and-forget.
+  // Amortises missed-webhook recovery across organic room-list traffic.
+  drainReconcileQueue(3).catch(() => {});
   const { searchParams } = new URL(request.url);
   const checkIn = searchParams.get("checkIn");
   const checkOut = searchParams.get("checkOut");
@@ -17,44 +61,55 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch room types with amenities and unavailable dates
-    const { data: roomTypes, error } = await supabaseAdmin
-      .from("room_types")
-      .select("*, room_amenities(*), room_type_unavailable_dates(*)")
-      .order("sort_order");
+    const roomTypes = await getCached<RoomCatalogueEntry[]>(
+      `roomcatalogue:all`,
+      300,
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from("room_types")
+          .select("*, room_amenities(*)")
+          .order("sort_order");
+        if (error) throw error;
+        return data || [];
+      },
+    );
 
-    if (error) throw error;
-
-    // Fetch availability summary
-    const { data: availability } = await supabaseAdmin
-      .from("room_availability_summary")
-      .select("*");
+    const availabilitySummary = await getCached<any[]>(
+      `availability:summary`,
+      60,
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from("room_availability_summary")
+          .select("*");
+        if (error) throw error;
+        return data || [];
+      },
+    );
 
     const availMap: Record<string, number> = {};
-    if (availability) {
-      for (const row of availability) {
+    if (availabilitySummary) {
+      for (const row of availabilitySummary) {
         availMap[row.slug] = row.available_today;
       }
     }
 
-    // If date params provided, check conflicts
-    let conflictSlugs: Set<string> = new Set();
+    let conflictSlugs = new Set<string>();
     if (checkIn && checkOut) {
-      const { data: conflicts } = await supabaseAdmin
-        .from("room_type_unavailable_dates")
-        .select("room_type_id, room_types(slug)")
-        .lte("from_date", checkOut)
-        .gte("to_date", checkIn);
-
-      if (conflicts) {
-        for (const c of conflicts) {
-          const slug = (c.room_types as any)?.slug;
-          if (slug) conflictSlugs.add(slug);
-        }
-      }
+      await Promise.all(
+        (roomTypes || []).map(async (rt) => {
+          const availability = await loadRoomAvailabilityBySlug(rt.slug, rt.id);
+          if (
+            availability.unavailableDates.some((range) =>
+              rangeOverlaps(checkIn, checkOut, range),
+            )
+          ) {
+            conflictSlugs.add(rt.slug);
+          }
+        }),
+      );
     }
 
-    const rooms = (roomTypes || []).map((rt: any) => ({
+    const rooms = (roomTypes || []).map((rt) => ({
       ...rt,
       available_count: availMap[rt.slug] ?? 0,
       available: checkIn && checkOut ? !conflictSlugs.has(rt.slug) : true,

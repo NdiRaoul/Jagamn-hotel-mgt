@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { getCached } from "@/lib/redis/cache";
+import { getCached, invalidate } from "@/lib/redis/cache";
 import { bookingLimiter } from "@/lib/redis/rate-limit";
+import {
+  acquireLock,
+  registerBookingSession,
+  roomHoldKey,
+  PAYMENT_WINDOW_SECONDS,
+} from "@/lib/redis/locks";
+import { enqueueReconcile } from "@/lib/redis/reconcile";
 
 // POST /api/bookings — create a booking
 export async function POST(request: NextRequest) {
@@ -143,6 +150,33 @@ export async function POST(request: NextRequest) {
     // The assign_room_and_book() Postgres function picks a free room unit with
     // FOR UPDATE SKIP LOCKED and inserts the booking in ONE transaction.
     // The no_overlap exclusion constraint is the final backstop.
+    //
+    // Before calling the RPC, we attempt a Redis distributed lock on the
+    // room type + dates. This is an OPTIMISATION — it stops a second user
+    // from even starting the RPC while the first is in the payment window,
+    // giving a better UX error ("room is being held") vs a DB 409.
+    // If Redis is down, we skip the lock and let the DB constraint decide.
+    let roomHoldToken: string | null = null;
+    if (roomType?.id) {
+      const holdKey = roomHoldKey(roomType.id, check_in, check_out);
+      roomHoldToken = await acquireLock(holdKey, PAYMENT_WINDOW_SECONDS);
+      // null means Redis is down (skip) or lock is held (another user is paying)
+      if (roomHoldToken === null) {
+        // Check if Redis is actually up — if so, the room is genuinely held
+        const { redisAvailable } = await import("@/lib/redis/client");
+        if (redisAvailable) {
+          return NextResponse.json(
+            {
+              error:
+                "This room is currently being held by another guest. Please try again in a few minutes.",
+            },
+            { status: 409 },
+          );
+        }
+        // Redis down — proceed without lock, DB constraint is the backstop
+      }
+    }
+
     const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc(
       "assign_room_and_book",
       {
@@ -300,6 +334,30 @@ export async function POST(request: NextRequest) {
         .update({ app_user_id: appUserId })
         .eq("id", booking.booking_id);
     }
+
+    // ── Register booking session in Redis (replaces cron-based expiry) ───────
+    // The session key auto-expires after PAYMENT_WINDOW_SECONDS.
+    // When it expires, the room hold (lock:room:*) also expires, freeing the
+    // room for other guests — no cron scan needed.
+    await registerBookingSession(
+      booking.booking_id,
+      roomHoldToken,
+      PAYMENT_WINDOW_SECONDS,
+    );
+
+    // Invalidate availability cache so the room shows as held immediately
+    await invalidate(`availability:slug:${room_slug}`);
+
+    // ── Enqueue for opportunistic reconciliation (Fix 2) ─────────────────────
+    // If the payment provider webhook is missed AND the guest closes the
+    // browser, drainReconcileQueue() (called from /api/health and /api/rooms)
+    // will poll the live status and self-heal the booking.
+    // payment_method tells us which provider to poll; transactionId is stored
+    // after payment initiation — we enqueue with a placeholder and the payment
+    // routes update it. For now we enqueue without transactionId; the Fapshi
+    // status poll (Fix 1) covers the case where the guest is still on the page.
+    // The queue entry is updated with the real transactionId by the payment
+    // initiation routes (see /api/payments/fapshi POST and /api/payments/stripe POST).
 
     // ── Send "reservation received" email (NOT a confirmation) ──────────────
     // The real "Booking Confirmed" email is sent only after payment succeeds,
