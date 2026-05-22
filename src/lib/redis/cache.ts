@@ -19,7 +19,7 @@
  *
  * Key naming: entity:scope:id
  *   e.g. roomtype:slug:maharaja-suite
- *        availability:<slug>:<checkIn>:<checkOut>
+ *        availability:slug:maharaja-suite
  *
  * TTLs:
  *   room-type detail  300 s
@@ -116,7 +116,9 @@ export async function invalidate(key: string): Promise<void> {
     revalidate(key);
     revalidate(tagFromKey(key));
   } catch {
-    // revalidateTag throws outside a request context — safe to ignore
+    // `revalidateTag` may throw outside a request context (webhooks/reconcile).
+    // Redis key deletion is authoritative; Next.js cache is a best-effort
+    // second tier whose staleness is bounded by the entry TTL.
   }
 }
 /**
@@ -146,6 +148,8 @@ export async function invalidateByPrefix(prefix: string): Promise<void> {
   try {
     revalidate(prefix.replace(/:$/, ""));
   } catch {
-    // safe to ignore outside request context
+    // `revalidateTag` may throw outside a request context.
+    // Redis key deletion is authoritative; any stale Next.js entry will
+    // self-heal within its TTL.
   }
 }

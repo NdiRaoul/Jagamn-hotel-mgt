@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enqueueReconcile } from "@/lib/redis/reconcile";
 
 const BASE = process.env.FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
 const API_USER = process.env.FAPSHI_API_USER || "";
@@ -189,6 +190,19 @@ export async function POST(request: NextRequest) {
         { status: res.status },
       );
     }
+
+    // Enqueue for opportunistic reconciliation (Fix 2).
+    // If the webhook is missed and the guest closes the browser, the queue
+    // drain will poll Fapshi and self-heal the booking.
+    if (bookingRef && data.transId) {
+      enqueueReconcile({
+        bookingId: "", // bookingId not available here; bookingRef is sufficient
+        bookingRef,
+        provider: "fapshi",
+        transactionId: data.transId as string,
+      }).catch(() => {}); // fire-and-forget
+    }
+
     return NextResponse.json(data); // { transId }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -197,13 +211,26 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/payments/fapshi?transId=xxx  — poll payment status
+// GET /api/payments/fapshi?transId=xxx[&bookingRef=JP-xxx]
+// Polls Fapshi for live payment status.
+//
+// FIX 1 — RECONCILE-ON-READ:
+// If the local booking is still "pending" but Fapshi reports SUCCESSFUL,
+// we confirm the booking right here using the same idempotent logic the
+// webhook uses. This self-heals missed webhooks the moment anyone polls
+// the status (the booking page polls every 5 s while the guest is waiting).
+//
+// If Fapshi reports FAILED/EXPIRED, we expire the booking immediately.
+//
+// The dedup guard (isEventProcessed / markEventProcessed) ensures this
+// path and the webhook path cannot double-confirm or double-send email.
 export async function GET(request: NextRequest) {
   const guard = guardCreds();
   if (guard) return guard;
 
   const { searchParams } = new URL(request.url);
   const transId = searchParams.get("transId");
+  const bookingRef = searchParams.get("bookingRef");
 
   if (!transId) {
     return NextResponse.json({ error: "transId is required" }, { status: 400 });
@@ -215,7 +242,12 @@ export async function GET(request: NextRequest) {
     const res = await fetch(`${BASE}/payment-status/${transId}`, {
       headers: fapshiHeaders(),
     });
-    const data = await res.json();
+    const data = (await res.json()) as {
+      status?: string;
+      transId?: string;
+      amount?: number;
+      [key: string]: unknown;
+    };
 
     if (!res.ok) {
       return NextResponse.json(
@@ -223,6 +255,40 @@ export async function GET(request: NextRequest) {
         { status: res.status },
       );
     }
+
+    // ── Reconcile-on-read ────────────────────────────────────────────────────
+    // Only attempt reconciliation when we have a bookingRef to act on.
+    if (bookingRef && data.status) {
+      if (data.status === "SUCCESSFUL") {
+        try {
+          const { confirmBookingFromPayment } =
+            await import("@/lib/payments/confirm-booking");
+          await confirmBookingFromPayment({
+            provider: "fapshi",
+            eventKey: `${transId}:SUCCESSFUL`,
+            bookingRef,
+            transactionId: transId,
+            amount: data.amount,
+            currency: "XAF",
+            paymentMethod: "mobile_money",
+          });
+        } catch (reconcileErr) {
+          // Log but don't fail the status response — the client still gets
+          // the live Fapshi status and can retry.
+          console.error("[fapshi GET] reconcile-on-read error:", reconcileErr);
+        }
+      } else if (data.status === "FAILED" || data.status === "EXPIRED") {
+        try {
+          const { expireBooking } =
+            await import("@/lib/payments/confirm-booking");
+          await expireBooking({ bookingRef, transactionId: transId });
+        } catch (expireErr) {
+          console.error("[fapshi GET] expire-on-read error:", expireErr);
+        }
+      }
+    }
+
+    // Return the live Fapshi status to the client unchanged
     return NextResponse.json(data);
     // Fapshi returns: { status: "SUCCESSFUL" | "FAILED" | "PENDING" | "EXPIRED", transId, amount, ... }
   } catch (err: unknown) {

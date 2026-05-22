@@ -608,13 +608,14 @@ async function seed() {
   // ── 0. Clean up tables that are being replaced ─────────────────────────────
   console.log("── Cleanup ─────────────────────────────────────────────────");
 
-  // New dining / notification tables (added in schema additions)
+  // New tables added in the current schema.
   for (const table of [
     "dining_order_items",
     "dining_orders",
     "notifications",
     "stay_preferences",
     "webhook_events",
+    "payment_methods",
     "menu_items",
     "menu_categories",
   ]) {

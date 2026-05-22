@@ -1,8 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { ROOMS } from "@/lib/data/rooms";
+import { getCached } from "@/lib/redis/cache";
 
 type Props = { params: Promise<{ slug: string }> };
+
+type RoomAvailabilityCacheEntry = {
+  roomTypeId: string;
+  unavailableDates: Array<{
+    from_date: string;
+    to_date: string;
+    alternate_room_slugs?: string[];
+    alternate_dates?: Array<{ from: string; to: string }>;
+  }>;
+};
+
+async function loadRoomAvailability(
+  slug: string,
+): Promise<RoomAvailabilityCacheEntry | null> {
+  return getCached<RoomAvailabilityCacheEntry>(
+    `availability:slug:${slug}`,
+    60,
+    async () => {
+      const { data: roomType } = await supabaseAdmin
+        .from("room_types")
+        .select("id, room_type_unavailable_dates(*)")
+        .eq("slug", slug)
+        .single();
+
+      if (!roomType) {
+        return null;
+      }
+
+      return {
+        roomTypeId: roomType.id,
+        unavailableDates: roomType.room_type_unavailable_dates || [],
+      };
+    },
+  );
+}
+
+function rangeOverlaps(
+  checkIn: string,
+  checkOut: string,
+  range: { from_date: string; to_date: string },
+) {
+  return range.from_date <= checkOut && range.to_date >= checkIn;
+}
 
 export async function GET(request: NextRequest, { params }: Props) {
   const { slug } = await params;
@@ -13,23 +57,9 @@ export async function GET(request: NextRequest, { params }: Props) {
   if (!checkIn || !checkOut) {
     // Return all unavailable date ranges for this room (for calendar display)
     try {
-      const { data: roomType } = await supabaseAdmin
-        .from("room_types")
-        .select("id")
-        .eq("slug", slug)
-        .single();
-
-      if (!roomType) {
-        return NextResponse.json({ unavailable: [], available: true });
-      }
-
-      const { data: unavailDates } = await supabaseAdmin
-        .from("room_type_unavailable_dates")
-        .select("from_date, to_date")
-        .eq("room_type_id", roomType.id);
-
+      const availability = await loadRoomAvailability(slug);
       return NextResponse.json({
-        unavailable: unavailDates || [],
+        unavailable: availability?.unavailableDates || [],
         available: true,
       });
     } catch {
@@ -38,15 +68,9 @@ export async function GET(request: NextRequest, { params }: Props) {
   }
 
   try {
-    // Get room type
-    const { data: roomType, error: rtError } = await supabaseAdmin
-      .from("room_types")
-      .select("id, slug, name")
-      .eq("slug", slug)
-      .single();
+    const availability = await loadRoomAvailability(slug);
 
-    if (rtError || !roomType) {
-      // Room not in DB — return fully available (no blocked dates)
+    if (!availability) {
       return NextResponse.json({
         available: true,
         conflicts: [],
@@ -55,20 +79,14 @@ export async function GET(request: NextRequest, { params }: Props) {
       });
     }
 
-    // Check unavailable dates for this room type
-    const { data: conflicts } = await supabaseAdmin
-      .from("room_type_unavailable_dates")
-      .select("*")
-      .eq("room_type_id", roomType.id)
-      .lte("from_date", checkOut)
-      .gte("to_date", checkIn);
+    const conflicts = availability.unavailableDates.filter((range) =>
+      rangeOverlaps(checkIn, checkOut, range),
+    );
+    const available = conflicts.length === 0;
 
-    const available = !conflicts || conflicts.length === 0;
-
-    // Fetch alternate rooms if unavailable
-    let alternateRooms: any[] = [];
-    if (!available && conflicts && conflicts.length > 0) {
-      const altSlugs: string[] = conflicts[0].alternate_room_slugs || [];
+    let alternateRooms: unknown[] = [];
+    if (!available && conflicts.length > 0) {
+      const altSlugs = conflicts[0].alternate_room_slugs || [];
       if (altSlugs.length > 0) {
         const { data: alts } = await supabaseAdmin
           .from("room_types")
@@ -80,7 +98,7 @@ export async function GET(request: NextRequest, { params }: Props) {
 
     return NextResponse.json({
       available,
-      conflicts: conflicts || [],
+      conflicts,
       alternateRooms,
       alternateDates: conflicts?.[0]?.alternate_dates || [],
     });

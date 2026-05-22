@@ -629,3 +629,123 @@ create policy "menu_cat_public_read"
 -- =====================================================================
 -- END SCHEMA ADDITIONS
 -- =====================================================================
+
+-- =====================================================================
+-- EVENT-DRIVEN EXPIRY — replaces cron-based stale booking cleanup.
+--
+-- Architecture:
+--   1. Redis TTL (lock:room:* and session:booking:*) auto-expires after
+--      PAYMENT_WINDOW_SECONDS (900 s). This immediately frees the room
+--      for new bookings without any DB write.
+--
+--   2. This trigger fires on any UPDATE to the bookings table and marks
+--      rows that have been "pending" for > 15 minutes as "expired".
+--      It runs inline — no polling, no cron, no external scheduler.
+--
+--   3. For Fapshi (single-attempt webhook), the Fapshi payment route
+--      itself calls /api/bookings/expire when a payment definitively
+--      fails, giving immediate DB consistency.
+--
+-- WHY TRIGGERS BEAT CRON:
+--   • Triggers fire on the exact event (a write to bookings), not on a
+--     fixed schedule. Latency is O(ms), not O(minutes).
+--   • No race conditions — the trigger runs inside the same transaction
+--     as the write that caused it.
+--   • No operational overhead — no secrets, no schedules, no monitoring
+--     of a separate job.
+-- =====================================================================
+
+-- Function: mark a single booking expired if it has been pending too long.
+-- Called by the trigger below on every bookings UPDATE.
+create or replace function expire_stale_pending_bookings()
+returns trigger
+language plpgsql
+as $$
+begin
+  -- Mark any pending booking older than 15 minutes as expired.
+  -- Uses a sub-select so it only touches rows that actually need changing,
+  -- avoiding a full table scan on every write.
+  update bookings
+  set status = 'expired'
+  where status = 'pending'
+    and created_at < now() - interval '15 minutes'
+    and id <> new.id;  -- exclude the row being written right now
+
+  return new;
+end;
+$$;
+
+-- Trigger: fires AFTER any UPDATE on bookings (e.g. when a webhook confirms
+-- or fails a payment). Piggybacks on real traffic — zero idle overhead.
+drop trigger if exists trg_expire_stale_bookings on bookings;
+create trigger trg_expire_stale_bookings
+  after update on bookings
+  for each statement
+  execute function expire_stale_pending_bookings();
+
+-- =====================================================================
+-- END EVENT-DRIVEN EXPIRY
+-- =====================================================================
+
+-- =====================================================================
+-- FIX 3 — Replace broken per-write trigger with a correct, self-contained
+-- expire_stale_bookings() function called by the reconcile queue drain.
+--
+-- WHY THE OLD TRIGGER WAS WRONG:
+--   1. It only fired AFTER UPDATE on bookings. On a quiet period with no
+--      other writes, stale pending rows were NEVER expired.
+--   2. It ran a table-wide UPDATE on EVERY single write — redundant work
+--      under load.
+--   3. The "id <> new.id" exclusion meant the last stale row could never
+--      expire itself.
+--
+-- THE REPLACEMENT:
+--   A plain SQL function called explicitly by drainReconcileQueue() during
+--   organic traffic. No trigger, no scheduler. Runs exactly when needed.
+-- =====================================================================
+
+-- Drop the old broken trigger and function
+drop trigger if exists trg_expire_stale_bookings on bookings;
+drop function if exists expire_stale_pending_bookings();
+
+-- New function: expire ALL stale pending bookings in one statement.
+-- Returns the count of rows updated so the caller can log it.
+create or replace function expire_stale_bookings()
+returns integer
+language plpgsql
+as $$
+declare
+  v_count integer;
+begin
+  update bookings
+  set status = 'expired'
+  where status = 'pending'
+    and created_at < now() - interval '15 minutes';
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+-- =====================================================================
+-- FIX 4 — Sweep old webhook_events rows (retention: 7 days).
+-- Called from the same reconcile drain so no separate job is needed.
+-- =====================================================================
+create or replace function sweep_old_webhook_events()
+returns integer
+language plpgsql
+as $$
+declare
+  v_count integer;
+begin
+  delete from webhook_events
+  where processed_at < now() - interval '7 days';
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+-- =====================================================================
+-- END FIX 3 + FIX 4
+-- =====================================================================
