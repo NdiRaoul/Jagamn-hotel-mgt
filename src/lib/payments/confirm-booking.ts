@@ -66,6 +66,16 @@ export async function confirmBookingFromPayment({
   // If already processed → return immediately without touching the DB.
   const isDuplicate = await isEventProcessed(provider, eventKey);
   if (isDuplicate) {
+    const { data: booking } = await supabaseAdmin
+      .from("bookings")
+      .select("receipt_sent_at")
+      .eq("booking_ref", bookingRef)
+      .maybeSingle();
+
+    if (booking && !booking.receipt_sent_at) {
+      await sendConfirmationEmail(bookingRef);
+    }
+
     return { confirmed: false, duplicate: true, bookingRef };
   }
 

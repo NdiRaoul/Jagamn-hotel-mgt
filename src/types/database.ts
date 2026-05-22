@@ -128,6 +128,7 @@ export interface Booking {
   cancelled_at: string | null;
   cancellation_fee: number;
   refund_amount: number;
+  receipt_sent_at?: string | null;
   created_at: string;
   // joined
   room_types?: RoomType;

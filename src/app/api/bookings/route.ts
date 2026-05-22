@@ -27,10 +27,6 @@ export async function POST(request: NextRequest) {
       check_out,
       nights,
       guests,
-      room_price_per_night,
-      resort_fee,
-      tax_amount,
-      total_amount,
       special_requests,
       payment_method,
       // Account creation fields (optional)
@@ -77,9 +73,13 @@ export async function POST(request: NextRequest) {
         { error: "Invalid guest count" },
         { status: 400 },
       );
-    if (!total_amount || total_amount <= 0)
+
+    const nightsCount = Math.round(
+      (checkOutDate.getTime() - checkInDate.getTime()) / 86400000,
+    );
+    if (nightsCount < 1)
       return NextResponse.json(
-        { error: "Invalid total amount" },
+        { error: "Booking must be at least one night." },
         { status: 400 },
       );
 
@@ -104,19 +104,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get room type id — use layered cache to avoid repeated DB lookups
-    const roomType = await getCached<{ id: string; name: string }>(
+    // Get room type id and pricing — use layered cache to avoid repeated DB lookups
+    const roomType = await getCached<{
+      id: string;
+      name: string;
+      price_per_night: number;
+      resort_fee: number | null;
+    }>(
       `roomtype:slug:${room_slug}`,
       300,
       async () => {
         const { data } = await supabaseAdmin
           .from("room_types")
-          .select("id, name")
+          .select("id, name, price_per_night, resort_fee")
           .eq("slug", room_slug)
           .single();
         return data ?? null;
       },
     );
+
+    if (!roomType) {
+      return NextResponse.json(
+        { error: "Selected room type is invalid." },
+        { status: 400 },
+      );
+    }
+
+    const roomPricePerNight = roomType.price_per_night;
+    const resortFeeValue = roomType.resort_fee ?? 150;
+    const taxAmountValue = Math.round(roomPricePerNight * nightsCount * 0.12);
+    const totalAmountValue =
+      roomPricePerNight * nightsCount + resortFeeValue + taxAmountValue;
 
     // ── Resolve user ID ──────────────────────────────────────────────────────
     let userId: string | null = null;
@@ -181,7 +199,7 @@ export async function POST(request: NextRequest) {
       "assign_room_and_book",
       {
         p_room_slug: room_slug,
-        p_room_type_id: roomType?.id ?? null,
+        p_room_type_id: roomType.id,
         p_check_in: check_in,
         p_check_out: check_out,
         p_guest_email: guest_email,
@@ -190,12 +208,12 @@ export async function POST(request: NextRequest) {
         p_guest_country: guest_country ?? null,
         p_guest_id_type: guest_id_type ?? null,
         p_guest_id_number: guest_id_number ?? null,
-        p_nights: nights ?? 1,
+        p_nights: nightsCount,
         p_guests: guests ?? 1,
-        p_room_price: room_price_per_night,
-        p_resort_fee: resort_fee ?? 150,
-        p_tax_amount: tax_amount ?? null,
-        p_total_amount: total_amount,
+        p_room_price: roomPricePerNight,
+        p_resort_fee: resortFeeValue,
+        p_tax_amount: taxAmountValue,
+        p_total_amount: totalAmountValue,
         p_payment_method: payment_method ?? null,
         p_special_requests: special_requests ?? null,
         p_user_id: userId ?? null,

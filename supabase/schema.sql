@@ -38,6 +38,7 @@ create table room_types (
   collection          text        not null,
   badge               text,
   price_per_night     integer     not null,
+  resort_fee          integer     default 150,
   description         text,
   long_description    text,
   sqft                integer,
@@ -154,6 +155,7 @@ create table bookings (
   cancelled_at         timestamptz,
   cancellation_fee     integer     default 0,
   refund_amount        integer     default 0,
+  receipt_sent_at      timestamptz,
   created_at           timestamptz default now()
 );
 
@@ -382,6 +384,9 @@ create policy "payments_insert_own"
 create index if not exists bookings_pending_created_idx
   on bookings (created_at)
   where status = 'pending';
+
+alter table room_types add column if not exists resort_fee integer default 150;
+alter table bookings add column if not exists receipt_sent_at timestamptz;
 
 -- ---------------------------------------------------------------------
 -- 2. assign_room_and_book() — atomic room assignment + booking insert.
