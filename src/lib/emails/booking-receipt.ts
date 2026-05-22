@@ -44,10 +44,14 @@ export function buildReceiptEmailHtml(data: {
           <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Nights × Rate</td>
           <td style="text-align:right;color:#00152A;">$${data.pricePerNight} × ${data.nights} = $${data.pricePerNight * data.nights}</td>
         </tr>
-        <tr>
+        ${
+          data.resortFee > 0
+            ? `<tr>
           <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Resort Fee</td>
           <td style="text-align:right;color:#00152A;">$${data.resortFee}</td>
-        </tr>
+        </tr>`
+            : ""
+        }
         <tr>
           <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Taxes (12%)</td>
           <td style="text-align:right;color:#00152A;">$${data.taxAmount}</td>

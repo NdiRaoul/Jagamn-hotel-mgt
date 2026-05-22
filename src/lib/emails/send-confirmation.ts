@@ -3,6 +3,10 @@
  * Called from both the Stripe and Fapshi webhooks — never from booking creation.
  * The recipient is always the booking's guest_email (the address the user typed),
  * never the session/auth account email.
+ *
+ * Idempotent: checks receipt_sent_at before sending. Returns true if the email
+ * was sent (or was already sent). Returns false on transient failure so the
+ * caller can retry later (receipt_sent_at stays NULL).
  */
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { resend } from "@/lib/resend";
@@ -15,7 +19,7 @@ export async function sendConfirmationEmail(
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, resort_fee, tax_amount, total_amount, payment_method",
+      "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, resort_fee, tax_amount, total_amount, payment_method, receipt_sent_at",
     )
     .eq("booking_ref", bookingRef)
     .single();
@@ -27,6 +31,11 @@ export async function sendConfirmationEmail(
       error,
     );
     return false;
+  }
+
+  // Idempotency guard — already sent, no double-send
+  if (booking.receipt_sent_at) {
+    return true;
   }
 
   // Resolve a human-readable room name from the room_types table if possible
@@ -47,7 +56,7 @@ export async function sendConfirmationEmail(
   const roomName = roomType?.name || booking.room_slug;
 
   try {
-    await resend.emails.send({
+    const { error: sendError } = await resend.emails.send({
       from: "Jagamn Palace <reservations@jagamnpalace.com>",
       // Always send to the email the guest typed — never the auth account email
       to: [booking.guest_email],
@@ -61,21 +70,33 @@ export async function sendConfirmationEmail(
         nights: booking.nights || 1,
         guests: booking.guests || 1,
         pricePerNight: booking.room_price_per_night,
-        resortFee: booking.resort_fee || 150,
+        resortFee: booking.resort_fee ?? 0,
         taxAmount: booking.tax_amount || 0,
         totalAmount: booking.total_amount,
         paymentMethod: booking.payment_method || "Online Payment",
       }),
     });
+
+    if (sendError) {
+      console.error(
+        "[sendConfirmationEmail] Resend API error for",
+        bookingRef,
+        sendError,
+      );
+      // Leave receipt_sent_at NULL so a later reconcile can retry
+      return false;
+    }
   } catch (emailErr) {
     console.error(
       "[sendConfirmationEmail] email send failed for",
       bookingRef,
       emailErr,
     );
+    // Leave receipt_sent_at NULL so a later reconcile can retry
     return false;
   }
 
+  // Mark as sent AFTER successful delivery
   const { error: updateError } = await supabaseAdmin
     .from("bookings")
     .update({ receipt_sent_at: new Date().toISOString() })
@@ -87,7 +108,9 @@ export async function sendConfirmationEmail(
       bookingRef,
       updateError,
     );
-    return false;
+    // Email was sent but we couldn't record it — return true to avoid
+    // a retry that would double-send. The next call will re-check receipt_sent_at.
+    return true;
   }
 
   return true;

@@ -63,19 +63,18 @@ export async function confirmBookingFromPayment({
 }): Promise<ConfirmResult> {
   // ── Idempotency guard ────────────────────────────────────────────────────
   // Fast path: Redis SET NX. Fallback: webhook_events table.
-  // If already processed → return immediately without touching the DB.
+  // If already processed → retry email if it was never sent (receipt_sent_at
+  // is NULL), then return. The sendConfirmationEmail guard prevents double-send.
   const isDuplicate = await isEventProcessed(provider, eventKey);
   if (isDuplicate) {
-    const { data: booking } = await supabaseAdmin
-      .from("bookings")
-      .select("receipt_sent_at")
-      .eq("booking_ref", bookingRef)
-      .maybeSingle();
-
-    if (booking && !booking.receipt_sent_at) {
-      await sendConfirmationEmail(bookingRef);
+    // Retry a previously-failed receipt without re-confirming the booking
+    const sent = await sendConfirmationEmail(bookingRef);
+    if (!sent) {
+      console.warn(
+        "[confirm-booking] duplicate path: receipt email retry failed for",
+        bookingRef,
+      );
     }
-
     return { confirmed: false, duplicate: true, bookingRef };
   }
 
@@ -140,8 +139,17 @@ export async function confirmBookingFromPayment({
   await markEventProcessed(provider, eventKey);
 
   // ── Send confirmation email ──────────────────────────────────────────────
-  // Always uses booking.guest_email — never the auth account email.
-  await sendConfirmationEmail(bookingRef);
+  // sendConfirmationEmail is idempotent via receipt_sent_at.
+  // A transient Resend failure leaves receipt_sent_at NULL so the next
+  // status poll / reconcile retries without re-confirming the booking.
+  const emailSent = await sendConfirmationEmail(bookingRef);
+  if (!emailSent) {
+    console.warn(
+      "[confirm-booking] receipt email failed for",
+      bookingRef,
+      "— will retry on next poll/reconcile",
+    );
+  }
 
   return { confirmed: true, duplicate: false, bookingRef };
 }

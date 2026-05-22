@@ -67,6 +67,14 @@ function BookingContent() {
   const [fapshiPolling, setFapshiPolling] = useState(false);
   const [fapshiPhone, setFapshiPhone] = useState("");
   const [fapshiBookingRef, setFapshiBookingRef] = useState<string | null>(null);
+  // "mtn" | "orange" — tracks which wallet was chosen for the USSD fallback
+  const [fapshiMediumLabel, setFapshiMediumLabel] = useState<"mtn" | "orange">(
+    "mtn",
+  );
+
+  // Resort fee — seeded from room static data (0 by default), then refreshed
+  // from the API so the server-authoritative value is always used.
+  const [resortFee, setResortFee] = useState<number>(room?.resortFee ?? 0);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -92,13 +100,8 @@ function BookingContent() {
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const roomTotal = room ? room.price * nights : 0;
-  const resortFee = 150;
   const tax = Math.round(roomTotal * 0.12);
   const totalPrice = roomTotal + resortFee + tax;
-  const fapshiMediumLabel =
-    formData.mobileMoneyMedium === "orange money"
-      ? "Orange Money"
-      : "MTN Mobile Money";
 
   // Past date error — computed, not state
   const pastDateError =
@@ -133,6 +136,24 @@ function BookingContent() {
     prefill();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch authoritative resort fee from the API (server-side value wins)
+  useEffect(() => {
+    if (!roomSlug) return;
+    fetch(`/api/rooms`)
+      .then((r) => r.json())
+      .then((data) => {
+        const match = (
+          data.rooms as Array<{ slug: string; resort_fee?: number }>
+        )?.find((rt) => rt.slug === roomSlug);
+        if (match && typeof match.resort_fee === "number") {
+          setResortFee(match.resort_fee);
+        }
+      })
+      .catch(() => {
+        // Keep the static default on error
+      });
+  }, [roomSlug]);
 
   // Fapshi polling
   useEffect(() => {
@@ -177,7 +198,16 @@ function BookingContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [fapshiTransId, fapshiPolling, fapshiBookingRef]);
+  }, [
+    fapshiTransId,
+    fapshiPolling,
+    fapshiBookingRef,
+    router,
+    roomSlug,
+    checkInStr,
+    checkOutStr,
+    guestsStr,
+  ]);
 
   if (!room || !checkIn || !checkOut) {
     return (
@@ -216,10 +246,6 @@ function BookingContent() {
         check_out: checkOutStr,
         nights,
         guests: guestCount,
-        room_price_per_night: room!.price,
-        resort_fee: resortFee,
-        tax_amount: tax,
-        total_amount: totalPrice,
         payment_method: paymentMethodStr,
         special_requests: formData.specialRequests || null,
       }),
@@ -371,13 +397,12 @@ function BookingContent() {
           return;
         }
 
-        // Create PaymentIntent
+        // Create PaymentIntent — amount is loaded server-side from the booking
         const piRes = await fetch("/api/payments/stripe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             bookingRef: bookingData.bookingRef,
-            totalAmount: totalPrice,
             currency: "usd",
           }),
         });
@@ -451,12 +476,11 @@ function BookingContent() {
           return;
         }
 
-        // Initiate Fapshi payment
+        // Initiate Fapshi payment — amount is loaded server-side from the booking
         const fapshiRes = await fetch("/api/payments/fapshi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            amount: totalPrice,
             phone: normalizedPhone,
             medium: fapshiMedium,
             bookingRef: bookingData.bookingRef,
@@ -479,6 +503,9 @@ function BookingContent() {
         setFapshiTransId(fapshiData.transId);
         setFapshiBookingRef(bookingData.bookingRef);
         setFapshiPhone(normalizedPhone);
+        setFapshiMediumLabel(
+          fapshiMedium === "orange money" ? "orange" : "mtn",
+        );
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
         setIsProcessing(false);
@@ -505,6 +532,10 @@ function BookingContent() {
 
   // Fapshi waiting overlay
   if (fapshiPolling) {
+    const ussdCode = fapshiMediumLabel === "orange" ? "#150*50#" : "*126#";
+    const networkName =
+      fapshiMediumLabel === "orange" ? "Orange Money" : "MTN Mobile Money";
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
         <div className="text-center space-y-6 max-w-sm mx-auto px-4">
@@ -512,25 +543,38 @@ function BookingContent() {
             <Phone className="w-10 h-10 text-jagamn-tertiary animate-pulse" />
           </div>
           <h2 className="manrope-bold text-2xl text-jagamn-primary">
-            Check Your Phone
+            Confirm Payment on Your Phone
           </h2>
-          <p className="text-sm text-gray-500">
-            A secure payment prompt has been sent to{" "}
-            <strong>{fapshiPhone}</strong> via{" "}
-            <strong>{fapshiMediumLabel}</strong>.
+          <p className="text-sm text-gray-600">
+            A secure {networkName} payment request has been sent to{" "}
+            <strong>+237{fapshiPhone}</strong>. Open the prompt on your phone
+            and enter your Mobile Money PIN to approve the payment.
           </p>
-          <p className="text-xs text-gray-400 max-w-xs mx-auto">
-            Approve the request on your phone to complete your booking. Jagamn
-            Palace will never ask you for your PIN on this website.
-          </p>
+
+          {/* USSD fallback */}
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-left text-sm text-amber-800">
+            <p className="font-semibold mb-1">Didn&apos;t get a prompt?</p>
+            <p>
+              Dial <strong>{ussdCode}</strong> on your phone, follow the menu,
+              and enter your secret PIN to complete the payment manually.
+            </p>
+          </div>
+
+          {/* Security note */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-800 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <p>
+              You enter your PIN <strong>only on your own phone</strong> — never
+              on this website. Jagamn Palace will never ask for your PIN here.
+            </p>
+          </div>
+
           <div className="flex justify-center">
             <div className="w-8 h-8 border-4 border-jagamn-tertiary border-t-transparent rounded-full animate-spin" />
           </div>
-          <div className="bg-white border border-gray-200 rounded-md p-4 text-left text-xs text-gray-500">
-            If the prompt doesn't arrive within 30 seconds, keep this page open
-            and check your mobile money app. Do not enter your PIN anywhere
-            except the official mobile money prompt.
-          </div>
+          <p className="text-xs text-gray-400">
+            Waiting for payment confirmation…
+          </p>
           <button
             onClick={() => {
               setFapshiPolling(false);
@@ -963,12 +1007,22 @@ function BookingContent() {
                       Mobile money payment details
                     </p>
                     <p className="mt-2">
-                      A secure {fapshiMediumLabel} prompt will be sent to your
-                      phone. Jagamn Palace will never ask for your PIN here.
+                      A secure{" "}
+                      {formData.mobileMoneyMedium === "orange money"
+                        ? "Orange Money"
+                        : "MTN Mobile Money"}{" "}
+                      prompt will be sent to your phone. Approve it and enter
+                      your PIN on your phone to complete the payment.
                     </p>
                     <p className="mt-2 text-xs text-slate-500">
-                      If the prompt does not appear within 30 seconds, keep this
-                      page open and check the mobile money app on your phone.
+                      If the prompt does not appear within 30 seconds, dial{" "}
+                      <strong>
+                        {formData.mobileMoneyMedium === "orange money"
+                          ? "#150*50#"
+                          : "*126#"}
+                      </strong>{" "}
+                      on your phone and follow the menu. Your PIN is entered
+                      only on your phone — never on this website.
                     </p>
                   </div>
                 </div>
@@ -1089,10 +1143,12 @@ function BookingContent() {
                 </span>
                 <span className="font-bold">${roomTotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Palace Resort Fee</span>
-                <span className="font-bold">${resortFee}</span>
-              </div>
+              {resortFee > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Palace Resort Fee</span>
+                  <span className="font-bold">${resortFee}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Estimated Taxes (12%)</span>
                 <span className="font-bold">${tax}</span>

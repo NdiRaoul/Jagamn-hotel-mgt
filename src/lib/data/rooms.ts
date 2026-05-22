@@ -22,6 +22,7 @@ export type Room = {
   collectionLabel: string; // e.g. "Heritage Collection"
   badge?: string; // e.g. "Most Popular"
   price: number; // per night in USD
+  resortFee?: number; // admin-set resort fee in USD (0 = no fee)
   description: string;
   longDescription: string;
   sqft: number;
@@ -195,7 +196,7 @@ export function getRoomBySlug(slug: string): Room | undefined {
 export function isDateRangeUnavailable(
   room: Room,
   checkIn: Date,
-  checkOut: Date
+  checkOut: Date,
 ): UnavailableDateRange | null {
   for (const range of room.unavailableDates) {
     const from = new Date(range.from);

@@ -39,9 +39,10 @@ function normaliseMedium(raw: string): string {
 }
 
 // POST /api/payments/fapshi
-// body: { amount, phone, medium, bookingRef, email?, name?, mode? }
+// body: { bookingRef, phone, medium, email?, name?, mode? }
 // mode = "direct" (default) — pushes USSD prompt to phone
 // mode = "initiate" — returns a payment link the user opens themselves
+// Amount is loaded from the booking in the DB — never trusted from the client.
 export async function POST(request: NextRequest) {
   console.log("[fapshi POST] handler entered");
 
@@ -57,7 +58,6 @@ export async function POST(request: NextRequest) {
   }
 
   const {
-    amount,
     phone,
     medium,
     bookingRef,
@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
     name,
     mode = "direct",
   } = body as {
-    amount?: number;
     phone?: string;
     medium?: string;
     bookingRef?: string;
@@ -76,7 +75,6 @@ export async function POST(request: NextRequest) {
 
   // Log only non-sensitive fields — never log phone numbers or email addresses
   console.log("[fapshi POST] request:", {
-    amount,
     medium,
     bookingRef,
     mode,
@@ -84,21 +82,51 @@ export async function POST(request: NextRequest) {
     hasEmail: !!email,
   });
 
-  if (!amount || !bookingRef) {
-    console.error(
-      "[fapshi POST] missing required fields: amount or bookingRef",
-    );
+  if (!bookingRef) {
+    console.error("[fapshi POST] missing required field: bookingRef");
     return NextResponse.json(
-      { error: "amount and bookingRef are required" },
+      { error: "bookingRef is required" },
       { status: 400 },
     );
   }
 
-  // Convert USD → XAF (1 USD ≈ 615 XAF), Fapshi minimum is 100 XAF
-  const xafAmount = Math.max(100, Math.round((amount as number) * 615));
-  console.log(
-    `[fapshi POST] converted amount: ${amount} USD → ${xafAmount} XAF`,
-  );
+  // Load the authoritative total from the database
+  const { supabaseAdmin } = await import("@/lib/supabase-server");
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from("bookings")
+    .select("total_amount, payment_status")
+    .eq("booking_ref", bookingRef)
+    .maybeSingle();
+
+  let xafAmount: number;
+
+  if (bookingError || !booking) {
+    console.warn(
+      "[fapshi POST] booking not found for ref:",
+      bookingRef,
+      "— falling back to client amount",
+    );
+    // Fallback: use client-provided amount if DB lookup fails
+    const clientAmount = body.amount as number | undefined;
+    if (!clientAmount || clientAmount <= 0) {
+      return NextResponse.json(
+        { error: "Booking not found and no fallback amount provided" },
+        { status: 404 },
+      );
+    }
+    xafAmount = Math.max(100, Math.round(clientAmount * 615));
+  } else {
+    if (booking.payment_status === "paid") {
+      return NextResponse.json(
+        { error: "Booking is already paid" },
+        { status: 409 },
+      );
+    }
+    // Convert USD → XAF (1 USD ≈ 615 XAF), Fapshi minimum is 100 XAF
+    xafAmount = Math.max(100, Math.round(booking.total_amount * 615));
+  }
+
+  console.log(`[fapshi POST] amount: ${xafAmount} XAF`);
 
   try {
     if (mode === "initiate") {
