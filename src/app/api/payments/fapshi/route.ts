@@ -28,11 +28,12 @@ function guardCreds(): NextResponse | null {
   return null;
 }
 
-// Normalise medium to exactly what Fapshi sandbox expects
+// Normalise medium to exactly what Fapshi expects (lowercase, as per Fapshi docs):
+// "mobile money" for MTN, "orange money" for Orange
 function normaliseMedium(raw: string): string {
   const lower = raw.toLowerCase();
-  if (lower.includes("mtn")) return "MTN Mobile Money";
-  if (lower.includes("orange")) return "Orange Money";
+  if (lower.includes("mtn") || lower === "mobile money") return "mobile money";
+  if (lower.includes("orange")) return "orange money";
   return raw;
 }
 
@@ -72,14 +73,14 @@ export async function POST(request: NextRequest) {
     mode?: string;
   };
 
-  console.log("[fapshi POST] parsed body:", {
+  // Log only non-sensitive fields — never log phone numbers or email addresses
+  console.log("[fapshi POST] request:", {
     amount,
-    phone,
     medium,
     bookingRef,
-    email,
-    name,
     mode,
+    hasPhone: !!phone,
+    hasEmail: !!email,
   });
 
   if (!amount || !bookingRef) {
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
   // Convert USD → XAF (1 USD ≈ 615 XAF), Fapshi minimum is 100 XAF
   const xafAmount = Math.max(100, Math.round((amount as number) * 615));
   console.log(
-    `[fapshi POST] converted amount: $${amount} USD → ${xafAmount} XAF`,
+    `[fapshi POST] converted amount: ${amount} USD → ${xafAmount} XAF`,
   );
 
   try {
@@ -113,7 +114,12 @@ export async function POST(request: NextRequest) {
       if (email) payload.email = email;
       if (name) payload.name = name;
 
-      console.log("[fapshi POST] initiate-pay payload:", payload);
+      console.log("[fapshi POST] initiate-pay:", {
+        amount: xafAmount,
+        bookingRef,
+        hasEmail: !!email,
+        hasName: !!name,
+      });
 
       const res = await fetch(`${BASE}/initiate-pay`, {
         method: "POST",
@@ -122,10 +128,7 @@ export async function POST(request: NextRequest) {
       });
       const data = await res.json();
 
-      console.log(
-        `[fapshi POST] initiate-pay response status=${res.status}:`,
-        data,
-      );
+      console.log(`[fapshi POST] initiate-pay response status=${res.status}`);
 
       if (!res.ok) {
         return NextResponse.json(
@@ -138,27 +141,30 @@ export async function POST(request: NextRequest) {
 
     // direct-pay: pushes USSD prompt to phone (requires phone + medium)
     if (!phone || !medium) {
-      console.error("[fapshi POST] direct-pay missing phone or medium:", {
-        phone,
-        medium,
-      });
+      console.error("[fapshi POST] direct-pay missing phone or medium");
       return NextResponse.json(
         { error: "phone and medium are required for direct pay" },
         { status: 400 },
       );
     }
 
+    // Fapshi requires exact lowercase values: "mobile money" (MTN) or "orange money" (Orange).
+    // The phone must be a bare 9-digit Cameroonian number — no +237, no spaces.
     const normalisedMedium = normaliseMedium(medium);
 
-    console.log("[fapshi POST] normalised values:", {
-      phone,
+    // Log only non-sensitive fields — never log phone numbers
+    console.log("[fapshi POST] direct-pay:", {
+      amount: xafAmount,
       rawMedium: medium,
       normalisedMedium,
+      bookingRef,
     });
 
     const payload = {
       amount: xafAmount,
+      // phone must be bare 9-digit local number (e.g. "676982949"), no +237, no spaces
       phone,
+      // medium must be lowercase "mobile money" or "orange money" per Fapshi docs
       medium: normalisedMedium,
       externalId: bookingRef,
       message: "Jagamn Palace Booking",
@@ -166,7 +172,6 @@ export async function POST(request: NextRequest) {
       ...(name ? { name } : {}),
     };
 
-    console.log("[fapshi POST] direct-pay payload:", payload);
     console.log(`[fapshi POST] calling ${BASE}/direct-pay`);
 
     const res = await fetch(`${BASE}/direct-pay`, {
@@ -176,10 +181,7 @@ export async function POST(request: NextRequest) {
     });
     const data = await res.json();
 
-    console.log(
-      `[fapshi POST] direct-pay response status=${res.status}:`,
-      data,
-    );
+    console.log(`[fapshi POST] direct-pay response status=${res.status}`);
 
     if (!res.ok) {
       return NextResponse.json(
@@ -197,8 +199,6 @@ export async function POST(request: NextRequest) {
 
 // GET /api/payments/fapshi?transId=xxx  — poll payment status
 export async function GET(request: NextRequest) {
-  console.log("[fapshi GET] handler entered");
-
   const guard = guardCreds();
   if (guard) return guard;
 
@@ -206,7 +206,6 @@ export async function GET(request: NextRequest) {
   const transId = searchParams.get("transId");
 
   if (!transId) {
-    console.error("[fapshi GET] missing transId param");
     return NextResponse.json({ error: "transId is required" }, { status: 400 });
   }
 
@@ -217,11 +216,6 @@ export async function GET(request: NextRequest) {
       headers: fapshiHeaders(),
     });
     const data = await res.json();
-
-    console.log(
-      `[fapshi GET] payment-status response status=${res.status}:`,
-      data,
-    );
 
     if (!res.ok) {
       return NextResponse.json(

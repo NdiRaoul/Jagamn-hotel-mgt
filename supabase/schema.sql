@@ -6,6 +6,8 @@
 
 -- ── Extensions ──────────────────────────────────────────────
 create extension if not exists "pgcrypto";
+-- btree_gist is required for the date-range exclusion constraint (Phase 3A)
+create extension if not exists "btree_gist";
 
 -- ── Drop existing views / functions / triggers ───────────────
 drop view     if exists room_availability_summary;
@@ -147,7 +149,7 @@ create table bookings (
   total_amount         integer     not null,
   payment_method       text,
   payment_status       text        default 'pending',
-  status               text        default 'confirmed',
+  status               text        default 'pending',
   special_requests     text,
   cancelled_at         timestamptz,
   cancellation_fee     integer     default 0,
@@ -161,14 +163,16 @@ create table payments (
   booking_id               uuid        references bookings(id) on delete cascade,
   booking_ref              text,
   user_id                  uuid        references auth.users(id),
+  -- app_user_id links to our users table (exists for BOTH guests and members)
+  app_user_id              uuid        references users(id) on delete set null,
   amount                   integer     not null,
   currency                 text        default 'USD',
   payment_method           text,
   provider                 text,
   provider_tx_id           text,
   status                   text        default 'pending',
-  fapshi_trans_id          text,
-  stripe_payment_intent_id text,
+  fapshi_trans_id          text        unique,
+  stripe_payment_intent_id text        unique,
   refund_status            text,
   refund_tx_id             text,
   created_at               timestamptz default now(),
@@ -184,6 +188,42 @@ create table hotel_amenities (
   image       text,
   sort_order  integer default 0
 );
+
+-- ============================================================
+-- INDEXES (Phase 3A — performance for hot query paths)
+-- ============================================================
+
+-- Availability overlap queries
+create index if not exists bookings_room_slug_dates_idx
+  on bookings (room_slug, check_in, check_out);
+
+create index if not exists bookings_status_idx
+  on bookings (status);
+
+-- Dashboard / GET queries
+create index if not exists bookings_app_user_id_idx
+  on bookings (app_user_id);
+
+create index if not exists bookings_guest_email_idx
+  on bookings (guest_email);
+
+-- Idempotency lookups on payment rows
+create index if not exists payments_app_user_id_idx
+  on payments (app_user_id);
+
+-- ============================================================
+-- EXCLUSION CONSTRAINT — prevent double-booking at DB level (Phase 3A)
+-- Requires btree_gist extension (enabled above).
+-- Blocks any two non-cancelled bookings for the same room_id
+-- whose date ranges overlap (using half-open interval [check_in, check_out)).
+-- ============================================================
+alter table bookings
+  add constraint no_overlap
+  exclude using gist (
+    room_id with =,
+    daterange(check_in, check_out, '[)') with &&
+  )
+  where (status <> 'cancelled' and room_id is not null);
 
 -- ============================================================
 -- TRIGGER — Auto-generate booking_ref  (JP-XXXX-YY)
@@ -310,9 +350,282 @@ create policy "bookings_update_own"
     select id from users where auth_user_id = auth.uid()
   ));
 
--- payments: authenticated users see own
+-- payments: authenticated users see own (by auth.users id or app_user_id)
 create policy "payments_select_own"
-  on payments for select using (auth.uid() = user_id);
+  on payments for select
+  using (
+    auth.uid() = user_id
+    or app_user_id in (select id from users where auth_user_id = auth.uid())
+  );
 
 create policy "payments_insert_own"
-  on payments for insert with check (auth.uid() = user_id);
+  on payments for insert
+  with check (
+    auth.uid() = user_id
+    or app_user_id in (select id from users where auth_user_id = auth.uid())
+  );
+
+
+-- =====================================================================
+-- SCHEMA ADDITIONS — safe to run on the existing database.
+-- Everything uses "if not exists" / "create or replace" / additive ALTERs.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 1. BOOKING STATUS — allow the new "expired" state used by the cron
+--    (Phase C reconciliation marks abandoned pending bookings expired).
+--    No enum is used (status is plain text), so nothing to alter on the
+--    column itself; this is just documentation of allowed values:
+--      pending | confirmed | cancelled | expired
+-- A partial index speeds up the cron's "find stale pending" scan.
+-- ---------------------------------------------------------------------
+create index if not exists bookings_pending_created_idx
+  on bookings (created_at)
+  where status = 'pending';
+
+-- ---------------------------------------------------------------------
+-- 2. assign_room_and_book() — atomic room assignment + booking insert.
+--    Picks a free unit with FOR UPDATE SKIP LOCKED and inserts in ONE
+--    transaction so concurrent requests cannot grab the same unit.
+--    The no_overlap exclusion constraint is the final backstop.
+--    Called from the API via supabaseAdmin.rpc('assign_room_and_book', {...}).
+-- ---------------------------------------------------------------------
+create or replace function assign_room_and_book(
+  p_room_slug       text,
+  p_room_type_id    uuid,
+  p_check_in        date,
+  p_check_out       date,
+  p_guest_email     text,
+  p_guest_name      text,
+  p_guest_phone     text,
+  p_guest_country   text,
+  p_guest_id_type   text,
+  p_guest_id_number text,
+  p_nights          integer,
+  p_guests          integer,
+  p_room_price      integer,
+  p_resort_fee      integer,
+  p_tax_amount      integer,
+  p_total_amount    integer,
+  p_payment_method  text,
+  p_special_requests text,
+  p_user_id         uuid,
+  p_app_user_id     uuid
+)
+returns table (booking_id uuid, booking_ref text)
+language plpgsql
+as $$
+declare
+  v_room_id uuid;
+  v_id      uuid;
+  v_ref     text;
+begin
+  -- Lock and pick one active unit of this type with no overlapping booking.
+  select r.id into v_room_id
+  from rooms r
+  where r.room_type_id = p_room_type_id
+    and r.is_active = true
+    and not exists (
+      select 1 from bookings b
+      where b.room_id = r.id
+        and b.status <> 'cancelled'
+        and daterange(b.check_in, b.check_out, '[)')
+         && daterange(p_check_in, p_check_out, '[)')
+    )
+  order by r.unit_code
+  for update skip locked
+  limit 1;
+
+  -- v_room_id may be null (no physical unit free / room not unit-tracked);
+  -- we still insert the booking but room_id stays null. The no_overlap
+  -- constraint only applies when room_id is not null.
+  insert into bookings (
+    user_id, app_user_id, guest_email, guest_name, guest_phone,
+    guest_country, guest_id_type, guest_id_number,
+    room_type_id, room_id, room_slug, check_in, check_out,
+    nights, guests, room_price_per_night, resort_fee, tax_amount,
+    total_amount, payment_method, payment_status, status, special_requests
+  ) values (
+    p_user_id, p_app_user_id, p_guest_email, p_guest_name, p_guest_phone,
+    p_guest_country, p_guest_id_type, p_guest_id_number,
+    p_room_type_id, v_room_id, p_room_slug, p_check_in, p_check_out,
+    p_nights, p_guests, p_room_price, p_resort_fee, p_tax_amount,
+    p_total_amount, p_payment_method, 'pending', 'pending', p_special_requests
+  )
+  returning id, bookings.booking_ref into v_id, v_ref;
+
+  return query select v_id, v_ref;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 3. DINING / ROOM SERVICE
+-- ---------------------------------------------------------------------
+create table if not exists menu_categories (
+  id          uuid    primary key default gen_random_uuid(),
+  name        text    not null,
+  sort_order  integer default 0,
+  is_active   boolean default true,
+  created_at  timestamptz default now()
+);
+
+create table if not exists menu_items (
+  id            uuid    primary key default gen_random_uuid(),
+  category_id   uuid    references menu_categories(id) on delete set null,
+  name          text    not null,
+  description   text,
+  price         integer not null,   -- whole XAF
+  currency      text    default 'XAF',
+  image_url     text,
+  is_special    boolean default false,
+  is_available  boolean default true,
+  sort_order    integer default 0,
+  created_at    timestamptz default now()
+);
+
+create table if not exists dining_orders (
+  id            uuid    primary key default gen_random_uuid(),
+  app_user_id   uuid    references users(id) on delete set null,
+  booking_id    uuid    references bookings(id) on delete set null,
+  guest_email   text,
+  status        text    default 'placed',  -- placed | preparing | delivered | cancelled
+  total_amount  integer not null default 0,
+  notes         text,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+create table if not exists dining_order_items (
+  id            uuid    primary key default gen_random_uuid(),
+  order_id      uuid    references dining_orders(id) on delete cascade,
+  menu_item_id  uuid    references menu_items(id) on delete set null,
+  item_name     text    not null,   -- snapshot of name at order time
+  unit_price    integer not null,   -- snapshot of price at order time
+  quantity      integer not null default 1
+);
+
+create index if not exists dining_orders_user_idx   on dining_orders (app_user_id);
+create index if not exists dining_orders_status_idx on dining_orders (status);
+
+-- ---------------------------------------------------------------------
+-- 4. STAY PREFERENCES
+-- ---------------------------------------------------------------------
+create table if not exists stay_preferences (
+  app_user_id   uuid    primary key references users(id) on delete cascade,
+  bed_type      text,
+  floor_pref    text,
+  dietary       text,
+  newsletter    boolean default false,
+  updated_at    timestamptz default now()
+);
+
+-- ---------------------------------------------------------------------
+-- 5. NOTIFICATIONS
+-- ---------------------------------------------------------------------
+create table if not exists notifications (
+  id          uuid    primary key default gen_random_uuid(),
+  app_user_id uuid    references users(id) on delete cascade,
+  type        text    not null,  -- booking | payment | dining | system
+  title       text    not null,
+  body        text,
+  is_read     boolean default false,
+  created_at  timestamptz default now()
+);
+
+create index if not exists notifications_user_idx
+  on notifications (app_user_id, is_read);
+
+-- ---------------------------------------------------------------------
+-- 6. WEBHOOK EVENT LOG — durable backstop for webhook idempotency.
+--    Redis dedup is the fast path; this table is the permanent record
+--    in case Redis is unavailable.
+-- ---------------------------------------------------------------------
+create table if not exists webhook_events (
+  id           uuid    primary key default gen_random_uuid(),
+  provider     text    not null,   -- stripe | fapshi
+  event_key    text    not null,   -- stripe event.id, or fapshi transId:status
+  processed_at timestamptz default now(),
+  unique (provider, event_key)
+);
+
+-- ---------------------------------------------------------------------
+-- 7. DASHBOARD ANALYTICS VIEW
+-- ---------------------------------------------------------------------
+create or replace view dashboard_booking_summary as
+select
+  b.app_user_id,
+  count(*)                                              as total_bookings,
+  count(*) filter (where b.status = 'confirmed')        as confirmed_bookings,
+  count(*) filter (where b.status = 'cancelled')        as cancelled_bookings,
+  count(*) filter (
+    where b.check_in >= current_date
+      and b.status = 'confirmed'
+  )                                                     as upcoming_bookings,
+  coalesce(
+    sum(b.total_amount) filter (where b.payment_status = 'paid'), 0
+  )                                                     as total_spent
+from bookings b
+group by b.app_user_id;
+
+-- ---------------------------------------------------------------------
+-- 8. ROLE-BASED ACCESS
+--    Allowed roles: guest | member | receptionist | storekeeper | manager | admin
+-- ---------------------------------------------------------------------
+create or replace function current_user_role()
+returns text
+language sql
+stable
+as $$
+  select role from users where auth_user_id = auth.uid() limit 1;
+$$;
+
+-- Staff policy: receptionist/manager/admin can read all bookings.
+drop policy if exists "bookings_select_staff" on bookings;
+create policy "bookings_select_staff"
+  on bookings for select
+  using ( current_user_role() in ('receptionist', 'manager', 'admin') );
+
+-- RLS on new tables
+alter table dining_orders      enable row level security;
+alter table dining_order_items enable row level security;
+alter table stay_preferences   enable row level security;
+alter table notifications      enable row level security;
+alter table menu_categories    enable row level security;
+alter table menu_items         enable row level security;
+
+drop policy if exists "dining_orders_own" on dining_orders;
+create policy "dining_orders_own"
+  on dining_orders for select
+  using (
+    app_user_id in (select id from users where auth_user_id = auth.uid())
+    or current_user_role() in ('receptionist', 'manager', 'admin')
+  );
+
+drop policy if exists "stay_preferences_own" on stay_preferences;
+create policy "stay_preferences_own"
+  on stay_preferences for all
+  using (
+    app_user_id in (select id from users where auth_user_id = auth.uid())
+  )
+  with check (
+    app_user_id in (select id from users where auth_user_id = auth.uid())
+  );
+
+drop policy if exists "notifications_own" on notifications;
+create policy "notifications_own"
+  on notifications for select
+  using (
+    app_user_id in (select id from users where auth_user_id = auth.uid())
+  );
+
+drop policy if exists "menu_public_read" on menu_items;
+create policy "menu_public_read"
+  on menu_items for select using ( true );
+
+drop policy if exists "menu_cat_public_read" on menu_categories;
+create policy "menu_cat_public_read"
+  on menu_categories for select using ( true );
+
+-- =====================================================================
+-- END SCHEMA ADDITIONS
+-- =====================================================================

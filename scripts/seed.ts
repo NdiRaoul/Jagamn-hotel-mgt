@@ -2,7 +2,10 @@
  * Jagamn Palace — Database Seed Script
  * Run: npx ts-node --project tsconfig.json scripts/seed.ts
  *
- * Idempotent: checks by slug before inserting.
+ * Idempotent: clears all seeded tables then re-inserts.
+ * All room types are seeded with NO unavailable-date blocks so every
+ * room is immediately bookable.
+ * Also seeds menu_categories + menu_items for the dining feature.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -248,75 +251,14 @@ const ROOM_UNITS: Record<string, { unit_code: string }[]> = {
 };
 
 // ── Unavailable date ranges ──────────────────────────────────────────────────
-
+// Empty — all room types are fully available for booking.
 const UNAVAILABLE_DATES: {
   slug: string;
   from_date: string;
   to_date: string;
   alternate_room_slugs: string[];
   alternate_dates?: { from: string; to: string }[];
-}[] = [
-  {
-    slug: "classic-heritage",
-    from_date: "2026-05-12",
-    to_date: "2026-05-19",
-    alternate_room_slugs: ["palace-deluxe", "royal-grand-suite"],
-    alternate_dates: [
-      { from: "2026-05-07", to: "2026-05-11" },
-      { from: "2026-05-20", to: "2026-05-25" },
-    ],
-  },
-  {
-    slug: "classic-heritage",
-    from_date: "2026-06-01",
-    to_date: "2026-06-07",
-    alternate_room_slugs: ["palace-deluxe"],
-    alternate_dates: [
-      { from: "2026-05-28", to: "2026-05-31" },
-      { from: "2026-06-08", to: "2026-06-12" },
-    ],
-  },
-  {
-    slug: "palace-deluxe",
-    from_date: "2026-05-15",
-    to_date: "2026-05-22",
-    alternate_room_slugs: ["classic-heritage", "royal-grand-suite"],
-    alternate_dates: [
-      { from: "2026-05-10", to: "2026-05-14" },
-      { from: "2026-05-23", to: "2026-05-28" },
-    ],
-  },
-  {
-    slug: "royal-grand-suite",
-    from_date: "2026-05-20",
-    to_date: "2026-05-27",
-    alternate_room_slugs: ["palace-deluxe"],
-    alternate_dates: [
-      { from: "2026-05-15", to: "2026-05-19" },
-      { from: "2026-05-28", to: "2026-06-02" },
-    ],
-  },
-  {
-    slug: "garden-terrace",
-    from_date: "2026-05-25",
-    to_date: "2026-06-02",
-    alternate_room_slugs: ["classic-heritage"],
-    alternate_dates: [
-      { from: "2026-05-20", to: "2026-05-24" },
-      { from: "2026-06-03", to: "2026-06-08" },
-    ],
-  },
-  {
-    slug: "maharaja-presidential",
-    from_date: "2026-06-10",
-    to_date: "2026-06-20",
-    alternate_room_slugs: ["royal-grand-suite"],
-    alternate_dates: [
-      { from: "2026-06-05", to: "2026-06-09" },
-      { from: "2026-06-21", to: "2026-06-28" },
-    ],
-  },
-];
+}[] = [];
 
 // ── Hotel amenities ──────────────────────────────────────────────────────────
 
@@ -355,6 +297,259 @@ const HOTEL_AMENITIES = [
   },
 ];
 
+// ── Menu categories + items (dining feature) ─────────────────────────────────
+
+type MenuCategoryInsert = {
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+type MenuItemInsert = {
+  name: string;
+  description: string;
+  price: number; // whole XAF
+  currency: string;
+  is_special: boolean;
+  is_available: boolean;
+  sort_order: number;
+  image_url: string | null;
+};
+
+const MENU_CATEGORIES: (MenuCategoryInsert & {
+  items: MenuItemInsert[];
+})[] = [
+  {
+    name: "Breakfast",
+    sort_order: 1,
+    is_active: true,
+    items: [
+      {
+        name: "Palace Continental",
+        description:
+          "Freshly baked croissants, seasonal fruit, yoghurt, and artisan preserves",
+        price: 8500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 1,
+        image_url: "/images/food1.png",
+      },
+      {
+        name: "Royal Full Breakfast",
+        description:
+          "Eggs your way, grilled tomatoes, sautéed mushrooms, turkey bacon, and sourdough toast",
+        price: 12500,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 2,
+        image_url: "/images/food2.png",
+      },
+      {
+        name: "Avocado & Poached Eggs",
+        description:
+          "Smashed avocado on toasted brioche with two poached eggs and chilli flakes",
+        price: 9500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 3,
+        image_url: null,
+      },
+      {
+        name: "Fresh Fruit Platter",
+        description: "Seasonal tropical fruits, honey drizzle, and mint",
+        price: 6000,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 4,
+        image_url: null,
+      },
+    ],
+  },
+  {
+    name: "Starters",
+    sort_order: 2,
+    is_active: true,
+    items: [
+      {
+        name: "Saffron Bisque",
+        description:
+          "Velvety lobster bisque with saffron cream and toasted brioche croutons",
+        price: 11000,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 1,
+        image_url: "/images/food3.png",
+      },
+      {
+        name: "Palace Garden Salad",
+        description:
+          "Heritage tomatoes, burrata, basil oil, and aged balsamic reduction",
+        price: 8500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 2,
+        image_url: null,
+      },
+      {
+        name: "Spiced Lamb Kofta",
+        description:
+          "Hand-rolled lamb kofta with tzatziki, pomegranate, and flatbread",
+        price: 13500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 3,
+        image_url: null,
+      },
+    ],
+  },
+  {
+    name: "Main Course",
+    sort_order: 3,
+    is_active: true,
+    items: [
+      {
+        name: "Grilled Sea Bass",
+        description:
+          "Line-caught sea bass, lemon beurre blanc, wilted spinach, and saffron potatoes",
+        price: 28000,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 1,
+        image_url: "/images/food4.png",
+      },
+      {
+        name: "Maharaja Lamb Shank",
+        description:
+          "Slow-braised lamb shank in aromatic spices, served with saffron rice and naan",
+        price: 32000,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 2,
+        image_url: null,
+      },
+      {
+        name: "Truffle Risotto",
+        description:
+          "Arborio rice, black truffle, aged Parmesan, and wild mushroom ragù",
+        price: 24000,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 3,
+        image_url: null,
+      },
+      {
+        name: "Palace Chicken Supreme",
+        description:
+          "Free-range chicken breast, tarragon jus, dauphinoise potatoes, and haricots verts",
+        price: 22000,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 4,
+        image_url: null,
+      },
+    ],
+  },
+  {
+    name: "Desserts",
+    sort_order: 4,
+    is_active: true,
+    items: [
+      {
+        name: "Mango Panna Cotta",
+        description:
+          "Silky vanilla panna cotta with fresh mango coulis and toasted coconut",
+        price: 7500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 1,
+        image_url: null,
+      },
+      {
+        name: "Warm Chocolate Fondant",
+        description:
+          "Valrhona dark chocolate fondant with salted caramel ice cream",
+        price: 9000,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 2,
+        image_url: null,
+      },
+      {
+        name: "Palace Cheese Board",
+        description:
+          "Selection of five artisan cheeses, quince paste, walnuts, and crackers",
+        price: 12000,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 3,
+        image_url: null,
+      },
+    ],
+  },
+  {
+    name: "Beverages",
+    sort_order: 5,
+    is_active: true,
+    items: [
+      {
+        name: "Freshly Squeezed Juice",
+        description: "Orange, mango, pineapple, or watermelon",
+        price: 3500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 1,
+        image_url: null,
+      },
+      {
+        name: "Palace Afternoon Tea",
+        description:
+          "Assorted finger sandwiches, scones with clotted cream, and a pot of loose-leaf tea",
+        price: 15000,
+        currency: "XAF",
+        is_special: true,
+        is_available: true,
+        sort_order: 2,
+        image_url: null,
+      },
+      {
+        name: "Nespresso Selection",
+        description: "Espresso, lungo, cappuccino, or flat white",
+        price: 2500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 3,
+        image_url: null,
+      },
+      {
+        name: "Sparkling Mineral Water",
+        description: "750 ml chilled sparkling or still",
+        price: 1500,
+        currency: "XAF",
+        is_special: false,
+        is_available: true,
+        sort_order: 4,
+        image_url: null,
+      },
+    ],
+  },
+];
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(step: string, ok: boolean, detail?: string) {
@@ -371,6 +566,23 @@ async function seed() {
 
   // ── 0. Clean up tables that are being replaced ─────────────────────────────
   console.log("── Cleanup ─────────────────────────────────────────────────");
+
+  // New dining / notification tables (added in schema additions)
+  for (const table of [
+    "dining_order_items",
+    "dining_orders",
+    "notifications",
+    "stay_preferences",
+    "webhook_events",
+    "menu_items",
+    "menu_categories",
+  ]) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    log(`${table}: cleared`, !error, error?.message);
+  }
 
   // Delete all bookings (cascades to payments via booking_id)
   const { error: delBookings } = await supabase
@@ -430,12 +642,12 @@ async function seed() {
   const slugMap: Record<string, string> = {}; // slug → id
 
   // Insert all room types fresh (we cleared them above)
-  let inserted: any[] = [];
-  let insertError: any = null;
+  let inserted: { id: string; slug: string }[] = [];
+  let insertError: { message: string } | null = null;
   for (let attempt = 1; attempt <= 5; attempt++) {
     const result = await supabase
       .from("room_types")
-      .insert(ROOM_TYPES as any[])
+      .insert(ROOM_TYPES)
       .select("id, slug");
     inserted = result.data ?? [];
     insertError = result.error;
@@ -608,6 +820,64 @@ async function seed() {
         step: `hotel_amenity:${ha.name}`,
         status: "ok",
         detail: "inserted",
+      });
+    }
+  }
+
+  // ── 6. Menu Categories + Items ─────────────────────────────
+  console.log("\n── Menu Categories + Items ─────────────────────────────");
+  for (const cat of MENU_CATEGORIES) {
+    // Insert category
+    const { data: catRow, error: catErr } = await supabase
+      .from("menu_categories")
+      .insert({
+        name: cat.name,
+        sort_order: cat.sort_order,
+        is_active: cat.is_active,
+      })
+      .select("id")
+      .single();
+
+    if (catErr || !catRow) {
+      log(`menu_category: ${cat.name}`, false, catErr?.message ?? "no row");
+      summary.push({
+        step: `menu_category:${cat.name}`,
+        status: "error",
+        detail: catErr?.message ?? "no row returned",
+      });
+      continue;
+    }
+
+    log(`menu_category: ${cat.name}`, true, `id=${catRow.id}`);
+    summary.push({
+      step: `menu_category:${cat.name}`,
+      status: "ok",
+      detail: "inserted",
+    });
+
+    // Insert items for this category
+    const itemRows = cat.items.map((item) => ({
+      ...item,
+      category_id: catRow.id,
+    }));
+
+    const { error: itemErr } = await supabase
+      .from("menu_items")
+      .insert(itemRows);
+
+    if (itemErr) {
+      log(`  menu_items: ${cat.name}`, false, itemErr.message);
+      summary.push({
+        step: `menu_items:${cat.name}`,
+        status: "error",
+        detail: itemErr.message,
+      });
+    } else {
+      log(`  menu_items: ${cat.name}`, true, `${itemRows.length} inserted`);
+      summary.push({
+        step: `menu_items:${cat.name}`,
+        status: "ok",
+        detail: `${itemRows.length} inserted`,
       });
     }
   }

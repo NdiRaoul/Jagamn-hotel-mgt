@@ -277,9 +277,10 @@ function BookingContent() {
     return null;
   }
 
+  // Fapshi requires a bare 9-digit local number — NO country code, NO +237, NO spaces.
+  // e.g. "676982949", NOT "+237676982949"
   function normalizeCmPhone(raw: string): string {
-    const local = raw.replace(/^\+237/, "").replace(/\s/g, "");
-    return `+237${local}`;
+    return raw.replace(/^\+237/, "").replace(/\s/g, "");
   }
 
   async function handleCreateAccount(bookingId: string) {
@@ -425,14 +426,14 @@ function BookingContent() {
           return;
         }
 
-        // Normalize to +237XXXXXXXXX
+        // Strip +237 prefix — Fapshi expects a bare 9-digit local number
         const normalizedPhone = normalizeCmPhone(phone);
 
-        // Map medium to exact Fapshi values
+        // Fapshi requires exact lowercase values: "mobile money" (MTN) or "orange money" (Orange)
         const fapshiMedium =
           formData.mobileMoneyMedium === "mtn mobile money"
-            ? "MTN Mobile Money"
-            : "Orange Money";
+            ? "mobile money"
+            : "orange money";
 
         // Create booking
         const bookingData = await createBooking(fapshiMedium);
