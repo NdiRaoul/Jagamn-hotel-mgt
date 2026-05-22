@@ -235,19 +235,60 @@ const AMENITIES: Record<string, { icon: string; label: string }[]> = {
 };
 
 // ── Physical room units ──────────────────────────────────────────────────────
+// Conventional hotel numbering: <floor><2-digit room on floor>
+// e.g. 201 = floor 2, room 01.  All room types occupy floors 2–6.
+//
+// Layout:
+//   Garden Terrace       12 rooms  floors 2–3  (6/floor)  201–206, 301–306
+//   Classic Heritage     20 rooms  floors 2–5  (5/floor)  210–214, 310–314, 410–414, 510–514
+//   Palace Deluxe         8 rooms  floors 4–5  (4/floor)  420–423, 520–523
+//   Royal Grand Suite     4 rooms  floor 6     (4 rooms)  601–604
+//   Maharaja Presidential 2 rooms  floor 6     (2 rooms)  610–611
 
-function buildUnits(prefix: string, count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    unit_code: `${prefix}-${String(i + 1).padStart(3, "0")}`,
-  }));
+function buildFloorUnits(
+  startNumbers: { floor: number; roomStart: number; count: number }[],
+): { unit_code: string; floor: number }[] {
+  const units: { unit_code: string; floor: number }[] = [];
+  for (const { floor, roomStart, count } of startNumbers) {
+    for (let r = 0; r < count; r++) {
+      const roomNum = roomStart + r;
+      units.push({
+        unit_code: `${floor}${String(roomNum).padStart(2, "0")}`,
+        floor,
+      });
+    }
+  }
+  return units;
 }
 
-const ROOM_UNITS: Record<string, { unit_code: string }[]> = {
-  "garden-terrace": buildUnits("GT", 20),
-  "classic-heritage": buildUnits("CH", 12),
-  "palace-deluxe": buildUnits("PD", 8),
-  "royal-grand-suite": buildUnits("RG", 4),
-  "maharaja-presidential": buildUnits("MP", 2),
+const ROOM_UNITS: Record<string, { unit_code: string; floor: number }[]> = {
+  // 12 rooms across floors 2–3, 6 per floor, starting at x01
+  "garden-terrace": buildFloorUnits([
+    { floor: 2, roomStart: 1, count: 6 },
+    { floor: 3, roomStart: 1, count: 6 },
+  ]),
+
+  // 20 rooms across floors 2–5, 5 per floor, starting at x10
+  "classic-heritage": buildFloorUnits([
+    { floor: 2, roomStart: 10, count: 5 },
+    { floor: 3, roomStart: 10, count: 5 },
+    { floor: 4, roomStart: 10, count: 5 },
+    { floor: 5, roomStart: 10, count: 5 },
+  ]),
+
+  // 8 rooms across floors 4–5, 4 per floor, starting at x20
+  "palace-deluxe": buildFloorUnits([
+    { floor: 4, roomStart: 20, count: 4 },
+    { floor: 5, roomStart: 20, count: 4 },
+  ]),
+
+  // 4 rooms on floor 6, starting at 601
+  "royal-grand-suite": buildFloorUnits([{ floor: 6, roomStart: 1, count: 4 }]),
+
+  // 2 rooms on floor 6, starting at 610 (penthouse wing)
+  "maharaja-presidential": buildFloorUnits([
+    { floor: 6, roomStart: 10, count: 2 },
+  ]),
 };
 
 // ── Unavailable date ranges ──────────────────────────────────────────────────
@@ -733,6 +774,7 @@ async function seed() {
     const rows = units.map((u) => ({
       room_type_id: roomTypeId,
       unit_code: u.unit_code,
+      floor: u.floor,
       is_active: true,
     }));
 
