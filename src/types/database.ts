@@ -10,6 +10,7 @@ export interface RoomType {
   collection: string;
   badge: string | null;
   price_per_night: number;
+  resort_fee: number;
   description: string | null;
   long_description: string | null;
   sqft: number | null;

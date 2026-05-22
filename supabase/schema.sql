@@ -38,7 +38,7 @@ create table room_types (
   collection          text        not null,
   badge               text,
   price_per_night     integer     not null,
-  resort_fee          integer     default 150,
+  resort_fee          integer     not null default 0,
   description         text,
   long_description    text,
   sqft                integer,
@@ -145,7 +145,7 @@ create table bookings (
   nights               integer     not null,
   guests               integer     not null,
   room_price_per_night integer     not null,
-  resort_fee           integer     default 150,
+  resort_fee           integer     default 0,
   tax_amount           integer,
   total_amount         integer     not null,
   payment_method       text,
@@ -385,7 +385,8 @@ create index if not exists bookings_pending_created_idx
   on bookings (created_at)
   where status = 'pending';
 
-alter table room_types add column if not exists resort_fee integer default 150;
+alter table room_types add column if not exists resort_fee integer not null default 0;
+alter table bookings alter column resort_fee set default 0;
 alter table bookings add column if not exists receipt_sent_at timestamptz;
 
 -- ---------------------------------------------------------------------

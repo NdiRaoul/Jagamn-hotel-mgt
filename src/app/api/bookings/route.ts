@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const roomPricePerNight = roomType.price_per_night;
-    const resortFeeValue = roomType.resort_fee ?? 150;
+    const resortFeeValue = roomType.resort_fee ?? 0;
     const taxAmountValue = Math.round(roomPricePerNight * nightsCount * 0.12);
     const totalAmountValue =
       roomPricePerNight * nightsCount + resortFeeValue + taxAmountValue;

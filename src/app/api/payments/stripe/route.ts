@@ -1,30 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { supabaseAdmin } from "@/lib/supabase-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-04-22.dahlia",
 });
 
 // POST /api/payments/stripe — create PaymentIntent
+// Loads the booking total from the DB — never trusts client-sent amounts.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      bookingRef,
-      totalAmount,
-      currency = "usd",
-      savedPaymentMethodId,
-    } = body;
+    const { bookingRef, currency = "usd", savedPaymentMethodId } = body;
 
-    if (!bookingRef || !totalAmount) {
+    if (!bookingRef) {
       return NextResponse.json(
-        { error: "bookingRef and totalAmount are required" },
+        { error: "bookingRef is required" },
+        { status: 400 },
+      );
+    }
+
+    // Load the authoritative total from the database
+    const { data: booking, error: bookingError } = await supabaseAdmin
+      .from("bookings")
+      .select("total_amount, payment_status")
+      .eq("booking_ref", bookingRef)
+      .maybeSingle();
+
+    if (bookingError || !booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    if (booking.payment_status === "paid") {
+      return NextResponse.json(
+        { error: "Booking is already paid" },
+        { status: 409 },
+      );
+    }
+
+    if (!booking.total_amount || booking.total_amount <= 0) {
+      return NextResponse.json(
+        { error: "Invalid booking total" },
         { status: 400 },
       );
     }
 
     const piParams: Stripe.PaymentIntentCreateParams = {
-      amount: Math.round(totalAmount * 100),
+      amount: Math.round(booking.total_amount * 100),
       currency,
       metadata: { bookingRef },
       ...(savedPaymentMethodId

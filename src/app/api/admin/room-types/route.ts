@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase-server";
 import { invalidate } from "@/lib/redis/cache";
 
-const ADMIN_ROLES = ["receptionist", "manager", "admin"];
+const ADMIN_ROLES = ["manager", "admin"];
 
 async function requireAdmin(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from("room_types")
-    .select("*")
+    .select("slug, name, price_per_night, resort_fee")
     .order("sort_order", { ascending: true });
 
   if (error) {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ roomTypes: data || [] });
 }
 
-export async function PUT(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
   const guard = await requireAdmin(request);
   if (guard) return guard;
 
@@ -64,27 +64,48 @@ export async function PUT(request: NextRequest) {
 
   const { slug, resort_fee } = body as {
     slug?: string;
-    resort_fee?: number;
+    resort_fee?: unknown;
   };
 
-  if (!slug || resort_fee == null || typeof resort_fee !== "number") {
+  if (!slug || typeof slug !== "string") {
+    return NextResponse.json({ error: "slug is required" }, { status: 400 });
+  }
+
+  if (
+    resort_fee == null ||
+    typeof resort_fee !== "number" ||
+    !isFinite(resort_fee)
+  ) {
     return NextResponse.json(
-      { error: "slug and resort_fee are required" },
+      { error: "resort_fee must be a finite number" },
       { status: 400 },
     );
   }
 
-  if (resort_fee < 0) {
+  const rounded = Math.round(resort_fee);
+  if (rounded < 0 || rounded > 100000) {
     return NextResponse.json(
-      { error: "resort_fee must be greater than or equal to 0" },
+      { error: "resort_fee must be between 0 and 100000" },
       { status: 400 },
     );
+  }
+
+  // Verify the room type exists
+  const { data: existing } = await supabaseAdmin
+    .from("room_types")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!existing) {
+    return NextResponse.json({ error: "Room type not found" }, { status: 404 });
   }
 
   const { data, error } = await supabaseAdmin
     .from("room_types")
-    .update({ resort_fee })
+    .update({ resort_fee: rounded })
     .eq("slug", slug)
+    .select("slug, name, price_per_night, resort_fee")
     .single();
 
   if (error) {
@@ -99,3 +120,6 @@ export async function PUT(request: NextRequest) {
 
   return NextResponse.json({ roomType: data });
 }
+
+// Keep PUT as an alias for PATCH for backward compatibility
+export { PATCH as PUT };
