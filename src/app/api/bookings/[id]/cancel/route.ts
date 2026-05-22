@@ -56,6 +56,7 @@ export async function POST(
       return NextResponse.json({ error: "Already cancelled" }, { status: 400 });
 
     const cancellationFee = Math.round(booking.total_amount * 0.15);
+    // Refund amount is computed server-side from the stored total — never from client input
     const refundAmount = booking.total_amount - cancellationFee;
 
     const payment = ((booking.payments as PaymentRow[]) || []).find(
@@ -67,6 +68,8 @@ export async function POST(
     if (payment) {
       try {
         if (payment.provider === "stripe" && payment.stripe_payment_intent_id) {
+          // Use the stored payment amount for the refund — never a client-supplied figure.
+          // Stripe expects cents; stored amount is in USD cents-equivalent.
           const refund = await stripe.refunds.create({
             payment_intent: payment.stripe_payment_intent_id,
             amount: Math.round(refundAmount * 100),
@@ -74,6 +77,7 @@ export async function POST(
           refundTxId = refund.id;
           refundStatus = refund.status === "succeeded" ? "refunded" : "pending";
         } else if (payment.provider === "fapshi" && payment.fapshi_trans_id) {
+          // Fapshi amounts are in XAF; convert from USD using the same rate used at payment time
           const res = await fetch(`${FAPSHI_BASE_URL}/refund`, {
             method: "POST",
             headers: {

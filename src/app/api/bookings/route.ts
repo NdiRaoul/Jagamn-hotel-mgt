@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { rateLimit } from "@/lib/rate-limit";
-import { getCache, setCache } from "@/lib/cache";
+import { getCached } from "@/lib/redis/cache";
+import { bookingLimiter } from "@/lib/redis/rate-limit";
 
 // POST /api/bookings — create a booking
 export async function POST(request: NextRequest) {
@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
       password,
     } = body;
 
-    // Rate limiting
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    if (!rateLimit(`booking:${ip}`, 5, 60_000)) {
+    // Rate limiting (Upstash sliding-window; falls back to allow on Redis error)
+    const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+    const rl = await bookingLimiter.limit(ip);
+    if (!rl.success) {
       return NextResponse.json(
         { error: "Too many requests. Please wait a moment." },
         { status: 429 },
@@ -96,51 +97,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get room type id — use cache to avoid repeated DB lookups
-    let roomType = getCache<{ id: string }>(`room_type:${room_slug}`);
-    if (!roomType) {
-      const { data } = await supabaseAdmin
-        .from("room_types")
-        .select("id, name")
-        .eq("slug", room_slug)
-        .single();
-      if (data) {
-        roomType = data;
-        setCache(`room_type:${room_slug}`, data, 5 * 60 * 1000);
-      }
-    }
-
-    // Find an available physical room unit
-    let assignedRoomId: string | null = null;
-    if (roomType) {
-      const { data: activeBookings } = await supabaseAdmin
-        .from("bookings")
-        .select("room_id")
-        .eq("room_slug", room_slug)
-        .neq("status", "cancelled")
-        .lte("check_in", check_out)
-        .gte("check_out", check_in);
-
-      const bookedRoomIds = (activeBookings || [])
-        .map((b: { room_id: string | null }) => b.room_id)
-        .filter(Boolean);
-
-      const query = supabaseAdmin
-        .from("rooms")
-        .select("id")
-        .eq("room_type_id", roomType.id)
-        .eq("is_active", true)
-        .limit(1);
-
-      if (bookedRoomIds.length > 0) {
-        query.not("id", "in", `(${bookedRoomIds.join(",")})`);
-      }
-
-      const { data: availableRoom } = await query.single();
-      if (availableRoom) {
-        assignedRoomId = availableRoom.id;
-      }
-    }
+    // Get room type id — use layered cache to avoid repeated DB lookups
+    const roomType = await getCached<{ id: string; name: string }>(
+      `roomtype:slug:${room_slug}`,
+      300,
+      async () => {
+        const { data } = await supabaseAdmin
+          .from("room_types")
+          .select("id, name")
+          .eq("slug", room_slug)
+          .single();
+        return data ?? null;
+      },
+    );
 
     // ── Resolve user ID ──────────────────────────────────────────────────────
     let userId: string | null = null;
@@ -170,39 +139,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Insert booking ───────────────────────────────────────────────────────
-    const { data: booking, error } = await supabaseAdmin
-      .from("bookings")
-      .insert({
-        user_id: userId,
-        guest_email,
-        guest_name,
-        guest_phone: guest_phone || null,
-        guest_country: guest_country || null,
-        guest_id_type: guest_id_type || null,
-        guest_id_number: guest_id_number || null,
-        room_type_id: roomType?.id || null,
-        room_id: assignedRoomId,
-        room_slug,
-        check_in,
-        check_out,
-        nights: nights || 1,
-        guests: guests || 1,
-        room_price_per_night,
-        resort_fee: resort_fee || 150,
-        tax_amount: tax_amount || null,
-        total_amount,
-        payment_method: payment_method || null,
-        payment_status: "pending",
-        status: "confirmed",
-        special_requests: special_requests || null,
-      })
-      .select("id, booking_ref")
-      .single();
+    // ── Atomic room assignment + booking insert via RPC ──────────────────────
+    // The assign_room_and_book() Postgres function picks a free room unit with
+    // FOR UPDATE SKIP LOCKED and inserts the booking in ONE transaction.
+    // The no_overlap exclusion constraint is the final backstop.
+    const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc(
+      "assign_room_and_book",
+      {
+        p_room_slug: room_slug,
+        p_room_type_id: roomType?.id ?? null,
+        p_check_in: check_in,
+        p_check_out: check_out,
+        p_guest_email: guest_email,
+        p_guest_name: guest_name,
+        p_guest_phone: guest_phone ?? null,
+        p_guest_country: guest_country ?? null,
+        p_guest_id_type: guest_id_type ?? null,
+        p_guest_id_number: guest_id_number ?? null,
+        p_nights: nights ?? 1,
+        p_guests: guests ?? 1,
+        p_room_price: room_price_per_night,
+        p_resort_fee: resort_fee ?? 150,
+        p_tax_amount: tax_amount ?? null,
+        p_total_amount: total_amount,
+        p_payment_method: payment_method ?? null,
+        p_special_requests: special_requests ?? null,
+        p_user_id: userId ?? null,
+        p_app_user_id: null, // filled in below after upsert
+      },
+    );
 
-    if (error) {
-      console.error("[POST /api/bookings] insert error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (rpcError) {
+      // SQLSTATE 23P01 = exclusion_violation (no_overlap constraint)
+      // The RPC also returns an error when no unit is available.
+      const code = (rpcError as { code?: string }).code;
+      const msg = rpcError.message ?? "";
+      if (
+        code === "23P01" ||
+        msg.includes("no unit available") ||
+        msg.includes("exclusion")
+      ) {
+        return NextResponse.json(
+          {
+            error: "This room is no longer available for the selected dates.",
+          },
+          { status: 409 },
+        );
+      }
+      console.error("[POST /api/bookings] RPC error:", rpcError);
+      return NextResponse.json(
+        { error: "Could not create booking. Please try again." },
+        { status: 500 },
+      );
+    }
+
+    const booking = rpcRows?.[0];
+    if (!booking) {
+      return NextResponse.json(
+        { error: "This room is no longer available for the selected dates." },
+        { status: 409 },
+      );
     }
 
     // ── Upsert users row ─────────────────────────────────────────────────────
@@ -302,46 +298,55 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin
         .from("bookings")
         .update({ app_user_id: appUserId })
-        .eq("id", booking.id);
+        .eq("id", booking.booking_id);
     }
 
-    // ── Send receipt email ───────────────────────────────────────────────────
+    // ── Send "reservation received" email (NOT a confirmation) ──────────────
+    // The real "Booking Confirmed" email is sent only after payment succeeds,
+    // from the Stripe / Fapshi webhook via sendConfirmationEmail().
     try {
       const { resend } = await import("@/lib/resend");
-      const { buildReceiptEmailHtml } =
-        await import("@/lib/emails/booking-receipt");
 
-      const cachedRoom = getCache<{ id: string; name: string }>(
-        `room_type:${room_slug}`,
-      );
-      const roomName = cachedRoom?.name || room_slug;
+      const roomName = roomType?.name || room_slug;
 
       await resend.emails.send({
         from: "Jagamn Palace <reservations@jagamnpalace.com>",
         to: [guest_email],
-        subject: `Booking Confirmed — ${booking.booking_ref} | Jagamn Palace`,
-        html: buildReceiptEmailHtml({
-          bookingRef: booking.booking_ref,
-          guestName: guest_name,
-          roomName,
-          checkIn: check_in,
-          checkOut: check_out,
-          nights: nights || 1,
-          guests: guests || 1,
-          pricePerNight: room_price_per_night,
-          resortFee: resort_fee || 150,
-          taxAmount: tax_amount || 0,
-          totalAmount: total_amount,
-          paymentMethod: payment_method || "Online Payment",
-        }),
+        subject: `Reservation Received — ${booking.booking_ref} | Jagamn Palace`,
+        html: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/></head>
+<body style="font-family:Georgia,serif;background:#FAFAFA;margin:0;padding:40px;">
+  <div style="max-width:600px;margin:0 auto;background:white;border-radius:8px;overflow:hidden;">
+    <div style="background:#00152A;padding:40px;text-align:center;">
+      <h1 style="color:#FFB77A;margin:0;">Jagamn Palace</h1>
+      <p style="color:#9ca3af;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Reservation Received</p>
+    </div>
+    <div style="padding:40px;">
+      <p>Dear ${guest_name},</p>
+      <p>We have received your reservation request for <strong>${roomName}</strong>.</p>
+      <div style="background:#FFF8F0;border:1px solid #FFB77A;border-radius:8px;padding:24px;margin:24px 0;">
+        <p style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#9ca3af;margin:0 0 8px;">Reference</p>
+        <p style="font-size:28px;font-weight:bold;color:#00152A;font-family:monospace;margin:0;">${booking.booking_ref}</p>
+      </div>
+      <p style="color:#6b7280;font-size:14px;">
+        <strong>This is not a confirmation.</strong> Your booking will be confirmed once payment is processed.
+        You will receive a separate confirmation email with your receipt.
+      </p>
+      <p style="color:#6b7280;font-size:14px;">Check-in: <strong>${check_in}</strong> &nbsp;→&nbsp; Check-out: <strong>${check_out}</strong></p>
+    </div>
+    <div style="background:#F4F6F8;padding:24px;text-align:center;">
+      <p style="color:#9ca3af;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0;">Jagamn Palace · Excellence Since 1892</p>
+    </div>
+  </div>
+</body></html>`,
       });
     } catch (emailErr) {
-      console.error("[bookings] receipt email failed:", emailErr);
+      console.error("[bookings] reservation-received email failed:", emailErr);
     }
 
     return NextResponse.json({
       bookingRef: booking.booking_ref,
-      bookingId: booking.id,
+      bookingId: booking.booking_id,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
