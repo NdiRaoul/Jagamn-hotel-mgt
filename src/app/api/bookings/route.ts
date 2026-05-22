@@ -110,18 +110,14 @@ export async function POST(request: NextRequest) {
       name: string;
       price_per_night: number;
       resort_fee: number | null;
-    }>(
-      `roomtype:slug:${room_slug}`,
-      300,
-      async () => {
-        const { data } = await supabaseAdmin
-          .from("room_types")
-          .select("id, name, price_per_night, resort_fee")
-          .eq("slug", room_slug)
-          .single();
-        return data ?? null;
-      },
-    );
+    }>(`roomtype:slug:${room_slug}`, 300, async () => {
+      const { data } = await supabaseAdmin
+        .from("room_types")
+        .select("id, name, price_per_night, resort_fee")
+        .eq("slug", room_slug)
+        .single();
+      return data ?? null;
+    });
 
     if (!roomType) {
       return NextResponse.json(
