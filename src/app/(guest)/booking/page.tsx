@@ -66,6 +66,7 @@ function BookingContent() {
   const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
   const [fapshiPolling, setFapshiPolling] = useState(false);
   const [fapshiPhone, setFapshiPhone] = useState("");
+  const [fapshiBookingRef, setFapshiBookingRef] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -94,6 +95,10 @@ function BookingContent() {
   const resortFee = 150;
   const tax = Math.round(roomTotal * 0.12);
   const totalPrice = roomTotal + resortFee + tax;
+  const fapshiMediumLabel =
+    formData.mobileMoneyMedium === "orange money"
+      ? "Orange Money"
+      : "MTN Mobile Money";
 
   // Past date error — computed, not state
   const pastDateError =
@@ -145,8 +150,11 @@ function BookingContent() {
       }
 
       try {
+        const query = new URLSearchParams({ transId: fapshiTransId });
+        if (fapshiBookingRef) query.set("bookingRef", fapshiBookingRef);
+
         const res = await fetch(
-          `/api/payments/fapshi?transId=${fapshiTransId}`,
+          `/api/payments/fapshi?${query.toString()}`,
         );
         const data = await res.json();
 
@@ -155,8 +163,10 @@ function BookingContent() {
           setFapshiPolling(false);
           // Update booking payment status
           await fetch(`/api/bookings`, { method: "GET" }); // trigger refresh
+          const bookingRefForRedirect =
+            fapshiBookingRef || data.externalId || "";
           router.push(
-            `/booking/confirmed?ref=${data.externalId || ""}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
+            `/booking/confirmed?ref=${bookingRefForRedirect}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
           );
         } else if (data.status === "FAILED" || data.status === "EXPIRED") {
           clearInterval(interval);
@@ -169,7 +179,7 @@ function BookingContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [fapshiTransId, fapshiPolling]);
+  }, [fapshiTransId, fapshiPolling, fapshiBookingRef]);
 
   if (!room || !checkIn || !checkOut) {
     return (
@@ -469,6 +479,7 @@ function BookingContent() {
         }
 
         setFapshiTransId(fapshiData.transId);
+        setFapshiBookingRef(bookingData.bookingRef);
         setFapshiPhone(normalizedPhone);
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
@@ -506,11 +517,16 @@ function BookingContent() {
             Check Your Phone
           </h2>
           <p className="text-sm text-gray-500">
-            Waiting for your approval on <strong>{fapshiPhone}</strong>. Please
-            approve the payment prompt on your phone.
+            A secure payment prompt has been sent to <strong>{fapshiPhone}</strong> via <strong>{fapshiMediumLabel}</strong>.
+          </p>
+          <p className="text-xs text-gray-400 max-w-xs mx-auto">
+            Approve the request on your phone to complete your booking. Jagamn Palace will never ask you for your PIN on this website.
           </p>
           <div className="flex justify-center">
             <div className="w-8 h-8 border-4 border-jagamn-tertiary border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div className="bg-white border border-gray-200 rounded-md p-4 text-left text-xs text-gray-500">
+            If the prompt doesn't arrive within 30 seconds, keep this page open and check your mobile money app. Do not enter your PIN anywhere except the official mobile money prompt.
           </div>
           <button
             onClick={() => {
@@ -939,9 +955,14 @@ function BookingContent() {
                       </p>
                     )}
                   </div>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
-                    You will receive a payment prompt on your phone. Approve it
-                    to complete your booking.
+                  <div className="bg-slate-50 border border-slate-200 rounded-md p-4 text-sm text-slate-700">
+                    <p className="font-semibold">Mobile money payment details</p>
+                    <p className="mt-2">
+                      A secure {fapshiMediumLabel} prompt will be sent to your phone. Jagamn Palace will never ask for your PIN here.
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      If the prompt does not appear within 30 seconds, keep this page open and check the mobile money app on your phone.
+                    </p>
                   </div>
                 </div>
               )}

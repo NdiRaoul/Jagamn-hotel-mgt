@@ -8,7 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { resend } from "@/lib/resend";
 import { buildReceiptEmailHtml } from "@/lib/emails/booking-receipt";
 
-export async function sendConfirmationEmail(bookingRef: string): Promise<void> {
+export async function sendConfirmationEmail(bookingRef: string): Promise<boolean> {
   // Load the full booking row so we always use the stored guest_email
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
@@ -24,15 +24,23 @@ export async function sendConfirmationEmail(bookingRef: string): Promise<void> {
       bookingRef,
       error,
     );
-    return;
+    return false;
   }
 
   // Resolve a human-readable room name from the room_types table if possible
-  const { data: roomType } = await supabaseAdmin
+  const { data: roomType, error: roomTypeError } = await supabaseAdmin
     .from("room_types")
     .select("name")
     .eq("slug", booking.room_slug)
     .maybeSingle();
+
+  if (roomTypeError) {
+    console.error(
+      "[sendConfirmationEmail] could not resolve room name:",
+      bookingRef,
+      roomTypeError,
+    );
+  }
 
   const roomName = roomType?.name || booking.room_slug;
 
@@ -63,5 +71,22 @@ export async function sendConfirmationEmail(bookingRef: string): Promise<void> {
       bookingRef,
       emailErr,
     );
+    return false;
   }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("bookings")
+    .update({ receipt_sent_at: new Date().toISOString() })
+    .eq("booking_ref", bookingRef);
+
+  if (updateError) {
+    console.error(
+      "[sendConfirmationEmail] failed to update receipt_sent_at for",
+      bookingRef,
+      updateError,
+    );
+    return false;
+  }
+
+  return true;
 }
