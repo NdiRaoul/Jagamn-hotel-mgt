@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient, supabaseAdmin } from "@/lib/supabase-server";
+import {
+  createSupabaseServerClient,
+  supabaseAdmin,
+} from "@/lib/supabase-server";
 import { invalidate } from "@/lib/redis/cache";
 
 const ADMIN_ROLES = ["receptionist", "manager", "admin"];

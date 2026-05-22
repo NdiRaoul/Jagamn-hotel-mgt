@@ -8,7 +8,9 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { resend } from "@/lib/resend";
 import { buildReceiptEmailHtml } from "@/lib/emails/booking-receipt";
 
-export async function sendConfirmationEmail(bookingRef: string): Promise<boolean> {
+export async function sendConfirmationEmail(
+  bookingRef: string,
+): Promise<boolean> {
   // Load the full booking row so we always use the stored guest_email
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
