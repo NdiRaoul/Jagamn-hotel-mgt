@@ -111,11 +111,29 @@ export async function POST(request: NextRequest) {
       price_per_night: number;
       resort_fee: number | null;
     }>(`roomtype:slug:${room_slug}`, 300, async () => {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("room_types")
         .select("id, name, price_per_night, resort_fee")
         .eq("slug", room_slug)
         .single();
+
+      if (error) {
+        // If resort_fee column doesn't exist yet (migration pending), fall back
+        // to selecting without it so bookings still work (fee defaults to 0).
+        if (
+          error.message?.includes("resort_fee") ||
+          error.code === "42703" // undefined_column
+        ) {
+          const { data: fallback } = await supabaseAdmin
+            .from("room_types")
+            .select("id, name, price_per_night")
+            .eq("slug", room_slug)
+            .single();
+          return fallback ? { ...fallback, resort_fee: 0 } : null;
+        }
+        return null;
+      }
+
       return data ?? null;
     });
 

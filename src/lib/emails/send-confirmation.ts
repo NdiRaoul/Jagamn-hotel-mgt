@@ -25,6 +25,33 @@ export async function sendConfirmationEmail(
     .single();
 
   if (error || !booking) {
+    // If receipt_sent_at column doesn't exist yet (migration pending), retry
+    // without it — we'll skip the idempotency guard but still send the email.
+    if (
+      error?.message?.includes("receipt_sent_at") ||
+      error?.code === "42703"
+    ) {
+      const { data: fallback, error: fallbackErr } = await supabaseAdmin
+        .from("bookings")
+        .select(
+          "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, resort_fee, tax_amount, total_amount, payment_method",
+        )
+        .eq("booking_ref", bookingRef)
+        .single();
+      if (fallbackErr || !fallback) {
+        console.error(
+          "[sendConfirmationEmail] could not load booking (fallback):",
+          bookingRef,
+          fallbackErr,
+        );
+        return false;
+      }
+      // Proceed with fallback booking data (no receipt_sent_at guard)
+      return sendEmailAndMark(
+        { ...fallback, receipt_sent_at: null },
+        bookingRef,
+      );
+    }
     console.error(
       "[sendConfirmationEmail] could not load booking:",
       bookingRef,
@@ -33,6 +60,28 @@ export async function sendConfirmationEmail(
     return false;
   }
 
+  return sendEmailAndMark(booking, bookingRef);
+}
+
+async function sendEmailAndMark(
+  booking: {
+    booking_ref: string;
+    guest_name: string;
+    guest_email: string;
+    room_slug: string;
+    check_in: string;
+    check_out: string;
+    nights: number | null;
+    guests: number | null;
+    room_price_per_night: number;
+    resort_fee: number | null;
+    tax_amount: number | null;
+    total_amount: number;
+    payment_method: string | null;
+    receipt_sent_at?: string | null;
+  },
+  bookingRef: string,
+): Promise<boolean> {
   // Idempotency guard — already sent, no double-send
   if (booking.receipt_sent_at) {
     return true;
