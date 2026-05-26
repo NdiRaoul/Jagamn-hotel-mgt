@@ -47,17 +47,19 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-    const pathname = usePathname();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [searchQuery, setSearchQuery] = useState("");
+  const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
-    const handleSearch = (val: string) => {
-      setSearchQuery(val);
-      window.dispatchEvent(new CustomEvent('jagamn-global-search', { detail: val }));
-    };
+  const handleSearch = (val: string) => {
+    setSearchQuery(val);
+    window.dispatchEvent(
+      new CustomEvent("jagamn-global-search", { detail: val }),
+    );
+  };
 
-    return (
-      <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
+  return (
+    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
       {/* ── Sidebar ───────────────────────────────────── */}
       {/* Mobile Backdrop */}
       {isSidebarOpen && (
@@ -76,26 +78,30 @@ export default function AdminLayout({
         )}
       >
         {/* Logo Section */}
-        <div className={cn(
-          "p-8 flex items-center gap-3 transition-all duration-500",
-          !isSidebarOpen && "md:px-6 md:justify-center"
-        )}>
+        <div
+          className={cn(
+            "p-8 flex items-center gap-3 transition-all duration-500",
+            !isSidebarOpen && "md:px-6 md:justify-center",
+          )}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
               <Building2 className="w-6 h-6 text-white" />
             </div>
             {isSidebarOpen && (
               <div className="animate-in fade-in duration-500 overflow-hidden whitespace-nowrap">
-                <h2 className="manrope-bold text-lg leading-tight">The Palace</h2>
+                <h2 className="manrope-bold text-lg leading-tight">
+                  The Palace
+                </h2>
                 <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
                   Management Suite
                 </p>
               </div>
             )}
           </div>
-          
+
           {/* Close button for mobile */}
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
           >
@@ -161,10 +167,12 @@ export default function AdminLayout({
 
         {/* Bottom Section */}
         <div className="p-4 border-t border-white/5">
-          <button className={cn(
-            "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
-            isSidebarOpen ? "px-4" : "md:justify-center"
-          )}>
+          <button
+            className={cn(
+              "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
+              isSidebarOpen ? "px-4" : "md:justify-center",
+            )}
+          >
             <LogOut className="w-5 h-5 shrink-0 group-hover:text-jagamn-tertiary" />
             {isSidebarOpen && (
               <span className="text-[11px] font-black uppercase tracking-widest animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
@@ -180,20 +188,20 @@ export default function AdminLayout({
         {/* Header Bar - Image 2 Style */}
         <header className="h-[90px] bg-white px-8 flex items-center justify-between shrink-0 border-b border-gray-100">
           <div className="flex items-center gap-12 flex-1">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 text-gray-400 hover:text-jagamn-tertiary transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
-            
+
             {/* Global Pill Search */}
             <div className="relative w-full max-w-md hidden md:block">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input 
+              <Input
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Global search across pages..." 
+                placeholder="Global search across pages..."
                 className="w-full h-12 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-jagamn-tertiary/20"
               />
             </div>
@@ -212,12 +220,21 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-4 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">Admin Palace</p>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">System Administrator</p>
+                <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">
+                  Admin Palace
+                </p>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                  System Administrator
+                </p>
               </div>
               <Avatar className="w-11 h-11 border-[2.5px] border-jagamn-tertiary p-0.5 shadow-sm">
-                <AvatarImage src="/images/avatar-admin.png" className="rounded-full" />
-                <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">AP</AvatarFallback>
+                <AvatarImage
+                  src="/images/avatar-admin.png"
+                  className="rounded-full"
+                />
+                <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">
+                  AP
+                </AvatarFallback>
               </Avatar>
             </div>
           </div>

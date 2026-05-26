@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { 
-  Bell, 
-  Settings, 
-  Search, 
   Banknote, 
   TrendingUp, 
   BedDouble, 
@@ -16,7 +13,6 @@ import {
   ExternalLink,
   ShieldCheck
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 // ── Components ──────────────────────────────────────
@@ -49,8 +45,6 @@ const MetricCard = ({ title, value, pillText, pillType, subtext, icon: Icon }: a
 };
 
 export default function ExecutiveOverviewPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-700">
       
