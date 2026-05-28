@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
-export default function LoginPage() {
+import { Suspense } from "react";
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
@@ -224,5 +226,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
+        <p className="text-xs font-bold text-jagamn-primary animate-pulse uppercase tracking-widest">Loading...</p>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
