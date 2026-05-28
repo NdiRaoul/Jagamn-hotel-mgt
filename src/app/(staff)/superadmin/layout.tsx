@@ -47,8 +47,13 @@ const SUPERADMIN_NAV = [
     icon: RefreshCcw,
     href: "/superadmin/financial-sync",
   },
-  { label: "System Settings", icon: Settings, href: "/superadmin/settings" },
-  { label: "Audit Logs", icon: History, href: "/superadmin/audit" },
+  {
+    label: "System Alerts",
+    icon: Bell,
+    href: "/superadmin/system-alerts",
+  },
+  { label: "System Settings", icon: Settings, href: "/superadmin/system-settings" },
+  { label: "Audit Logs", icon: History, href: "/superadmin/audit-logs" },
 ];
 
 export default function SuperAdminLayout({

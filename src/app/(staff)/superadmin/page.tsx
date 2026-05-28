@@ -7,11 +7,12 @@ import {
   BedDouble,
   Utensils,
   AlertCircle,
-  RefreshCcw,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
   ExternalLink,
   ShieldCheck,
+  RefreshCcw,
   X,
   Loader2,
   History,
@@ -34,7 +35,7 @@ const MetricCard = ({
   const isNegative = pillType === "negative";
 
   return (
-    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-l-4 border-l-[#0D2137] border-y border-r border-gray-100 flex flex-col justify-between">
+    <div className="bg-white p-6 md:p-8 rounded-sm shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-l-4 border-l-[#0D2137] border-y border-r border-gray-100 flex flex-col justify-between">
       <div className="flex items-start justify-between mb-4">
         <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[#0D2137]">
           <Icon className="w-4 h-4" />
@@ -63,6 +64,8 @@ const MetricCard = ({
 export default function ExecutiveOverviewPage() {
   const [showRetryModal, setShowRetryModal] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [showEscalationModal, setShowEscalationModal] = useState(false);
+  const [escalationPriority, setEscalationPriority] = useState("Urgent");
 
   const handleRetry = () => {
     setIsRetrying(true);
@@ -241,7 +244,7 @@ export default function ExecutiveOverviewPage() {
             {/* Image Card */}
             <div className="relative rounded-3xl overflow-hidden h-64 group shadow-lg">
               <img
-                src="/images/lobby.png"
+                src="/images/classic-heritage.png"
                 alt="Heritage Suite"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 onError={(e) => {
@@ -315,13 +318,16 @@ export default function ExecutiveOverviewPage() {
 
             <div className="space-y-4 flex-1">
               {/* Alert 1 */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-red-500 hover:shadow-md transition-shadow cursor-pointer">
+              <div
+                onClick={() => setShowEscalationModal(true)}
+                className="bg-white p-6 rounded-sm shadow-sm border-l-4 border-l-red-500 hover:shadow-md transition-shadow cursor-pointer"
+              >
                 <div className="flex gap-4">
                   <div className="shrink-0 mt-0.5">
                     <AlertCircle className="w-5 h-5 text-red-500" />
                   </div>
                   <div>
-                    <h4 className="manrope-bold text-sm text-[#0D2137] mb-2">
+                    <h4 className="manrope-bold text-sm text-jagamn-primary mb-2">
                       Escalated Guest Complaint
                     </h4>
                     <p className="text-xs text-slate-500 font-medium leading-relaxed mb-4">
@@ -336,7 +342,7 @@ export default function ExecutiveOverviewPage() {
               </div>
 
               {/* Alert 2 */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-[#A57850] hover:shadow-md transition-shadow cursor-pointer">
+              <div className="bg-white p-6 rounded-sm shadow-sm border-l-4 border-l-jagamn-tertiary hover:shadow-md transition-shadow cursor-pointer">
                 <div className="flex gap-4">
                   <div className="shrink-0 mt-0.5">
                     <RefreshCcw className="w-5 h-5 text-[#A57850]" />
@@ -360,7 +366,7 @@ export default function ExecutiveOverviewPage() {
               </div>
 
               {/* Alert 3 */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-[#0D2137] hover:shadow-md transition-shadow cursor-pointer">
+              <div className="bg-white p-6 rounded-sm shadow-sm border-l-4 border-l-[#0D2137] hover:shadow-md transition-shadow cursor-pointer">
                 <div className="flex gap-4">
                   <div className="shrink-0 mt-0.5">
                     <ShieldAlert className="w-5 h-5 text-[#0D2137]" />
@@ -390,10 +396,107 @@ export default function ExecutiveOverviewPage() {
         </div>
       </div>
 
+      {/* ── Assign Management Escalation Modal (Image 1) ───────────────────────────────── */}
+      <Dialog open={showEscalationModal} onOpenChange={setShowEscalationModal}>
+        <DialogContent className="sm:max-w-[450px] p-0 border-0 bg-transparent shadow-none [&>button]:hidden">
+          <DialogTitle className="sr-only">
+            Assign Management Escalation
+          </DialogTitle>
+          <div className="bg-[#EFEFEE] rounded-sm p-8 relative shadow-2xl">
+            <button
+              onClick={() => setShowEscalationModal(false)}
+              className="absolute top-6 right-6 text-slate-500 hover:text-jagamn-primary transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-6">
+              <span className="inline-block px-3 py-1 bg-red-100 text-red-500 text-[9px] font-black uppercase tracking-widest rounded-full mb-4">
+                Priority: Critical
+              </span>
+              <h3 className="manrope-bold text-lg text-jagamn-primary mb-1">
+                Assign Management Escalation
+              </h3>
+              <p className="text-sm text-slate-500 font-medium">
+                Escalated Guest Complaint — Heritage Suite 402
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">
+                  Select Manager
+                </label>
+                <div className="relative">
+                  <select className="w-full h-11 bg-transparent border border-slate-300 rounded-sm px-4 text-sm font-medium text-jagamn-primary appearance-none outline-none focus:border-jagamn-primary cursor-pointer">
+                    <option value="">Assign a lead executive...</option>
+                    <option value="manager1">
+                      Sarah Jenkins - Guest Relations
+                    </option>
+                    <option value="manager2">Michael Chang - Operations</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">
+                  Priority Level
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["Urgent", "High", "Medium"].map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setEscalationPriority(level)}
+                      className={cn(
+                        "h-10 rounded-sm text-xs font-semibold transition-colors",
+                        escalationPriority === level
+                          ? "bg-jagamn-primary text-white"
+                          : "bg-transparent border border-slate-300 text-slate-500 hover:border-jagamn-primary hover:text-jagamn-primary",
+                      )}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">
+                  Assignment Notes
+                </label>
+                <textarea
+                  className="w-full bg-transparent border border-slate-300 rounded-sm p-4 text-sm font-medium text-jagamn-primary placeholder:text-slate-400 outline-none focus:border-jagamn-primary resize-none h-24"
+                  placeholder="Provide specific directives for the assigned manager..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={() => setShowEscalationModal(false)}
+                  className="flex-1 h-12 bg-jagamn-primary hover:bg-[#1a365d] text-white rounded-sm manrope-bold shadow-lg transition-all text-sm"
+                >
+                  Confirm Assignment
+                </Button>
+                <Button
+                  onClick={() => setShowEscalationModal(false)}
+                  variant="outline"
+                  className="flex-1 h-12 bg-transparent border border-slate-300 hover:bg-slate-100 text-slate-600 rounded-sm manrope-bold transition-all text-sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Retry Sync Modal (Image 3) ───────────────────────────────── */}
       <Dialog open={showRetryModal} onOpenChange={setShowRetryModal}>
         <DialogContent className="sm:max-w-[450px] p-0 border-0 bg-transparent shadow-none [&>button]:hidden">
-          <DialogTitle className="sr-only">Retry Financial Synchronization</DialogTitle>
+          <DialogTitle className="sr-only">
+            Retry Financial Synchronization
+          </DialogTitle>
           <div className="bg-[#F8F9FA] rounded-sm p-8 relative shadow-2xl border-l-4 border-l-jagamn-primary">
             <button
               onClick={() => setShowRetryModal(false)}
