@@ -355,52 +355,6 @@ const HOTEL_AMENITIES = [
   },
 ];
 
-// ── Admin accounts ───────────────────────────────────────────────────────────
-
-type AdminAccount = {
-  email: string;
-  password: string;
-  full_name: string;
-  role:
-    | "admin"
-    | "manager"
-    | "receptionist"
-    | "front_desk"
-    | "housekeeping"
-    | "maintenance"
-    | "fb"
-    | "security";
-  department: string;
-  position: string;
-};
-
-const ADMIN_ACCOUNTS: AdminAccount[] = [
-  {
-    email: "admin@jagamnpalace.com",
-    password: "Admin123",
-    full_name: "Palace Administrator",
-    role: "admin",
-    department: "Management",
-    position: "System Administrator",
-  },
-  {
-    email: "manager@jagamnpalace.com",
-    password: "Manager123",
-    full_name: "Hotel Manager",
-    role: "manager",
-    department: "Management",
-    position: "General Manager",
-  },
-  {
-    email: "reception@jagamnpalace.com",
-    password: "Reception123",
-    full_name: "Front Desk Officer",
-    role: "receptionist",
-    department: "Front Office",
-    position: "Senior Receptionist",
-  },
-];
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(step: string, ok: boolean, detail?: string) {
@@ -439,13 +393,6 @@ async function seed() {
     .neq("id", "00000000-0000-0000-0000-000000000000");
   log("users: cleared", !delUsers, delUsers?.message);
 
-  // Delete staff rows (auth.users entries are preserved to avoid re-invite flows)
-  const { error: delStaff } = await supabase
-    .from("staff")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  log("staff: cleared", !delStaff, delStaff?.message);
-
   // Delete room amenities, unavailable dates, rooms, room types
   await supabase
     .from("room_amenities")
@@ -483,12 +430,12 @@ async function seed() {
   const slugMap: Record<string, string> = {}; // slug → id
 
   // Insert all room types fresh (we cleared them above)
-  let inserted: { id: string; slug: string }[] = [];
-  let insertError: { message: string } | null = null;
+  let inserted: any[] = [];
+  let insertError: any = null;
   for (let attempt = 1; attempt <= 5; attempt++) {
     const result = await supabase
       .from("room_types")
-      .insert(ROOM_TYPES)
+      .insert(ROOM_TYPES as any[])
       .select("id, slug");
     inserted = result.data ?? [];
     insertError = result.error;
@@ -661,91 +608,6 @@ async function seed() {
         step: `hotel_amenity:${ha.name}`,
         status: "ok",
         detail: "inserted",
-      });
-    }
-  }
-
-  // ── 6. Admin Accounts ─────────────────────────────────────
-  console.log("\n── Admin Accounts ──────────────────────────────────────");
-  for (const admin of ADMIN_ACCOUNTS) {
-    // Check if auth user already exists by trying to list users
-    // We use admin.createUser which is idempotent via email check
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingAuthUser = existingUsers?.users?.find(
-      (u) => u.email === admin.email,
-    );
-
-    let authUserId: string;
-
-    if (existingAuthUser) {
-      // Update password in case it changed
-      const { error: updateErr } = await supabase.auth.admin.updateUserById(
-        existingAuthUser.id,
-        { password: admin.password },
-      );
-      if (updateErr) {
-        log(`admin auth: ${admin.email}`, false, updateErr.message);
-        summary.push({
-          step: `admin_auth:${admin.email}`,
-          status: "error",
-          detail: updateErr.message,
-        });
-        continue;
-      }
-      authUserId = existingAuthUser.id;
-      log(`admin auth: ${admin.email}`, true, `exists, password updated`);
-    } else {
-      const { data: newUser, error: createErr } =
-        await supabase.auth.admin.createUser({
-          email: admin.email,
-          password: admin.password,
-          email_confirm: true,
-        });
-      if (createErr || !newUser?.user) {
-        log(
-          `admin auth: ${admin.email}`,
-          false,
-          createErr?.message ?? "no user returned",
-        );
-        summary.push({
-          step: `admin_auth:${admin.email}`,
-          status: "error",
-          detail: createErr?.message ?? "no user returned",
-        });
-        continue;
-      }
-      authUserId = newUser.user.id;
-      log(`admin auth: ${admin.email}`, true, `created, id=${authUserId}`);
-    }
-
-    // Upsert staff row
-    const { error: staffErr } = await supabase.from("staff").upsert(
-      {
-        auth_user_id: authUserId,
-        full_name: admin.full_name,
-        email: admin.email,
-        role: admin.role,
-        status: "active",
-        department: admin.department,
-        position: admin.position,
-        must_reset_pw: false,
-      },
-      { onConflict: "auth_user_id" },
-    );
-
-    if (staffErr) {
-      log(`admin staff row: ${admin.email}`, false, staffErr.message);
-      summary.push({
-        step: `admin_staff:${admin.email}`,
-        status: "error",
-        detail: staffErr.message,
-      });
-    } else {
-      log(`admin staff row: ${admin.email}`, true, `role=${admin.role}`);
-      summary.push({
-        step: `admin_staff:${admin.email}`,
-        status: "ok",
-        detail: `role=${admin.role}`,
       });
     }
   }

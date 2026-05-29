@@ -107,8 +107,10 @@ async function ConfirmedContent({
   const roomPricePerNight =
     booking?.room_price_per_night || staticRoom?.price || 0;
   const roomTotal = roomPricePerNight * nights;
+  const resortFee = booking?.resort_fee ?? 150;
   const taxAmount = booking?.tax_amount ?? Math.round(roomTotal * 0.12);
-  const totalAmount = booking?.total_amount ?? roomTotal + taxAmount;
+  const totalAmount =
+    booking?.total_amount ?? roomTotal + resortFee + taxAmount;
 
   const bookingRef = booking?.booking_ref || ref;
   const isGuestBooking = !booking?.user_id;
@@ -128,6 +130,7 @@ async function ConfirmedContent({
     guestCount,
     roomPricePerNight,
     roomTotal,
+    resortFee,
     taxAmount,
     totalAmount,
     paymentMethod: booking?.payment_method ?? null,
@@ -242,6 +245,10 @@ async function ConfirmedContent({
                   <span className="text-gray-300">
                     ${roomTotal.toLocaleString()}
                   </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Palace Resort Fee</span>
+                  <span className="text-gray-300">${resortFee}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Taxes (12%)</span>

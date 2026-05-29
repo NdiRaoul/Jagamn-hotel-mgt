@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  ChevronLeft,
-  Headset,
-  Crown,
-  CheckCircle2,
-} from "lucide-react";
+import { ArrowRight, ChevronLeft, Headset, Crown, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +21,7 @@ export default function ForgotPasswordPage() {
     setIsSubmitting(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/auth/reset-password`,
     });
 
     if (error) {
@@ -43,26 +37,18 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB] p-6">
       <div className="max-w-4xl w-full flex overflow-hidden rounded-md shadow-2xl bg-white min-h-[600px]">
+
         {/* ── Left Side ── */}
         <div className="hidden md:flex w-[45%] bg-jagamn-primary p-12 flex-col justify-between text-white">
           <div className="space-y-12">
-            <Link
-              href="/"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            >
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <Crown className="w-6 h-6 text-[#FFB77A]" />
-              <span className="manrope-bold text-lg tracking-tight">
-                Jagamn Palace
-              </span>
+              <span className="manrope-bold text-lg tracking-tight">Jagamn Palace</span>
             </Link>
             <div className="space-y-6">
-              <h1 className="manrope-bold text-4xl leading-tight">
-                Security
-                <br />& Access
-              </h1>
+              <h1 className="manrope-bold text-4xl leading-tight">Security<br />& Access</h1>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Restoring access to your private suite and guest dashboard. Our
-                security protocols ensure your profile remains protected.
+                Restoring access to your private suite and guest dashboard. Our security protocols ensure your profile remains protected.
               </p>
             </div>
           </div>
@@ -71,12 +57,8 @@ export default function ForgotPasswordPage() {
               <Headset className="w-5 h-5 text-gray-400" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white">
-                Concierge Assistance
-              </p>
-              <p className="text-[10px] text-gray-500">
-                Need immediate help? Call us.
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white">Concierge Assistance</p>
+              <p className="text-[10px] text-gray-500">Need immediate help? Call us.</p>
             </div>
           </div>
         </div>
@@ -84,6 +66,7 @@ export default function ForgotPasswordPage() {
         {/* ── Right Side ── */}
         <div className="flex-1 p-12 md:p-20 flex flex-col justify-center">
           <div className="max-w-sm w-full space-y-10">
+
             {sent ? (
               /* ── Success state ── */
               <div className="space-y-8 text-center">
@@ -91,12 +74,9 @@ export default function ForgotPasswordPage() {
                   <CheckCircle2 className="w-8 h-8 text-green-500" />
                 </div>
                 <div className="space-y-3">
-                  <h2 className="manrope-bold text-2xl text-jagamn-primary">
-                    Check Your Email
-                  </h2>
+                  <h2 className="manrope-bold text-2xl text-jagamn-primary">Check Your Email</h2>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    We sent a password reset link to <strong>{email}</strong>.
-                    Click the link in the email to set a new password.
+                    We sent a password reset link to <strong>{email}</strong>. Click the link in the email to set a new password.
                   </p>
                   <p className="text-xs text-gray-400">
                     Didn&apos;t receive it? Check your spam folder or{" "}
@@ -105,8 +85,7 @@ export default function ForgotPasswordPage() {
                       className="text-jagamn-tertiary font-bold underline"
                     >
                       try again
-                    </button>
-                    .
+                    </button>.
                   </p>
                 </div>
                 <Link
@@ -121,12 +100,9 @@ export default function ForgotPasswordPage() {
               /* ── Request form ── */
               <>
                 <div className="space-y-4">
-                  <h2 className="manrope-bold text-3xl text-jagamn-primary">
-                    Forgot Password?
-                  </h2>
+                  <h2 className="manrope-bold text-3xl text-jagamn-primary">Forgot Password?</h2>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    Enter the email address associated with your guest account.
-                    We will send a secure link to reset your credentials.
+                    Enter the email address associated with your guest account. We will send a secure link to reset your credentials.
                   </p>
                 </div>
 

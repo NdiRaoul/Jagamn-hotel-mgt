@@ -16,8 +16,11 @@ import {
   Settings,
   LogOut,
   Search,
-  ChevronDown,
-  Building2
+  Building2,
+  TrendingUp,
+  History,
+  Castle,
+  RefreshCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,26 +33,36 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const ADMIN_NAV = [
-  { label: "Overview", icon: LayoutDashboard, href: "/admin" },
-  { label: "Staff", icon: Users, href: "/admin/staff" },
-  { label: "HR", icon: Landmark, href: "/admin/hr" },
-  { label: "Payroll", icon: Wallet, href: "/admin/payroll" },
-  { label: "Rooms", icon: Bed, href: "/admin/rooms" },
-  { label: "F&B", icon: Utensils, href: "/admin/fb" },
-  { label: "Procurement", icon: ShoppingCart, href: "/admin/procurement" },
+const SUPERADMIN_NAV = [
+  { label: "Overview", icon: LayoutDashboard, href: "/superadmin" },
+  { label: "Revenue", icon: TrendingUp, href: "/superadmin/revenue" },
+  { label: "Staff", icon: Users, href: "/superadmin/staff" },
+  { label: "HR", icon: Landmark, href: "/superadmin/hr" },
+  { label: "Payroll", icon: Wallet, href: "/superadmin/payroll" },
+  { label: "Rooms", icon: Bed, href: "/superadmin/rooms" },
+  { label: "F&B", icon: Utensils, href: "/superadmin/fb" },
+  { label: "Procurement", icon: ShoppingCart, href: "/superadmin/procurement" },
+  { label: "Financial Sync", icon: RefreshCcw, href: "/superadmin/financial-sync" },
+  { label: "System Settings", icon: Settings, href: "/superadmin/settings" },
+  { label: "Audit Logs", icon: History, href: "/superadmin/audit" },
 ];
 
-export default function AdminLayout({
+export default function SuperAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const pathname = usePathname();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
 
-  return (
-    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
+    const handleSearch = (val: string) => {
+      setSearchQuery(val);
+      window.dispatchEvent(new CustomEvent('jagamn-global-search', { detail: val }));
+    };
+
+    return (
+      <div className="flex h-screen bg-[#F0F2F5] overflow-hidden">
       {/* ── Sidebar ───────────────────────────────────── */}
       {/* Mobile Backdrop */}
       {isSidebarOpen && (
@@ -74,13 +87,13 @@ export default function AdminLayout({
         )}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6 text-white" />
+              <Castle className="w-6 h-6 text-white" />
             </div>
             {isSidebarOpen && (
               <div className="animate-in fade-in duration-500 overflow-hidden whitespace-nowrap">
                 <h2 className="manrope-bold text-lg leading-tight">The Palace</h2>
                 <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
-                  Management Suite
+                  Heritage Suite Admin
                 </p>
               </div>
             )}
@@ -98,10 +111,10 @@ export default function AdminLayout({
         {/* Navigation */}
         <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar overflow-x-hidden">
           <TooltipProvider delayDuration={0}>
-            {ADMIN_NAV.map((item) => {
+            {SUPERADMIN_NAV.map((item) => {
               const isActive =
                 pathname === item.href ||
-                (item.href !== "/admin" && pathname.startsWith(item.href));
+                (item.href !== "/superadmin" && pathname.startsWith(item.href));
               return (
                 <Tooltip key={item.label} delayDuration={0}>
                   <TooltipTrigger asChild>
@@ -152,7 +165,14 @@ export default function AdminLayout({
         </nav>
 
         {/* Bottom Section */}
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-white/5 space-y-2">
+          {isSidebarOpen && (
+             <div className="px-4 pb-4">
+                <Button className="w-full h-10 bg-jagamn-tertiary hover:bg-[#E08F50] text-[#0D2137] manrope-bold rounded-xl shadow-lg transition-all text-xs">
+                  Generate Report
+                </Button>
+             </div>
+          )}
           <button className={cn(
             "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
             isSidebarOpen ? "px-4" : "md:justify-center"
@@ -183,7 +203,9 @@ export default function AdminLayout({
             <div className="relative w-full max-w-md hidden md:block">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input 
-                placeholder="Search staff members..." 
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Global search across systems..." 
                 className="w-full h-12 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-jagamn-tertiary/20"
               />
             </div>
@@ -202,12 +224,12 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-4 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">Admin Palace</p>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">System Administrator</p>
+                <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">Executive User</p>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Super Administrator</p>
               </div>
               <Avatar className="w-11 h-11 border-[2.5px] border-jagamn-tertiary p-0.5 shadow-sm">
-                <AvatarImage src="/images/avatar-admin.png" className="rounded-full" />
-                <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">AP</AvatarFallback>
+                <AvatarImage src="/images/avatar-superadmin.png" className="rounded-full" />
+                <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">EU</AvatarFallback>
               </Avatar>
             </div>
           </div>

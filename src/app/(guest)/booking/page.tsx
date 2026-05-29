@@ -61,7 +61,6 @@ function BookingContent() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [clientIdempotencyKey] = useState(() => crypto.randomUUID());
 
   // Fapshi polling state
   const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
@@ -84,8 +83,9 @@ function BookingContent() {
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const roomTotal = room ? room.price * nights : 0;
+  const resortFee = 150;
   const tax = Math.round(roomTotal * 0.12);
-  const totalPrice = roomTotal + tax;
+  const totalPrice = roomTotal + resortFee + tax;
 
   // Pre-fill from session
   useEffect(() => {
@@ -194,6 +194,7 @@ function BookingContent() {
         nights,
         guests: guestCount,
         room_price_per_night: room!.price,
+        resort_fee: resortFee,
         tax_amount: tax,
         total_amount: totalPrice,
         payment_method: paymentMethodStr,
@@ -270,7 +271,6 @@ function BookingContent() {
             bookingRef: bookingData.bookingRef,
             totalAmount: totalPrice,
             currency: "usd",
-            clientIdempotencyKey,
           }),
         });
         const { clientSecret, error: piError } = await piRes.json();
@@ -337,7 +337,6 @@ function BookingContent() {
             bookingRef: bookingData.bookingRef,
             email: formData.email,
             name: formData.fullName,
-            clientIdempotencyKey,
           }),
         });
         const fapshiData = await fapshiRes.json();
