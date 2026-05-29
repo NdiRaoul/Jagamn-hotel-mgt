@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import {
+  getOrCreateLedger,
+  appendEvent,
+  getStatus,
+} from "@/lib/payments/ledger";
+import {
+  confirmBookingFromPayment,
+  expireBooking,
+} from "@/lib/payments/confirm-booking";
 
-const FAPSHI_BASE_URL = process.env.FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
+const FAPSHI_BASE_URL =
+  process.env.FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
 const FAPSHI_API_USER = process.env.FAPSHI_API_USER || "";
 const FAPSHI_API_KEY = process.env.FAPSHI_API_KEY || "";
 
@@ -14,23 +25,50 @@ const fapshiHeaders = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { amount, phone, medium, bookingRef, email, name } = body;
+    const {
+      amount,
+      phone,
+      medium,
+      bookingRef,
+      email,
+      name,
+      clientIdempotencyKey,
+    } = body;
 
-    if (!amount || !phone || !medium || !bookingRef) {
+    if (!amount || !phone || !medium || !bookingRef || !clientIdempotencyKey) {
       return NextResponse.json(
-        { error: "amount, phone, medium, and bookingRef are required" },
-        { status: 400 }
+        {
+          error:
+            "amount, phone, medium, bookingRef and clientIdempotencyKey are required",
+        },
+        { status: 400 },
       );
     }
 
-    // Convert USD to XAF (1 USD ≈ 615 XAF), minimum 100 XAF
     const xafAmount = Math.max(100, Math.round(amount * 615));
+
+    const ledger = await getOrCreateLedger({
+      bookingRef,
+      provider: "fapshi",
+      amountMinor: xafAmount,
+      currency: "XAF",
+      clientIdempotencyKey,
+    });
+
+    if (ledger.processor_ref) {
+      return NextResponse.json({
+        transId: ledger.processor_ref,
+        paymentId: ledger.id,
+      });
+    }
+
+    await appendEvent(ledger.id, "intent_created", { source: "server" });
 
     const payload = {
       amount: xafAmount,
       phone,
       medium,
-      externalId: bookingRef,
+      externalId: ledger.id,
       message: "Jagamn Palace Booking",
       email: email || undefined,
       name: name || undefined,
@@ -47,11 +85,33 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         { error: data.message || "Fapshi payment initiation failed" },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
-    return NextResponse.json(data);
+    const transId = data.transId || data.trans_id || data.trans;
+    if (!transId) {
+      return NextResponse.json(
+        { error: "Fapshi response did not include transId" },
+        { status: 500 },
+      );
+    }
+
+    await supabaseAdmin
+      .from("payment_ledger")
+      .update({ processor_ref: transId })
+      .eq("id", ledger.id);
+
+    await appendEvent(ledger.id, "authorization_pending", {
+      source: "server",
+      payload: data,
+    });
+
+    return NextResponse.json({
+      ...data,
+      transId,
+      paymentId: ledger.id,
+    });
   } catch (err: any) {
     console.error("[POST /api/payments/fapshi] error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -68,9 +128,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { data: ledger } = await supabaseAdmin
+      .from("payment_ledger")
+      .select("*")
+      .eq("processor_ref", transId)
+      .maybeSingle();
+
     const response = await fetch(
       `${FAPSHI_BASE_URL}/payment-status/${transId}`,
-      { headers: fapshiHeaders }
+      { headers: fapshiHeaders },
     );
 
     const data = await response.json();
@@ -78,8 +144,43 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         { error: data.message || "Failed to fetch payment status" },
-        { status: response.status }
+        { status: response.status },
       );
+    }
+
+    if (ledger && ledger.id) {
+      const paymentId = ledger.id;
+      const status = String(data.status || "").toUpperCase();
+
+      if (status === "SUCCESSFUL") {
+        await appendEvent(paymentId, "processor_succeeded", {
+          source: "poll",
+          payload: data,
+        });
+
+        await confirmBookingFromPayment({
+          provider: "fapshi",
+          eventKey: `${transId}:SUCCESSFUL`,
+          bookingRef: ledger.booking_ref,
+          transactionId: transId,
+          amount: typeof data.amount === "number" ? data.amount : undefined,
+          currency: "XAF",
+          paymentMethod: "mobile_money",
+          paymentId,
+        });
+      } else if (status === "FAILED" || status === "EXPIRED") {
+        await appendEvent(paymentId, "processor_failed", {
+          source: "poll",
+          payload: data,
+        });
+        await expireBooking({
+          bookingRef: ledger.booking_ref,
+          transactionId: transId,
+        });
+      }
+
+      const ledgerStatus = await getStatus(paymentId);
+      return NextResponse.json({ ...data, paymentId, ledgerStatus });
     }
 
     return NextResponse.json(data);

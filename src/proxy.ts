@@ -14,15 +14,15 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
+            request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
   // Refresh session — IMPORTANT: do not add logic between createServerClient
@@ -39,6 +39,41 @@ export async function proxy(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/login";
       redirectUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
+  // Protect admin and reception staff portals with role checks
+  if (pathname.startsWith("/admin") || pathname.startsWith("/reception")) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/staff-login";
+    redirectUrl.searchParams.set("redirect", pathname);
+
+    if (!user) {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    const { data: staff, error: staffError } = await supabase
+      .from("staff")
+      .select("role,status")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (staffError || !staff || staff.status !== "active") {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (
+      pathname.startsWith("/admin") &&
+      !["admin", "manager"].includes(staff.role)
+    ) {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (
+      pathname.startsWith("/reception") &&
+      !["admin", "manager", "receptionist", "front_desk"].includes(staff.role)
+    ) {
       return NextResponse.redirect(redirectUrl);
     }
   }
