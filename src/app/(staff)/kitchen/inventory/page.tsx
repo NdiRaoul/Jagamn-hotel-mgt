@@ -48,7 +48,7 @@ function ConfirmedCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
 }
 
 // ── Stock Insufficient Card ─────────────────────────────────────────────────
-function InsufficientCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
+function InsufficientCard({ task, onStockUnavailable }: { task: (typeof INVENTORY_TASKS)[0]; onStockUnavailable?: (orderId: string, note?: string) => void; }) {
   return (
     <div className="bg-white rounded-xl border shadow-sm p-6 space-y-5" style={{ borderLeftColor: "#EA580C", borderLeftWidth: 4, borderColor: "#fde8d8" }}>
       <div className="flex items-center justify-between">
@@ -92,6 +92,7 @@ function InsufficientCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
           Change Menu
         </Button>
         <Button
+          onClick={() => onStockUnavailable?.(task.orderId, task.storeKeeperNote)}
           className="text-white font-bold h-10 rounded-lg text-sm"
           style={{ backgroundColor: "#EA580C" }}
         >
@@ -147,6 +148,29 @@ const DOT_COLORS: Record<string, string> = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function InventoryRequestsPage() {
+  const handleConfirmStock = (orderId: string) => {
+    window.dispatchEvent(
+      new CustomEvent("storeKeeperResponse", {
+        detail: {
+          orderId,
+          stockConfirmed: true,
+        },
+      })
+    );
+  };
+
+  const handleStockUnavailable = (orderId: string, note?: string) => {
+    window.dispatchEvent(
+      new CustomEvent("storeKeeperResponse", {
+        detail: {
+          orderId,
+          stockConfirmed: false,
+          stockAlert: note,
+        },
+      })
+    );
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Header ────────────────────────────── */}
@@ -176,8 +200,8 @@ export default function InventoryRequestsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {INVENTORY_TASKS.map((task) => {
-              if (task.status === "confirmed") return <ConfirmedCard key={task.id} task={task} />;
-              if (task.status === "insufficient") return <InsufficientCard key={task.id} task={task} />;
+              if (task.status === "confirmed") return <ConfirmedCard key={task.id} task={task} onConfirmStock={handleConfirmStock} />;
+              if (task.status === "insufficient") return <InsufficientCard key={task.id} task={task} onStockUnavailable={handleStockUnavailable} />;
               if (task.status === "awaiting") return <AwaitingCard key={task.id} />;
               if (task.status === "system_alert") return <SystemAlertCard key={task.id} task={task} />;
               return null;

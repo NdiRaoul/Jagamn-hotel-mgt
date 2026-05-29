@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   KITCHEN_ORDERS,
   EFFICIENCY_DATA,
   type KitchenOrder,
+  type OrderStatus,
 } from "@/lib/kitchen-mock-data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -109,8 +110,16 @@ function OrderCard({
             </div>
           </div>
         )}
-        <Button className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white font-bold h-10 rounded-lg">
-          Submit Stock Request
+        {order.stockAlert && (
+          <p className="text-xs font-semibold text-red-500">
+            Stock unavailable: {order.stockAlert}
+          </p>
+        )}
+        <Button
+          disabled
+          className="w-full bg-gray-100 text-gray-400 hover:bg-gray-100 font-bold h-10 rounded-lg cursor-not-allowed"
+        >
+          Awaiting Store Keeper Response
         </Button>
       </div>
     );
@@ -180,17 +189,107 @@ function EmptyColumn() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function KitchenOrdersPage() {
+  const [orders, setOrders] = useState<KitchenOrder[]>(KITCHEN_ORDERS);
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleStoreKeeperResponse = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        orderId: string;
+        stockConfirmed: boolean;
+        stockAlert?: string;
+      }>;
+
+      const normalizedEventOrder = customEvent.detail.orderId
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .toLowerCase();
+
+      setOrders((prevOrders) =>
+        prevOrders.map((order) => {
+          const normalizedOrderId = order.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+          if (normalizedOrderId !== normalizedEventOrder) {
+            return order;
+          }
+
+          return {
+            ...order,
+            status: "pending_stock",
+            stockConfirmed: customEvent.detail.stockConfirmed,
+            actionRequired: !customEvent.detail.stockConfirmed,
+            stockAlert: customEvent.detail.stockConfirmed
+              ? undefined
+              : customEvent.detail.stockAlert,
+          };
+        })
+      );
+
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        const normalizedSelected = prev.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        if (normalizedSelected !== normalizedEventOrder) return prev;
+        return {
+          ...prev,
+          status: "pending_stock",
+          stockConfirmed: customEvent.detail.stockConfirmed,
+          actionRequired: !customEvent.detail.stockConfirmed,
+          stockAlert: customEvent.detail.stockConfirmed
+            ? undefined
+            : customEvent.detail.stockAlert,
+        };
+      });
+    };
+
+    window.addEventListener("storeKeeperResponse", handleStoreKeeperResponse);
+    return () => window.removeEventListener("storeKeeperResponse", handleStoreKeeperResponse);
+  }, []);
 
   const handleOrderClick = (order: KitchenOrder) => {
     setSelectedOrder(order);
     setIsModalOpen(true);
   };
 
-  const getColumnOrders = (status: string) =>
-    KITCHEN_ORDERS.filter((o) => o.status === status);
+  const handleSubmitStockRequest = (orderId: string) => {
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, status: "pending_stock", actionRequired: true }
+          : order
+      )
+    );
+
+    window.dispatchEvent(
+      new CustomEvent("stockRequestSubmitted", {
+        detail: { orderId },
+      })
+    );
+  };
+
+  const handleAcknowledgeOrder = (orderId: string) => {
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, status: "in_preparation" }
+          : order
+      )
+    );
+
+    setSelectedOrder((prev) =>
+      prev && prev.id === orderId ? { ...prev, status: "in_preparation" } : prev
+    );
+  };
+
+  const handleNotifyGuest = (orderId: string) => {
+    window.dispatchEvent(
+      new CustomEvent("kitchenNotifyGuest", {
+        detail: { orderId },
+      })
+    );
+  };
+
+  const getColumnOrders = (status: string) => orders.filter((o) => o.status === status);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
@@ -353,6 +452,9 @@ export default function KitchenOrdersPage() {
         order={selectedOrder}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSubmitStockRequest={handleSubmitStockRequest}
+        onAcknowledgeOrder={handleAcknowledgeOrder}
+        onNotifyGuest={handleNotifyGuest}
       />
     </div>
   );
@@ -363,10 +465,16 @@ function OrderDetailModal({
   order,
   isOpen,
   onClose,
+  onSubmitStockRequest,
+  onAcknowledgeOrder,
+  onNotifyGuest,
 }: {
   order: KitchenOrder | null;
   isOpen: boolean;
   onClose: () => void;
+  onSubmitStockRequest: (orderId: string) => void;
+  onAcknowledgeOrder: (orderId: string) => void;
+  onNotifyGuest: (orderId: string) => void;
 }) {
   if (!order) return null;
 
@@ -465,13 +573,49 @@ function OrderDetailModal({
                     Report Preparation Delay
                   </Button>
                 </>
+              ) : order.status === "pending_stock" ? (
+                <>
+                  {order.stockConfirmed ? (
+                    <Button
+                      onClick={() => onAcknowledgeOrder(order.id)}
+                      className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      Acknowledge Order
+                    </Button>
+                  ) : order.stockAlert ? (
+                    <Button
+                      onClick={() => onNotifyGuest(order.id)}
+                      className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                    >
+                      <Package className="w-5 h-5" />
+                      Notify Guest
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled
+                      className="w-full bg-gray-100 text-gray-400 font-bold h-14 rounded-xl cursor-not-allowed"
+                    >
+                      Awaiting Store Keeper Confirmation
+                    </Button>
+                  )}
+                  <Button onClick={onClose} variant="ghost" className="w-full text-gray-400 hover:text-gray-600 h-10 rounded-lg text-xs font-bold uppercase tracking-widest">
+                    Close
+                  </Button>
+                </>
               ) : (
                 <>
-                  <Button className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+                  <Button
+                    onClick={() => onSubmitStockRequest(order.id)}
+                    className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                  >
                     <Package className="w-5 h-5" />
                     Submit Stock Request to Store Keeper
                   </Button>
-                  <Button className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+                  <Button
+                    disabled
+                    className="w-full bg-[#00152A] text-white opacity-60 h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 cursor-not-allowed"
+                  >
                     <CheckCircle2 className="w-5 h-5" />
                     Acknowledge Order
                   </Button>
