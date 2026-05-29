@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#chat contexts
+Implementing_Global_Search_Infrastructure.md
