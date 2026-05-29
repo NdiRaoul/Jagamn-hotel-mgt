@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "node_modules/.bin/ts-node --transpile-only --project tsconfig.json scripts/seed.ts"
+    "seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "@ngrok/ngrok": "^1.7.0",

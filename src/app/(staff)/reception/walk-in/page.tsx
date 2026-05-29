@@ -1,19 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   User,
   Mail,
   Phone,
-  Globe,
   Calendar,
   Users,
   CreditCard,
   Banknote,
   Check,
   ArrowRight,
-  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,31 +26,125 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import Link from "next/link";
 
-const ROOM_TYPES = [
-  {
-    id: "deluxe",
-    title: "Deluxe King",
-    desc: "High Floor, City View",
-    price: 280,
-    available: 5,
-  },
-  {
-    id: "executive",
-    title: "Executive Suite",
-    desc: "Lounge Access, Balcony",
-    price: 450,
-    available: 2,
-  },
-];
+interface RoomOption {
+  slug: string;
+  name: string;
+  available: number;
+  price: number;
+}
 
+// Room options are seeded from the URL query param (passed by the server component wrapper)
+// We fetch them client-side so the form stays fully interactive.
 export default function WalkInBookingPage() {
-  const [selectedRoom, setSelectedRoom] = useState("deluxe");
+  const router = useRouter();
+
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+
+  // Load room availability once on mount
+  React.useEffect(() => {
+    fetch("/api/rooms")
+      .then((r) => r.json())
+      .then((data: { rooms?: { slug: string; name: string; price_per_night: number }[] }) => {
+        // map to RoomOption; available count comes from the summary view
+        const opts: RoomOption[] = (data.rooms ?? []).map((rt) => ({
+          slug: rt.slug,
+          name: rt.name,
+          available: 99, // availability checked server-side on submit
+          price: rt.price_per_night,
+        }));
+        setRooms(opts);
+        if (opts.length > 0) setSelectedRoom(opts[0].slug);
+      })
+      .catch(() => {
+        // fallback to empty — user can still fill form
+      })
+      .finally(() => setRoomsLoading(false));
+  }, []);
+
+  // Form state
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestCountry, setGuestCountry] = useState("US");
+  const [guestIdNumber, setGuestIdNumber] = useState("");
+  const [checkIn, setCheckIn] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [checkOut, setCheckOut] = useState(
+    new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+  );
+  const [guests, setGuests] = useState("2");
+  const [selectedRoom, setSelectedRoom] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("card");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const selectedRoomData = rooms.find((r) => r.slug === selectedRoom);
+  const nights = Math.max(
+    1,
+    Math.round(
+      (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000,
+    ),
+  );
+  const roomTotal = (selectedRoomData?.price ?? 0) * nights;
+  const resortFee = 150;
+  const tax = Math.round((roomTotal + resortFee) * 0.1);
+  const totalDue = roomTotal + resortFee + tax;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRoom) {
+      setFormError("Please select a room type.");
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const res = await fetch("/api/reception/walk-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guest_name: guestName,
+          guest_email: guestEmail,
+          guest_phone: guestPhone || null,
+          guest_country: guestCountry,
+          guest_id_number: guestIdNumber || null,
+          room_slug: selectedRoom,
+          check_in: checkIn,
+          check_out: checkOut,
+          guests: parseInt(guests, 10),
+          payment_method: paymentMethod === "card" ? "card" : "cash",
+          amount: totalDue * 100, // API expects minor units for Stripe; route handles conversion
+          currency: "usd",
+          clientIdempotencyKey: idempotencyKey,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.error ?? "Booking failed — please try again.");
+        return;
+      }
+
+      router.push(
+        `/reception/check-in/success?id=${data.bookingId}`,
+      );
+    } catch {
+      setFormError("Network error — please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500"
+    >
       <div className="space-y-2">
         <h1 className="manrope-bold text-4xl text-[#00152A]">
           Walk-In Booking
@@ -58,11 +152,16 @@ export default function WalkInBookingPage() {
         <p className="text-gray-500 text-sm">
           Create a new reservation for an arriving guest.
         </p>
+        {formError && (
+          <div className="bg-red-50 border border-red-100 rounded-lg p-4 text-red-600 text-sm font-medium">
+            {formError}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
         <div className="xl:col-span-2 space-y-8">
-          {/* ── 1. Guest Details ────────────────────────── */}
+          {/* ── 1. Guest Details ──────────────────────── */}
           <div className="bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm p-10 space-y-10 relative">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-[#00152A] text-white flex items-center justify-center font-bold">
@@ -72,7 +171,6 @@ export default function WalkInBookingPage() {
                 Guest Details
               </h2>
             </div>
-
             <div className="absolute right-10 top-10 opacity-5">
               <User className="w-24 h-24" />
             </div>
@@ -80,20 +178,27 @@ export default function WalkInBookingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Full Name
+                  Full Name *
                 </Label>
                 <Input
+                  required
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
                   placeholder="Enter guest name"
-                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium"
+                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Email Address
+                  Email Address *
                 </Label>
                 <Input
+                  required
+                  type="email"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="guest@example.com"
-                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium"
+                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
                 />
               </div>
               <div className="space-y-2">
@@ -101,8 +206,10 @@ export default function WalkInBookingPage() {
                   Phone Number
                 </Label>
                 <Input
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium"
+                  className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -110,15 +217,16 @@ export default function WalkInBookingPage() {
                   <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     Country
                   </Label>
-                  <Select defaultValue="US">
-                    <SelectTrigger className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus:ring-1 focus:ring-[#BA722E] text-[#00152A] font-medium px-4">
-                      <SelectValue placeholder="Select Country" />
+                  <Select value={guestCountry} onValueChange={setGuestCountry}>
+                    <SelectTrigger className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="US">United States</SelectItem>
                       <SelectItem value="UK">United Kingdom</SelectItem>
                       <SelectItem value="FR">France</SelectItem>
                       <SelectItem value="NG">Nigeria</SelectItem>
+                      <SelectItem value="CM">Cameroon</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -127,15 +235,17 @@ export default function WalkInBookingPage() {
                     ID Number
                   </Label>
                   <Input
+                    value={guestIdNumber}
+                    onChange={(e) => setGuestIdNumber(e.target.value)}
                     placeholder="Passport / DL"
-                    className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium placeholder:text-gray-400"
+                    className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── 2. Stay Details ─────────────────────────── */}
+          {/* ── 2. Stay Details ───────────────────────── */}
           <div className="bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm p-10 space-y-10">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-[#00152A] text-white flex items-center justify-center font-bold">
@@ -150,40 +260,45 @@ export default function WalkInBookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    Check-In
+                    Check-In *
                   </Label>
                   <div className="relative">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00152A] z-10" />
                     <Input
+                      required
                       type="date"
-                      defaultValue="2023-10-24"
-                      className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium pl-12"
+                      value={checkIn}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setCheckIn(e.target.value)}
+                      className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md pl-12"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    Check-Out
+                    Check-Out *
                   </Label>
                   <div className="relative">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00152A] z-10" />
                     <Input
+                      required
                       type="date"
-                      defaultValue="2023-10-27"
-                      className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus-visible:ring-1 focus-visible:ring-[#BA722E] text-[#00152A] font-medium pl-12"
+                      value={checkOut}
+                      min={checkIn}
+                      onChange={(e) => setCheckOut(e.target.value)}
+                      className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md pl-12"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Guests Field */}
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Guests
                 </Label>
-                <Select defaultValue="2">
-                  <SelectTrigger className="w-full h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md focus:ring-1 focus:ring-[#BA722E] text-[#00152A] font-medium px-4">
-                    <SelectValue placeholder="Number of Guests" />
+                <Select value={guests} onValueChange={setGuests}>
+                  <SelectTrigger className="w-full h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">1 Adult</SelectItem>
@@ -195,50 +310,60 @@ export default function WalkInBookingPage() {
               </div>
             </div>
 
+            {/* Room picker */}
             <div className="space-y-4">
               <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                Available Room Types
+                Available Room Types *
               </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {ROOM_TYPES.map((room) => (
-                  <div
-                    key={room.id}
-                    onClick={() => setSelectedRoom(room.id)}
-                    className={cn(
-                      "p-6 rounded-md border-2 transition-all cursor-pointer relative",
-                      selectedRoom === room.id
-                        ? "border-[#00152A] bg-[#00152A]/5"
-                        : "border-gray-100 bg-white hover:border-gray-300",
-                    )}
-                  >
-                    {selectedRoom === room.id && (
-                      <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-[#00152A] text-white flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    <h4 className="manrope-bold text-lg text-[#00152A]">
-                      {room.title}
-                    </h4>
-                    <p className="text-xs text-gray-500 mb-6">{room.desc}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-[#BA722E] bg-[#BA722E]/10 px-2 py-1 rounded uppercase tracking-widest">
-                        {room.available} Available
-                      </span>
-                      <p className="text-[#00152A]">
-                        <span className="manrope-bold text-xl">
-                          ${room.price}
+              {roomsLoading ? (
+                <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading rooms…
+                </div>
+              ) : rooms.length === 0 ? (
+                <p className="text-gray-400 text-sm italic">
+                  No room types found — ensure room_types are seeded in the DB.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {rooms.map((room) => (
+                    <div
+                      key={room.slug}
+                      onClick={() => setSelectedRoom(room.slug)}
+                      className={cn(
+                        "p-6 rounded-md border-2 transition-all cursor-pointer relative",
+                        selectedRoom === room.slug
+                          ? "border-[#00152A] bg-[#00152A]/5"
+                          : "border-gray-100 bg-white hover:border-gray-300",
+                      )}
+                    >
+                      {selectedRoom === room.slug && (
+                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-[#00152A] text-white flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      <h4 className="manrope-bold text-lg text-[#00152A]">
+                        {room.name}
+                      </h4>
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-[10px] font-bold text-[#BA722E] bg-[#BA722E]/10 px-2 py-1 rounded uppercase tracking-widest">
+                          Available
                         </span>
-                        <span className="text-xs text-gray-400"> /night</span>
-                      </p>
+                        <p className="text-[#00152A]">
+                          <span className="manrope-bold text-xl">
+                            ${room.price}
+                          </span>
+                          <span className="text-xs text-gray-400"> /night</span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── 3. Payment Sidebar ──────────────────────── */}
+        {/* ── 3. Payment Sidebar ────────────────────── */}
         <div className="bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm p-10 space-y-10 xl:sticky xl:top-10">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-[#00152A] text-white flex items-center justify-center font-bold">
@@ -251,27 +376,33 @@ export default function WalkInBookingPage() {
             <div className="flex justify-between items-center py-2">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-gray-600">
-                  Deluxe King (3 nights)
+                  {selectedRoomData?.name ?? "—"} ({nights} night
+                  {nights !== 1 ? "s" : ""})
                 </p>
               </div>
-              <p className="manrope-bold text-lg text-[#00152A]">$840.00</p>
+              <p className="manrope-bold text-lg text-[#00152A]">
+                ${roomTotal.toFixed(2)}
+              </p>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-gray-50">
-              <p className="text-sm font-medium text-gray-600">
-                City Tax (10%)
+              <p className="text-sm font-medium text-gray-600">Tax (10%)</p>
+              <p className="manrope-bold text-lg text-[#00152A]">
+                ${tax.toFixed(2)}
               </p>
-              <p className="manrope-bold text-lg text-[#00152A]">$84.00</p>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-gray-50 pb-6">
               <p className="text-sm font-medium text-gray-600">Resort Fee</p>
-              <p className="manrope-bold text-lg text-[#00152A]">$45.00</p>
+              <p className="manrope-bold text-lg text-[#00152A]">
+                ${resortFee.toFixed(2)}
+              </p>
             </div>
-
             <div className="pt-6 border-t border-gray-200 flex justify-between items-end">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                 Total Due
               </p>
-              <p className="manrope-bold text-4xl text-[#00152A]">$969.00</p>
+              <p className="manrope-bold text-4xl text-[#00152A]">
+                ${totalDue.toFixed(2)}
+              </p>
             </div>
           </div>
 
@@ -281,6 +412,7 @@ export default function WalkInBookingPage() {
             </Label>
             <div className="grid grid-cols-2 gap-4">
               <button
+                type="button"
                 onClick={() => setPaymentMethod("card")}
                 className={cn(
                   "h-12 rounded-md flex items-center justify-center gap-2 font-bold transition-all border-2",
@@ -293,6 +425,7 @@ export default function WalkInBookingPage() {
                 Card
               </button>
               <button
+                type="button"
                 onClick={() => setPaymentMethod("cash")}
                 className={cn(
                   "h-12 rounded-md flex items-center justify-center gap-2 font-bold transition-all border-2",
@@ -307,14 +440,20 @@ export default function WalkInBookingPage() {
             </div>
           </div>
 
-          <Link href="/reception/check-in/success" className="block w-full">
-            <Button className="w-full h-14 bg-[#BA722E] hover:bg-[#A36328] text-white font-bold rounded-md shadow-xl shadow-[#BA722E]/20 flex items-center justify-center gap-3 group transition-all">
-              Complete Check-In
+          <Button
+            type="submit"
+            disabled={submitting || !guestName || !guestEmail || !selectedRoom}
+            className="w-full h-14 bg-[#BA722E] hover:bg-[#A36328] text-white font-bold rounded-md shadow-xl shadow-[#BA722E]/20 flex items-center justify-center gap-3 group transition-all disabled:opacity-60"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
+            )}
+            {submitting ? "Processing…" : "Complete Check-In"}
+          </Button>
         </div>
       </div>
-    </div>
+    </form>
   );
 }

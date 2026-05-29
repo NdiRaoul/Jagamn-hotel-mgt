@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ArrowDownCircle,
@@ -55,8 +56,27 @@ export default function ReceptionLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [staff, setStaff] = useState<{
+    full_name: string;
+    role: string;
+    avatar_url: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    async function loadStaff() {
+      const res = await fetch("/api/staff/me");
+      if (!res.ok) {
+        router.push(`/staff-login?redirect=${encodeURIComponent(pathname)}`);
+        return;
+      }
+      const data = await res.json();
+      setStaff(data.staff);
+    }
+    loadStaff();
+  }, [pathname, router]);
 
   return (
     <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">

@@ -6,10 +6,13 @@
  * reconcile queue (Fix 2). Idempotency is enforced inside that helper.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-server";
 import {
   confirmBookingFromPayment,
   expireBooking,
 } from "@/lib/payments/confirm-booking";
+import { appendEvent } from "@/lib/payments/ledger";
+import { isEventProcessed, markEventProcessed } from "@/lib/redis/webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,8 +43,17 @@ export async function POST(request: NextRequest) {
       status?: string;
       externalId?: string;
       amount?: number;
+      refundId?: string;
+      type?: string;
     };
-    const { transId, status, externalId: bookingRef, amount } = body;
+    const {
+      transId,
+      status,
+      externalId: bookingRef,
+      amount,
+      refundId,
+      type,
+    } = body;
 
     if (!transId || !status) {
       return NextResponse.json(
@@ -50,8 +62,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const eventKey = `fapshi:${transId}:${status}`;
+    const duplicate = await isEventProcessed("fapshi", eventKey);
+    if (duplicate) {
+      return NextResponse.json({ received: true });
+    }
+
+    let { data: ledger } = await supabaseAdmin
+      .from("payment_ledger")
+      .select("id, booking_ref")
+      .eq("processor_ref", transId)
+      .maybeSingle();
+
+    if (!ledger && bookingRef) {
+      const fallback = await supabaseAdmin
+        .from("payment_ledger")
+        .select("id, booking_ref")
+        .eq("booking_ref", bookingRef)
+        .maybeSingle();
+      ledger = fallback.data ?? null;
+    }
+
+    const resolvedBookingRef = bookingRef ?? ledger?.booking_ref;
+
     if (status === "SUCCESSFUL") {
-      // Defense-in-depth: re-verify directly with Fapshi before confirming.
       try {
         const verifyRes = await fetch(
           `${FAPSHI_BASE_URL}/payment-status/${transId}`,
@@ -82,23 +116,41 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (bookingRef) {
+      if (ledger?.id) {
+        await appendEvent(ledger.id, "processor_succeeded", {
+          source: "webhook",
+          payload: { transId, amount },
+        });
+      }
+
+      if (resolvedBookingRef) {
         await confirmBookingFromPayment({
           provider: "fapshi",
           eventKey: `${transId}:SUCCESSFUL`,
-          bookingRef,
+          bookingRef: resolvedBookingRef,
           transactionId: transId,
           amount,
           currency: "XAF",
           paymentMethod: "mobile_money",
+          paymentId: ledger?.id,
         });
       }
     } else if (status === "FAILED" || status === "EXPIRED") {
-      if (bookingRef) {
-        await expireBooking({ bookingRef, transactionId: transId });
+      if (ledger?.id) {
+        await appendEvent(ledger.id, "processor_failed", {
+          source: "webhook",
+          payload: { transId, amount },
+        });
+      }
+      if (resolvedBookingRef) {
+        await expireBooking({
+          bookingRef: resolvedBookingRef,
+          transactionId: transId,
+        });
       }
     }
 
+    await markEventProcessed("fapshi", eventKey);
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
     console.error("[fapshi-webhook] error:", err);
