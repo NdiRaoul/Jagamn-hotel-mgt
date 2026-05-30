@@ -25,6 +25,8 @@ import {
 import { BarChart, Bar, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Image from "next/image";
+import { toast } from "sonner";
+import { Download } from "lucide-react";
 
 // ── Kanban column config ────────────────────────────────────────────────────
 const COLUMNS = [
@@ -45,8 +47,8 @@ function OrderCard({
   if (order.status === "new") {
     return (
       <div
-        onClick={() => onClick(order)}
         className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-[#00152A] shadow-sm p-5 space-y-4 cursor-pointer hover:shadow-md transition-all"
+        onClick={() => onClick(order)}
       >
         <div className="flex justify-between items-start">
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -69,10 +71,14 @@ function OrderCard({
           </span>
         </div>
         <Button
-          className="w-full h-10 rounded-lg shadow-sm font-bold"
+          className="w-full h-10 rounded-2xl shadow-sm font-bold"
           style={{ backgroundColor: "#BA722E", color: "#412000" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(order);
+          }}
         >
-          Acknowledge
+          View Details
         </Button>
       </div>
     );
@@ -162,9 +168,50 @@ function OrderCard({
         )}
         <Button
           variant="outline"
-          className="w-full border-gray-200 text-[#00152A] font-bold h-10 rounded-lg hover:bg-gray-50"
+          className="w-full border-gray-200 text-[#00152A] font-bold h-10 rounded-2xl hover:bg-gray-50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(order);
+          }}
         >
-          Mark as Ready
+          Update Progress
+        </Button>
+      </div>
+    );
+  }
+
+
+  if (order.status === "ready") {
+    return (
+      <div
+        onClick={() => onClick(order)}
+        className="bg-white rounded-xl border border-[#1B7F34] border-l-4 border-l-[#1B7F34] shadow-sm p-5 space-y-4 cursor-pointer hover:shadow-md transition-all"
+      >
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            ID: {order.displayId}
+          </span>
+          <Badge className="bg-[#E6F4EA] text-[#1B7F34] border-0 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 px-2 py-0.5">
+            <CheckCircle2 className="w-3 h-3" />
+            READY
+          </Badge>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#00152A] text-lg">{order.dish}</h3>
+          <p className="text-sm text-gray-500 mt-1">{order.modifiers}</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <User className="w-3.5 h-3.5" />
+          <span>Server: {order.server}</span>
+        </div>
+        <Button
+          className="w-full h-10 rounded-2xl shadow-sm font-bold bg-[#00152A] text-white"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(order);
+          }}
+        >
+          View Details
         </Button>
       </div>
     );
@@ -172,6 +219,7 @@ function OrderCard({
 
   return null;
 }
+
 
 // ── Empty Column State ───────────────────────────────────────────────────────
 function EmptyColumn() {
@@ -200,6 +248,7 @@ export default function KitchenOrdersPage() {
         orderId: string;
         stockConfirmed: boolean;
         stockAlert?: string;
+        status?: OrderStatus;
       }>;
 
       const normalizedEventOrder = customEvent.detail.orderId
@@ -216,12 +265,13 @@ export default function KitchenOrdersPage() {
 
           return {
             ...order,
-            status: "pending_stock",
+            status: customEvent.detail.status || "pending_stock",
             stockConfirmed: customEvent.detail.stockConfirmed,
             actionRequired: !customEvent.detail.stockConfirmed,
             stockAlert: customEvent.detail.stockConfirmed
               ? undefined
               : customEvent.detail.stockAlert,
+            prepProgress: customEvent.detail.status === "in_preparation" ? 0 : order.prepProgress,
           };
         })
       );
@@ -232,12 +282,13 @@ export default function KitchenOrdersPage() {
         if (normalizedSelected !== normalizedEventOrder) return prev;
         return {
           ...prev,
-          status: "pending_stock",
+          status: customEvent.detail.status || "pending_stock",
           stockConfirmed: customEvent.detail.stockConfirmed,
           actionRequired: !customEvent.detail.stockConfirmed,
           stockAlert: customEvent.detail.stockConfirmed
             ? undefined
             : customEvent.detail.stockAlert,
+          prepProgress: customEvent.detail.status === "in_preparation" ? 0 : prev.prepProgress,
         };
       });
     };
@@ -260,6 +311,21 @@ export default function KitchenOrdersPage() {
       )
     );
 
+    toast.info("Stock request sent to Store Keeper...");
+
+    // Simulate API delay and Store Keeper response
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("storeKeeperResponse", {
+          detail: {
+            orderId,
+            stockConfirmed: true
+          },
+        })
+      );
+      toast.success(`Store Keeper confirmed stock for ${orderId}`);
+    }, 3000);
+
     window.dispatchEvent(
       new CustomEvent("stockRequestSubmitted", {
         detail: { orderId },
@@ -271,17 +337,47 @@ export default function KitchenOrdersPage() {
     setOrders((prevOrders) =>
       prevOrders.map((order) =>
         order.id === orderId
-          ? { ...order, status: "in_preparation" }
+          ? { ...order, status: "in_preparation", prepProgress: 0 }
           : order
       )
     );
 
     setSelectedOrder((prev) =>
-      prev && prev.id === orderId ? { ...prev, status: "in_preparation" } : prev
+      prev && prev.id === orderId ? { ...prev, status: "in_preparation", prepProgress: 0 } : prev
     );
+    toast.success("Order acknowledged and moved to preparation");
+  };
+
+  const handleMarkReady = (orderId: string) => {
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, status: "ready" }
+          : order
+      )
+    );
+
+    setSelectedOrder((prev) =>
+      prev && prev.id === orderId ? { ...prev, status: "ready" } : prev
+    );
+    toast.success("Order marked as ready for delivery");
+  };
+
+  const handleCompleteOrder = (orderId: string) => {
+    setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+    setIsModalOpen(false);
+    toast.success("Order dispatched for delivery");
+  };
+
+  const handleExportOrders = () => {
+    toast.info("Exporting kitchen order logs...");
+    setTimeout(() => {
+      toast.success("Orders exported successfully as .XLSX");
+    }, 1500);
   };
 
   const handleNotifyGuest = (orderId: string) => {
+    toast.success("Guest notified about stock unavailability");
     window.dispatchEvent(
       new CustomEvent("kitchenNotifyGuest", {
         detail: { orderId },
@@ -302,28 +398,39 @@ export default function KitchenOrdersPage() {
           </p>
         </div>
 
-        {/* New Order Alert Toast */}
-        {showAlert && (
-          <div className="flex items-center gap-3 bg-[#FFF4E8] border border-[#BA722E]/30 rounded-xl px-5 py-3 shadow-sm animate-in slide-in-from-right-4 duration-300">
-            <div className="w-7 h-7 rounded-md bg-[#BA722E] flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4 text-white" />
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={handleExportOrders}
+            variant="outline"
+            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2 rounded-2xl"
+          >
+            <Download className="w-4 h-4" />
+            Export Log
+          </Button>
+
+          {/* New Order Alert Toast */}
+          {showAlert && (
+            <div className="flex items-center gap-3 bg-[#FFF4E8] border border-[#BA722E]/30 rounded-xl px-5 py-3 shadow-sm animate-in slide-in-from-right-4 duration-300">
+              <div className="w-7 h-7 rounded-md bg-[#BA722E] flex items-center justify-center flex-shrink-0">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-[#BA722E] uppercase tracking-widest">
+                  New Order Alert
+                </p>
+                <p className="text-sm font-bold text-[#00152A]">
+                  Order #JGM-4092 Received
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAlert(false)}
+                className="ml-2 text-gray-300 hover:text-gray-500 text-xs"
+              >
+                ✕
+              </button>
             </div>
-            <div>
-              <p className="text-[9px] font-bold text-[#BA722E] uppercase tracking-widest">
-                New Order Alert
-              </p>
-              <p className="text-sm font-bold text-[#00152A]">
-                Order #JGM-4092 Received
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAlert(false)}
-              className="ml-2 text-gray-300 hover:text-gray-500 text-xs"
-            >
-              ✕
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Kanban Board ────────────────────── */}
@@ -454,7 +561,9 @@ export default function KitchenOrdersPage() {
         onClose={() => setIsModalOpen(false)}
         onSubmitStockRequest={handleSubmitStockRequest}
         onAcknowledgeOrder={handleAcknowledgeOrder}
+        onMarkReady={handleMarkReady}
         onNotifyGuest={handleNotifyGuest}
+        onCompleteOrder={handleCompleteOrder}
       />
     </div>
   );
@@ -467,14 +576,18 @@ function OrderDetailModal({
   onClose,
   onSubmitStockRequest,
   onAcknowledgeOrder,
+  onMarkReady,
   onNotifyGuest,
+  onCompleteOrder,
 }: {
   order: KitchenOrder | null;
   isOpen: boolean;
   onClose: () => void;
   onSubmitStockRequest: (orderId: string) => void;
   onAcknowledgeOrder: (orderId: string) => void;
+  onMarkReady: (orderId: string) => void;
   onNotifyGuest: (orderId: string) => void;
+  onCompleteOrder: (orderId: string) => void;
 }) {
   if (!order) return null;
 
@@ -565,20 +678,31 @@ function OrderDetailModal({
             <div className="space-y-3 mt-8">
               {order.status === "in_preparation" ? (
                 <>
-                  <Button className="w-full bg-[#1B7F34] hover:bg-[#156329] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+                  <Button
+                    onClick={() => onMarkReady(order.id)}
+                    className="w-full bg-[#1B7F34] hover:bg-[#156329] text-white h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                  >
                     <CheckCircle2 className="w-5 h-5" />
                     Mark as Ready for Service
                   </Button>
-                  <Button variant="ghost" className="w-full text-gray-400 hover:text-red-500 hover:bg-red-50 h-10 rounded-lg text-xs font-bold uppercase tracking-widest">
+                  <Button variant="ghost" className="w-full text-gray-400 hover:text-red-500 hover:bg-red-50 h-10 rounded-2xl text-xs font-bold uppercase tracking-widest">
                     Report Preparation Delay
                   </Button>
                 </>
+              ) : order.status === "ready" ? (
+                <Button
+                  onClick={() => onCompleteOrder(order.id)}
+                  className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  Out for Delivery
+                </Button>
               ) : order.status === "pending_stock" ? (
                 <>
                   {order.stockConfirmed ? (
                     <Button
                       onClick={() => onAcknowledgeOrder(order.id)}
-                      className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                      className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                     >
                       <CheckCircle2 className="w-5 h-5" />
                       Acknowledge Order
@@ -586,7 +710,7 @@ function OrderDetailModal({
                   ) : order.stockAlert ? (
                     <Button
                       onClick={() => onNotifyGuest(order.id)}
-                      className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                      className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                     >
                       <Package className="w-5 h-5" />
                       Notify Guest
@@ -594,12 +718,12 @@ function OrderDetailModal({
                   ) : (
                     <Button
                       disabled
-                      className="w-full bg-gray-100 text-gray-400 font-bold h-14 rounded-xl cursor-not-allowed"
+                      className="w-full bg-gray-100 text-gray-400 font-bold h-14 rounded-2xl cursor-not-allowed"
                     >
                       Awaiting Store Keeper Confirmation
                     </Button>
                   )}
-                  <Button onClick={onClose} variant="ghost" className="w-full text-gray-400 hover:text-gray-600 h-10 rounded-lg text-xs font-bold uppercase tracking-widest">
+                  <Button onClick={onClose} variant="ghost" className="w-full text-gray-400 hover:text-gray-600 h-10 rounded-2xl text-xs font-bold uppercase tracking-widest">
                     Close
                   </Button>
                 </>
@@ -607,14 +731,14 @@ function OrderDetailModal({
                 <>
                   <Button
                     onClick={() => onSubmitStockRequest(order.id)}
-                    className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                    className="w-full bg-[#EA580C] hover:bg-[#D4500A] text-white h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                   >
                     <Package className="w-5 h-5" />
                     Submit Stock Request to Store Keeper
                   </Button>
                   <Button
                     disabled
-                    className="w-full bg-[#00152A] text-white opacity-60 h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 cursor-not-allowed"
+                    className="w-full bg-[#00152A] text-white opacity-60 h-14 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-3 cursor-not-allowed"
                   >
                     <CheckCircle2 className="w-5 h-5" />
                     Acknowledge Order

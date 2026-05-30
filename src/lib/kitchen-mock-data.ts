@@ -155,25 +155,24 @@ export interface InventoryTask {
 export const INVENTORY_TASKS: InventoryTask[] = [
   {
     id: "jp-8821",
-    orderId: "#JP-8821",
-    dish: "Saffron Risotto",
+    orderId: "#JGM-4085",
+    dish: "Dover Sole",
     status: "confirmed",
     items: [
-      { name: "Arborio Rice", amount: "500g", available: true },
-      { name: "Premium Saffron Threads", amount: "0.5g", available: true },
-      { name: "Parmigiano Reggiano", amount: "120g", available: true },
+      { name: "Dover Sole Fillet", amount: "200g", available: true },
+      { name: "Citrus Beurre Blanc", amount: "50ml", available: true },
     ],
   },
   {
     id: "jp-8824",
-    orderId: "#JP-8824",
-    dish: "Black Truffle Pasta",
+    orderId: "#JGM-4083",
+    dish: "Seared Scallops",
     status: "insufficient",
     items: [
-      { name: "Fresh Black Truffles", amount: "", available: false },
-      { name: "Handmade Tagliatelle", amount: "", available: true },
+      { name: "Fresh Scallops", amount: "", available: false },
+      { name: "Cauliflower Puree", amount: "", available: true },
     ],
-    storeKeeperNote: '"Items Unavailable - Notify Guest. Next delivery expected in 4 hours."',
+    storeKeeperNote: '"Fresh Scallops Out of Stock - Notify Guest. Next delivery expected in 4 hours."',
   },
   {
     id: "awaiting",

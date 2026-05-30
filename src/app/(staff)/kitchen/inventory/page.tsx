@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { INVENTORY_TASKS, VERIFICATION_LOG } from "@/lib/kitchen-mock-data";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,11 @@ import {
   Bell,
 } from "lucide-react";
 
+import { toast } from "sonner";
+import { Download } from "lucide-react";
+
 // ── Stock Confirmed Card ────────────────────────────────────────────────────
-function ConfirmedCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
+function ConfirmedCard({ task, onBeginPreparation }: { task: (typeof INVENTORY_TASKS)[0]; onBeginPreparation?: (id: string) => void; }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-[#1B7F34] shadow-sm p-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -39,7 +42,10 @@ function ConfirmedCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
           </div>
         ))}
       </div>
-      <Button className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white font-bold h-12 rounded-xl flex items-center gap-2 shadow-md">
+      <Button
+        onClick={() => onBeginPreparation?.(task.orderId)}
+        className="w-full bg-[#00152A] hover:bg-[#0A2038] text-white font-bold h-12 rounded-2xl flex items-center gap-2 shadow-md"
+      >
         <UtensilsCrossed className="w-4 h-4" />
         Begin Preparation
       </Button>
@@ -87,14 +93,14 @@ function InsufficientCard({ task, onStockUnavailable }: { task: (typeof INVENTOR
       <div className="grid grid-cols-2 gap-3">
         <Button
           variant="outline"
-          className="border-gray-200 text-[#00152A] font-bold h-10 rounded-lg text-sm hover:bg-gray-50"
+          className="border-gray-200 text-[#00152A] font-bold h-10 rounded-2xl text-sm hover:bg-gray-50"
         >
           Change Menu
         </Button>
         <Button
           onClick={() => onStockUnavailable?.(task.orderId, task.storeKeeperNote)}
-          className="text-white font-bold h-10 rounded-lg text-sm"
-          style={{ backgroundColor: "#EA580C" }}
+          className="text-white font-bold h-10 rounded-2xl text-sm"
+          style={{ backgroundColor: "#BA722E" }}
         >
           Notify Guest
         </Button>
@@ -130,8 +136,8 @@ function SystemAlertCard({ task }: { task: (typeof INVENTORY_TASKS)[0] }) {
       <p className="text-sm text-gray-500 leading-relaxed">{task.alertMessage}</p>
       <Button
         variant="outline"
-        className="w-full font-bold h-10 rounded-lg text-sm border-2"
-        style={{ borderColor: "#EA580C", color: "#EA580C" }}
+        className="w-full font-bold h-10 rounded-2xl text-sm border-2"
+        style={{ borderColor: "#BA722E", color: "#BA722E" }}
       >
         Request Emergency Restock
       </Button>
@@ -148,7 +154,10 @@ const DOT_COLORS: Record<string, string> = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function InventoryRequestsPage() {
+  const [tasks, setTasks] = useState(INVENTORY_TASKS);
+
   const handleConfirmStock = (orderId: string) => {
+    toast.success(`Stock confirmed for order ${orderId}`);
     window.dispatchEvent(
       new CustomEvent("storeKeeperResponse", {
         detail: {
@@ -160,6 +169,11 @@ export default function InventoryRequestsPage() {
   };
 
   const handleStockUnavailable = (orderId: string, note?: string) => {
+    toast.error(`Stock insufficient for ${orderId}`);
+
+    // Simulate task removal from local list
+    setTasks(prev => prev.filter(t => t.orderId !== orderId));
+
     window.dispatchEvent(
       new CustomEvent("storeKeeperResponse", {
         detail: {
@@ -171,15 +185,50 @@ export default function InventoryRequestsPage() {
     );
   };
 
+  const handleBeginPreparation = (orderId: string) => {
+    toast.success(`Preparation started for ${orderId}`);
+
+    // Simulate task removal from local list
+    setTasks(prev => prev.filter(t => t.orderId !== orderId));
+
+    // This would typically transition the state in the main kitchen board
+    window.dispatchEvent(
+      new CustomEvent("storeKeeperResponse", {
+        detail: {
+          orderId,
+          stockConfirmed: true,
+          status: "in_preparation"
+        },
+      })
+    );
+  };
+
+  const handleExportInventory = () => {
+    toast.info("Exporting inventory verification logs...");
+    setTimeout(() => {
+      toast.success("Inventory logs exported successfully");
+    }, 1500);
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Header ────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="manrope-bold text-4xl text-[#00152A]">Live Inventory Verification</h1>
-        <div className="flex items-center gap-2 text-sm font-bold text-[#1B7F34]">
-          <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
-          Store Keeper Online
+        <div>
+          <h1 className="manrope-bold text-4xl text-[#00152A]">Live Inventory Verification</h1>
+          <div className="flex items-center gap-2 text-sm font-bold text-[#1B7F34] mt-1">
+            <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
+            Store Keeper Online
+          </div>
         </div>
+        <Button
+          onClick={handleExportInventory}
+          variant="outline"
+          className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2 rounded-2xl"
+        >
+          <Download className="w-4 h-4" />
+          Export Report
+        </Button>
       </div>
 
       {/* ── Main Grid ─────────────────────────── */}
@@ -199,8 +248,8 @@ export default function InventoryRequestsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {INVENTORY_TASKS.map((task) => {
-              if (task.status === "confirmed") return <ConfirmedCard key={task.id} task={task} onConfirmStock={handleConfirmStock} />;
+            {tasks.map((task) => {
+              if (task.status === "confirmed") return <ConfirmedCard key={task.id} task={task} onBeginPreparation={handleBeginPreparation} />;
               if (task.status === "insufficient") return <InsufficientCard key={task.id} task={task} onStockUnavailable={handleStockUnavailable} />;
               if (task.status === "awaiting") return <AwaitingCard key={task.id} />;
               if (task.status === "system_alert") return <SystemAlertCard key={task.id} task={task} />;
