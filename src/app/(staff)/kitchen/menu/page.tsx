@@ -58,7 +58,7 @@ function LargeMenuCard({
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm flex transition-all duration-300 p-5 gap-6 group relative",
+        "bg-white rounded-xl shadow-sm flex flex-col md:flex-row transition-all duration-300 p-5 gap-6 group relative",
         isAvailable
           ? "border-l-4 border-l-[#BA722E]"
           : "border-l-4 border-l-[#94A3B8]",
@@ -67,13 +67,13 @@ function LargeMenuCard({
       {/* Edit button overlay on hover */}
       <button
         onClick={() => onEdit(item)}
-        className="absolute top-4 right-16 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-gray-100 text-[#00152A] hover:bg-white"
+        className="absolute top-4 right-16 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-lg md:opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-gray-100 text-[#00152A] hover:bg-white"
       >
         <Edit3 className="w-4 h-4" />
       </button>
 
       {/* Image Container with Padding */}
-      <div className="relative w-44 h-44 flex-shrink-0">
+      <div className="relative w-full md:w-44 h-44 flex-shrink-0">
         <div className="w-full h-full rounded-xl overflow-hidden relative shadow-inner bg-gray-50">
           <Image
             src={item.image}
@@ -702,9 +702,31 @@ export default function MenuManagementPage() {
 
   const handleExportMenu = () => {
     toast.info("Exporting menu catalog...");
+
+    // Prepare CSV data
+    const headers = ["ID", "Name", "Category", "Description", "Available", "Ingredients"];
+    const rows = items.map(item => [
+      item.id,
+      item.name,
+      item.category,
+      `"${item.description.replace(/"/g, '""')}"`,
+      item.available ? "Yes" : "No",
+      `"${item.ingredients.map(ing => ing.label).join('; ')}"`
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `menu_catalog_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     setTimeout(() => {
-      toast.success("Menu catalog exported as .XLSX");
-    }, 1500);
+      toast.success("Menu catalog exported as .CSV");
+    }, 1000);
   };
 
   const largeItems = items.filter((i) => i.size === "large");
@@ -714,9 +736,9 @@ export default function MenuManagementPage() {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 relative">
       {/* ── Header ────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div>
-          <h1 className="manrope-bold text-4xl text-[#00152A]">
+          <h1 className="manrope-bold text-3xl sm:text-4xl text-[#00152A]">
             Menu Management
           </h1>
           <p className="text-gray-500 text-sm mt-1 max-w-md">
@@ -724,11 +746,11 @@ export default function MenuManagementPage() {
             dining experience.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <Button
             onClick={handleExportMenu}
             variant="outline"
-            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2"
+            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center justify-center gap-2 rounded-2xl"
           >
             <Download className="w-4 h-4" />
             Export Menu
@@ -738,7 +760,7 @@ export default function MenuManagementPage() {
               setEditingItem(null);
               setIsModalOpen(true);
             }}
-            className="h-11 px-6 bg-[#00152A] hover:bg-[#0A2038] text-white font-bold shadow-md flex items-center gap-2"
+            className="h-11 px-6 bg-[#00152A] hover:bg-[#0A2038] text-white font-bold shadow-md flex items-center justify-center gap-2 rounded-2xl"
           >
             <Plus className="w-4 h-4" />
             Add New Item

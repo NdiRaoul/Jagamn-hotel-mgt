@@ -205,17 +205,38 @@ export default function InventoryRequestsPage() {
 
   const handleExportInventory = () => {
     toast.info("Exporting inventory verification logs...");
+
+    // Prepare CSV data
+    const headers = ["Order ID", "Dish", "Status", "Items", "Store Keeper Note"];
+    const rows = tasks.map(task => [
+      task.orderId || "N/A",
+      task.dish,
+      task.status,
+      `"${task.items?.map(i => `${i.name} (${i.amount})`).join('; ') || ''}"`,
+      `"${task.storeKeeperNote || task.alertMessage || ''}"`
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `inventory_verification_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     setTimeout(() => {
-      toast.success("Inventory logs exported successfully");
-    }, 1500);
+      toast.success("Inventory logs exported successfully as .CSV");
+    }, 1000);
   };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Header ────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="manrope-bold text-4xl text-[#00152A]">Live Inventory Verification</h1>
+          <h1 className="manrope-bold text-3xl sm:text-4xl text-[#00152A]">Live Inventory Verification</h1>
           <div className="flex items-center gap-2 text-sm font-bold text-[#1B7F34] mt-1">
             <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
             Store Keeper Online
@@ -224,7 +245,7 @@ export default function InventoryRequestsPage() {
         <Button
           onClick={handleExportInventory}
           variant="outline"
-          className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2 rounded-2xl"
+          className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center justify-center gap-2 rounded-2xl w-full sm:w-auto"
         >
           <Download className="w-4 h-4" />
           Export Report

@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   UNAVAILABILITY_LOG,
   HOURLY_VOLUME,
@@ -121,27 +122,59 @@ function StatCard({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ReportingPage() {
+  const handleExportReport = () => {
+    toast.info("Exporting performance insights...");
+
+    // Exporting Unavailability Log as a primary example for this page
+    const headers = ["Item", "SKU", "Timestamp", "Reason", "Duration", "Type"];
+    const rows = UNAVAILABILITY_LOG.map(row => [
+      row.item,
+      row.sku,
+      row.timestamp,
+      row.reason,
+      row.duration,
+      row.type
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `kitchen_performance_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+      toast.success("Performance report exported successfully as .CSV");
+    }, 1000);
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
       {/* ── Page Header ─────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div>
-          <h1 className="manrope-bold text-4xl text-jagamn-primary">
+          <h1 className="manrope-bold text-3xl sm:text-4xl text-jagamn-primary">
             Performance Insights
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             Daily operational summary for Regency Suite Kitchen.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <Button
             variant="outline"
-            className="h-11 rounded-xl bg-white border-gray-100 shadow-sm gap-2 text-jagamn-primary font-bold"
+            className="h-11 rounded-xl bg-white border-gray-100 shadow-sm gap-2 text-jagamn-primary font-bold w-full sm:w-auto"
           >
             <Calendar className="w-4 h-4" />
             June 14, 2024
           </Button>
-          <Button className="h-11 rounded-xl bg-jagamn-primary hover:bg-[#0A2038] text-white shadow-sm gap-2 font-bold px-6">
+          <Button
+            onClick={handleExportReport}
+            className="h-11 rounded-xl bg-jagamn-primary hover:bg-[#0A2038] text-white shadow-sm gap-2 font-bold px-6 w-full sm:w-auto"
+          >
             <Download className="w-4 h-4" />
             Export Report
           </Button>
@@ -178,12 +211,12 @@ export default function ReportingPage() {
       {/* ── Charts & Status Row ──────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main Chart */}
-        <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-          <div className="flex items-center justify-between mb-10">
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-10">
             <h3 className="manrope-bold text-xl text-jagamn-primary">
               Order Volume by Time of Day
             </h3>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                 <div className="w-2.5 h-2.5 rounded-full bg-jagamn-primary" />{" "}
                 Dine-in
@@ -267,7 +300,7 @@ export default function ReportingPage() {
 
       {/* ── Unavailability Log Table ────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+        <div className="p-6 sm:p-8 border-b border-gray-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h3 className="manrope-bold text-xl text-jagamn-primary">
             Unavailability Log
           </h3>
@@ -285,8 +318,9 @@ export default function ReportingPage() {
           </div>
         </div>
 
-        <table className="w-full">
-          <thead className="bg-gray-50/50">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px]">
+            <thead className="bg-gray-50/50">
             <tr>
               <th className="px-8 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 Item / Ingredient
@@ -359,12 +393,13 @@ export default function ReportingPage() {
             ))}
           </tbody>
         </table>
-
-        {/* Floating Action Button (Matches Design) */}
-        <button className="fixed bottom-10 right-10 w-16 h-16 bg-[#EA580C] hover:bg-[#C17228] text-white rounded-2xl shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50">
-          <Plus className="w-8 h-8" />
-        </button>
       </div>
     </div>
-  );
+
+    {/* Floating Action Button (Matches Design) */}
+    <button className="fixed bottom-10 right-10 w-16 h-16 bg-[#EA580C] hover:bg-[#C17228] text-white rounded-2xl shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50">
+      <Plus className="w-8 h-8" />
+    </button>
+  </div>
+);
 }

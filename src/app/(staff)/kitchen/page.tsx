@@ -371,9 +371,31 @@ export default function KitchenOrdersPage() {
 
   const handleExportOrders = () => {
     toast.info("Exporting kitchen order logs...");
+
+    // Prepare CSV data
+    const headers = ["Order ID", "Dish", "Modifiers", "Location", "Server", "Status"];
+    const rows = orders.map(order => [
+      order.displayId,
+      order.dish,
+      `"${order.modifiers}"`,
+      order.location || "Room Service",
+      order.server,
+      order.status
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `kitchen_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     setTimeout(() => {
-      toast.success("Orders exported successfully as .XLSX");
-    }, 1500);
+      toast.success("Orders exported successfully as .CSV");
+    }, 1000);
   };
 
   const handleNotifyGuest = (orderId: string) => {
@@ -390,19 +412,19 @@ export default function KitchenOrdersPage() {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Page Header ─────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="manrope-bold text-4xl text-[#00152A]">Orders</h1>
+          <h1 className="manrope-bold text-3xl sm:text-4xl text-[#00152A]">Orders</h1>
           <p className="text-gray-500 text-sm mt-1">
             Live overview of Jagamn Palace culinary operations
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
           <Button
             onClick={handleExportOrders}
             variant="outline"
-            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2 rounded-2xl"
+            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center justify-center gap-2 rounded-2xl w-full sm:w-auto"
           >
             <Download className="w-4 h-4" />
             Export Log
@@ -410,7 +432,7 @@ export default function KitchenOrdersPage() {
 
           {/* New Order Alert Toast */}
           {showAlert && (
-            <div className="flex items-center gap-3 bg-[#FFF4E8] border border-[#BA722E]/30 rounded-xl px-5 py-3 shadow-sm animate-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center gap-3 bg-[#FFF4E8] border border-[#BA722E]/30 rounded-xl px-5 py-3 shadow-sm animate-in slide-in-from-right-4 duration-300 w-full sm:w-auto">
               <div className="w-7 h-7 rounded-md bg-[#BA722E] flex items-center justify-center flex-shrink-0">
                 <Zap className="w-4 h-4 text-white" />
               </div>
@@ -603,11 +625,11 @@ function OrderDetailModal({
         >
           <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
         </button>
-        <div className="flex h-full max-h-[600px] min-h-[500px] w-full">
+        <div className="flex flex-col md:flex-row h-full max-h-[90vh] md:max-h-[600px] min-h-[500px] w-full overflow-y-auto md:overflow-hidden">
           {/* Left Side: Order Info */}
-          <div className="flex-1 bg-white p-10 flex flex-col relative">
+          <div className="flex-1 bg-white p-6 sm:p-10 flex flex-col relative">
             {/* Header */}
-            <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-6 flex-1 md:overflow-y-auto pr-0 md:pr-2 custom-scrollbar">
               <div className="flex items-center gap-3">
                 <span className="bg-[#FFF4E8] text-[#EA580C] text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase">
                   Urgent
@@ -617,7 +639,7 @@ function OrderDetailModal({
                 </span>
               </div>
 
-              <DialogTitle className="manrope-bold text-5xl text-[#00152A]">
+              <DialogTitle className="manrope-bold text-3xl sm:text-5xl text-[#00152A]">
                 #{order.displayId}
               </DialogTitle>
               <DialogDescription className="sr-only">
