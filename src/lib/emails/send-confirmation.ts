@@ -19,7 +19,7 @@ export async function sendConfirmationEmail(
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, resort_fee, tax_amount, total_amount, payment_method, receipt_sent_at",
+      "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, tax_amount, total_amount, payment_method, receipt_sent_at",
     )
     .eq("booking_ref", bookingRef)
     .single();
@@ -34,7 +34,7 @@ export async function sendConfirmationEmail(
       const { data: fallback, error: fallbackErr } = await supabaseAdmin
         .from("bookings")
         .select(
-          "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, resort_fee, tax_amount, total_amount, payment_method",
+          "booking_ref, guest_name, guest_email, room_slug, check_in, check_out, nights, guests, room_price_per_night, tax_amount, total_amount, payment_method",
         )
         .eq("booking_ref", bookingRef)
         .single();
@@ -74,7 +74,6 @@ async function sendEmailAndMark(
     nights: number | null;
     guests: number | null;
     room_price_per_night: number;
-    resort_fee: number | null;
     tax_amount: number | null;
     total_amount: number;
     payment_method: string | null;
@@ -119,7 +118,6 @@ async function sendEmailAndMark(
         nights: booking.nights || 1,
         guests: booking.guests || 1,
         pricePerNight: booking.room_price_per_night,
-        resortFee: booking.resort_fee ?? 0,
         taxAmount: booking.tax_amount || 0,
         totalAmount: booking.total_amount,
         paymentMethod: booking.payment_method || "Online Payment",

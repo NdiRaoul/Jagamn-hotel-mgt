@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   TrendingUp,
-  DollarSign,
+  Banknote,
   Users,
   Building,
   ArrowRight,
@@ -27,6 +27,7 @@ import {
   Pie,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,32 +39,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TransactionRecord2 } from "@/lib/data/reception";
+import type { RevenuePoint, RoomTypeRevenue } from "@/lib/data/admin";
 
-// Static chart shapes — no per-day helper exists yet
-const REVENUE_TREND = [
-  { name: "Mon", revenue: 45000 },
-  { name: "Tue", revenue: 52000 },
-  { name: "Wed", revenue: 48000 },
-  { name: "Thu", revenue: 61000 },
-  { name: "Fri", revenue: 85000 },
-  { name: "Sat", revenue: 98000 },
-  { name: "Sun", revenue: 76000 },
-];
-
-const DEPARTMENT_REVENUE = [
-  { name: "Rooms & Suites", value: 450000, color: "#334155" },
-  { name: "Food & Beverage", value: 280000, color: "#E8924A" },
-  { name: "Spa & Wellness", value: 120000, color: "#1D61FF" },
-  { name: "Events & Banquets", value: 190000, color: "#64748B" },
-];
+// Fallback sparkline when no data yet
+const EMPTY_SPARKLINE = [{ name: "—", revenue: 0 }];
 
 interface Props {
-  revenue: { revenue: number; settledPayments: number; pendingPayments: number };
+  revenue: {
+    revenue: number;
+    settledPayments: number;
+    pendingPayments: number;
+  };
   transactions: TransactionRecord2[];
+  revenueDaily: RevenuePoint[];
+  revenueByRoomType: RoomTypeRevenue[];
   error: string | null;
 }
 
-export default function RevenueClient({ revenue, transactions, error }: Props) {
+export default function RevenueClient({
+  revenue,
+  transactions,
+  revenueDaily,
+  revenueByRoomType,
+  error,
+}: Props) {
   const [timeframe, setTimeframe] = useState("weekly");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -113,7 +112,15 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
   }, [transactions, searchQuery, statusFilter, dateFilter]);
 
   const handleExport = () => {
-    const headers = ["Payment ID", "Booking Ref", "Guest", "Provider", "Amount", "Status", "Date"];
+    const headers = [
+      "Payment ID",
+      "Booking Ref",
+      "Guest",
+      "Provider",
+      "Amount",
+      "Status",
+      "Date",
+    ];
     const rows = filteredTransactions.map((tx) => [
       tx.paymentId,
       tx.bookingRef || "",
@@ -142,10 +149,22 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
   // ADR & RevPAR are illustrative until a rooms+bookings join helper exists
   const totalRevenue = revenue.revenue;
 
+  // Transform room type revenue data for the pie chart
+  const COLORS = ["#E8924A", "#0D2137", "#64748B", "#94A3B8", "#CBD5E1"];
+  const departmentRevenue = revenueByRoomType.map((item, index) => ({
+    name: item.room_type,
+    value: item.revenue,
+    color: COLORS[index % COLORS.length],
+  }));
+
+  // Fallback data if no revenue by room type
+  const EMPTY_DEPARTMENT_REVENUE = [
+    { name: "No Data", value: 1, color: "#E5E7EB" },
+  ];
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
       <div className=" mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
-
         {/* ── Page Header ────────────────────────────── */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">
@@ -156,7 +175,8 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
               Revenue Command Center
             </h1>
             <p className="text-slate-400 font-medium max-w-2xl text-sm md:text-base">
-              Comprehensive fiscal analysis and performance metrics across all Palace departments.
+              Comprehensive fiscal analysis and performance metrics across all
+              Palace departments.
             </p>
           </div>
 
@@ -197,10 +217,10 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           <KPICard
             label="Total Revenue"
-            value={`$${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            value={formatMoney(totalRevenue)}
             change={`${revenue.settledPayments} settled`}
             isPositive={true}
-            icon={<DollarSign className="w-5 h-5" />}
+            icon={<Banknote className="w-5 h-5" />}
           />
           <KPICard
             label="Settled Payments"
@@ -240,7 +260,11 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
             </div>
             <div style={{ height: 400 }} className="w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={REVENUE_TREND}>
+                <AreaChart
+                  data={
+                    revenueDaily.length > 0 ? revenueDaily : EMPTY_SPARKLINE
+                  }
+                >
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#0D2137" stopOpacity={0.1} />
@@ -263,7 +287,7 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#94A3B8", fontSize: 10, fontWeight: 700 }}
-                    tickFormatter={(v) => `$${v / 1000}k`}
+                    tickFormatter={(v) => formatMoney(v)}
                   />
                   <Tooltip
                     contentStyle={{
@@ -289,14 +313,15 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
             <h3 className="manrope-bold text-xl relative z-10">
               Departmental Split
             </h3>
-            <div
-              style={{ height: 250 }}
-              className="w-full relative z-10"
-            >
+            <div style={{ height: 250 }} className="w-full relative z-10">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={DEPARTMENT_REVENUE}
+                    data={
+                      departmentRevenue.length > 0
+                        ? departmentRevenue
+                        : EMPTY_DEPARTMENT_REVENUE
+                    }
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -310,7 +335,10 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
               </ResponsiveContainer>
             </div>
             <div className="space-y-4 relative z-10">
-              {DEPARTMENT_REVENUE.map((dept, i) => (
+              {(departmentRevenue.length > 0
+                ? departmentRevenue
+                : EMPTY_DEPARTMENT_REVENUE
+              ).map((dept, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
@@ -322,7 +350,7 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
                     </span>
                   </div>
                   <span className="manrope-bold text-xs">
-                    ${(dept.value / 1000).toFixed(0)}k
+                    {formatMoney(dept.value)}
                   </span>
                 </div>
               ))}
@@ -450,7 +478,10 @@ export default function RevenueClient({ revenue, transactions, error }: Props) {
                     </td>
                     <td className="px-10 py-6 text-right">
                       <span className="manrope-bold text-base text-[#0D2137]">
-                        ${(tx.amountMinor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        $
+                        {(tx.amountMinor / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
                       </span>
                     </td>
                     <td className="px-10 py-6 text-center">
@@ -528,7 +559,9 @@ function KPICard({
           <div
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-lg",
-              isPositive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600",
+              isPositive
+                ? "bg-green-50 text-green-600"
+                : "bg-red-50 text-red-600",
             )}
           >
             {isPositive ? (

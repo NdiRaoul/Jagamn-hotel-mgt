@@ -3,16 +3,16 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaff, createStaff } from "@/lib/data/staff";
 
-const ADMIN_ROLES = ["admin"];
+const ADMIN_ROLES = ["owner", "admin"];
 
 async function requireAdmin(request: NextRequest) {
-  const session = await getStaffSession(request);
+  const session = await getStaffSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (
-    session.staff.status !== "active" ||
-    !ADMIN_ROLES.includes(session.staff.role)
+    session.status !== "active" ||
+    !ADMIN_ROLES.includes(session.role)
   ) {
     return NextResponse.json(
       { error: "Forbidden — admin only" },
@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
 
   // Audit log
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "staff.create",
     target_type: "staff",
     target_id: staffRow.id,

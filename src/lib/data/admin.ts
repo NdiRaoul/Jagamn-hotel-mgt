@@ -79,9 +79,7 @@ export async function getRevenueSummary(
   settledPayments: number;
   pendingPayments: number;
 }> {
-  let query = supabaseAdmin
-    .from("payments")
-    .select("amount,status");
+  let query = supabaseAdmin.from("payments").select("amount,status");
 
   if (from) query = query.gte("created_at", from);
   if (to) query = query.lte("created_at", to);
@@ -105,7 +103,7 @@ export async function getStaffRoster(): Promise<Staff[]> {
   const { data, error } = await supabaseAdmin
     .from("staff")
     .select(
-      "id,auth_user_id,full_name,email,role,status,avatar_url,must_reset_pw,staff_code,phone,department,position,salary,hire_date,created_at,updated_at",
+      "id,auth_user_id,full_name,email,role,status,avatar_url,must_reset_pw,staff_code,phone,department,position,salary,hire_date,is_owner,created_at,updated_at",
     )
     .order("created_at", { ascending: true });
 
@@ -119,20 +117,23 @@ export async function getStaffRoster(): Promise<Staff[]> {
 export async function getProcurementAlerts(): Promise<
   { item: string; priority: string; status: string }[]
 > {
-  // TODO: Add a dedicated procurement table and rewire this into the procurement workflow.
-  return [
-    { item: "Mini-bar stock", priority: "high", status: "Reorder needed" },
-    { item: "Laundry detergent", priority: "medium", status: "Low inventory" },
-  ];
-}
+  // Use the inventory_low_stock view for efficient low-stock alerts
+  const { data, error } = await supabaseAdmin
+    .from("inventory_low_stock")
+    .select("name,on_hand,reorder_level")
+    .limit(10);
 
-export async function getHousekeepingTasks(): Promise<
-  { room: string; task: string; dueDate: string }[]
-> {
-  return [
-    { room: "305", task: "Deep clean", dueDate: "Today" },
-    { room: "204", task: "Refresh linens", dueDate: "Today" },
-  ];
+  if (error) return [];
+
+  const alerts = (data || []).map(
+    (item: { name: string; on_hand: number; reorder_level: number }) => ({
+      item: item.name,
+      priority: item.on_hand === 0 ? "high" : "medium",
+      status: item.on_hand === 0 ? "Out of stock" : "Low inventory",
+    }),
+  );
+
+  return alerts;
 }
 
 export interface PayrollRow {
@@ -178,4 +179,149 @@ export async function getFoodAndBeverageSummary(): Promise<{
   outOfStock: number;
 }> {
   return { items: [], totalItems: 0, outOfStock: 0 };
+}
+
+export async function getHousekeepingTasks(): Promise<
+  { room: string; task: string; dueDate: string }[]
+> {
+  // Return rooms with dirty housekeeping_status
+  const { data } = await supabaseAdmin
+    .from("rooms")
+    .select("unit_code,housekeeping_status")
+    .eq("housekeeping_status", "dirty")
+    .limit(10);
+
+  return (data || []).map(
+    (r: { unit_code: string; housekeeping_status: string }) => ({
+      room: r.unit_code,
+      task: "Clean & refresh",
+      dueDate: "Today",
+    }),
+  );
+}
+
+// Note: Removed duplicate getHousekeepingTasks function that was previously defined above
+
+// ── Reporting views ──────────────────────────────────────────────────────────
+
+export interface RevenuePoint {
+  day: string;
+  revenue: number; // XAF (whole francs)
+}
+
+export interface RevenueMonthPoint {
+  month: string;
+  revenue: number;
+}
+
+export interface RoomTypeRevenue {
+  room_type: string;
+  revenue: number;
+}
+
+export interface OccupancyPoint {
+  day: string;
+  occupancy_pct: number;
+  occupied_rooms: number;
+  total_rooms: number;
+}
+
+export async function getRevenueDaily(): Promise<RevenuePoint[]> {
+  const { data, error } = await supabaseAdmin
+    .from("revenue_daily")
+    .select("day,revenue_minor")
+    .order("day", { ascending: true })
+    .limit(30);
+  if (error) return [];
+  return (data || []).map((row: { day: string; revenue_minor: number }) => ({
+    day: row.day,
+    revenue: row.revenue_minor / 100,
+  }));
+}
+
+export async function getRevenueMonthly(): Promise<RevenueMonthPoint[]> {
+  const { data, error } = await supabaseAdmin
+    .from("revenue_monthly")
+    .select("month,revenue_minor")
+    .order("month", { ascending: true })
+    .limit(12);
+  if (error) return [];
+  return (data || []).map((row: { month: string; revenue_minor: number }) => ({
+    month: row.month,
+    revenue: row.revenue_minor / 100,
+  }));
+}
+
+export async function getRevenueByRoomType(): Promise<RoomTypeRevenue[]> {
+  const { data, error } = await supabaseAdmin
+    .from("revenue_by_room_type")
+    .select("room_type,revenue_minor");
+  if (error) return [];
+  return (data || []).map(
+    (row: { room_type: string; revenue_minor: number }) => ({
+      room_type: row.room_type,
+      revenue: row.revenue_minor / 100,
+    }),
+  );
+}
+
+export async function getOccupancyDaily(): Promise<OccupancyPoint[]> {
+  const { data, error } = await supabaseAdmin
+    .from("occupancy_daily")
+    .select("day,occupancy_pct,occupied_rooms,total_rooms")
+    .order("day", { ascending: true });
+  if (error) return [];
+  return (data || []).map(
+    (row: {
+      day: string;
+      occupancy_pct: number;
+      occupied_rooms: number;
+      total_rooms: number;
+    }) => ({
+      day: row.day,
+      occupancy_pct: Number(row.occupancy_pct) || 0,
+      occupied_rooms: row.occupied_rooms,
+      total_rooms: row.total_rooms,
+    }),
+  );
+}
+
+export interface HrLeaveSummary {
+  leave_type: string;
+  pending_count: number;
+  approved_count: number;
+  rejected_count: number;
+  total_days_approved: number | null;
+}
+
+export async function getHrLeaveSummary(): Promise<HrLeaveSummary[]> {
+  const { data, error } = await supabaseAdmin
+    .from("hr_leave_summary")
+    .select(
+      "leave_type,pending_count,approved_count,rejected_count,total_days_approved",
+    );
+  if (error) return [];
+  return (data || []) as HrLeaveSummary[];
+}
+
+export interface PayrollMonthSummary {
+  period_label: string;
+  period_start: string;
+  status: string;
+  gross_total_minor: number;
+  net_total_minor: number;
+  staff_count: number;
+  paid_count: number;
+}
+
+export async function getPayrollMonthly(): Promise<PayrollMonthSummary[]> {
+  const { data, error } = await supabaseAdmin
+    .from("payroll_monthly")
+    .select(
+      "period_label,period_start,period_end,status,gross_total_minor,net_total_minor,staff_count,paid_count",
+    )
+    .order("period_start", { ascending: false })
+    .limit(12);
+  if (error) return [];
+  return (data || []) as PayrollMonthSummary[];
 }

@@ -3,17 +3,17 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaffById, updateStaff, setStaffStatus } from "@/lib/data/staff";
 
-const ADMIN_ROLES = ["admin"];
+const ADMIN_ROLES = ["owner", "admin"];
 const MANAGER_ROLES = ["admin", "manager"];
 
 async function requireRole(request: NextRequest, roles: string[]) {
-  const session = await getStaffSession(request);
+  const session = await getStaffSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (
-    session.staff.status !== "active" ||
-    !roles.includes(session.staff.role)
+    session.status !== "active" ||
+    !roles.includes(session.role)
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -75,8 +75,8 @@ export async function PATCH(
   const updated = await updateStaff(id, patch);
 
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "staff.update",
     target_type: "staff",
     target_id: id,
@@ -110,8 +110,8 @@ export async function DELETE(
   }
 
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "staff.delete",
     target_type: "staff",
     target_id: id,

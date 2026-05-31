@@ -13,6 +13,7 @@ import {
   Mail,
   Download,
 } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +38,15 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const handleDeactivate = async () => {
-    if (!confirm(`Suspend ${staff.full_name}? They will lose portal access immediately.`)) return;
-    const res = await fetch(`/api/staff/${staff.id}/suspend`, { method: "POST" });
+    if (
+      !confirm(
+        `Suspend ${staff.full_name}? They will lose portal access immediately.`,
+      )
+    )
+      return;
+    const res = await fetch(`/api/staff/${staff.id}/suspend`, {
+      method: "POST",
+    });
     if (res.ok) router.refresh();
     else alert("Failed to suspend — check console");
   };
@@ -56,15 +64,10 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
       ["Role", staff.role],
       ["Status", staff.status],
       ["Hire Date", staff.hire_date || ""],
-      [
-        "Salary",
-        staff.salary != null ? `$${staff.salary.toLocaleString()}` : "",
-      ],
+      ["Salary", staff.salary != null ? formatMoney(staff.salary) : ""],
     ];
     const csv = rows
-      .map((r) =>
-        r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-      )
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -165,7 +168,9 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
               className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-40"
             >
               <UserMinus className="w-5 h-5" />
-              {staff.status === "suspended" ? "Already Suspended" : "Suspend Account"}
+              {staff.status === "suspended"
+                ? "Already Suspended"
+                : "Suspend Account"}
             </Button>
           </div>
         </div>
@@ -248,9 +253,7 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">
-                        {staff.salary != null
-                          ? `$${staff.salary.toLocaleString()}`
-                          : "—"}
+                        {staff.salary != null ? formatMoney(staff.salary) : "—"}
                       </span>
                       {staff.salary != null && (
                         <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">
@@ -328,7 +331,7 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
         {/* ── Footer Actions ─────────────────────────── */}
         <div className="flex items-center justify-end gap-3 pb-10">
           <Button
-            onClick={() => window.location.href = `mailto:${staff.email}`}
+            onClick={() => (window.location.href = `mailto:${staff.email}`)}
             variant="outline"
             size="icon"
             className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all"

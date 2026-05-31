@@ -4,7 +4,7 @@ import { getOrCreateLedger, appendEvent } from "@/lib/payments/ledger";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia",
+  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
 });
 
 // POST /api/payments/stripe — create PaymentIntent
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const {
       bookingRef,
       totalAmount,
-      currency = "usd",
+      currency = "xaf",
       clientIdempotencyKey,
     } = body;
 
@@ -28,12 +28,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Compute explicit units:
+    // - `amountForStripe` is the whole-franc integer Stripe expects for XAF (zero-decimal)
+    // - `amountMinor` is XAF ×100 used by our internal ledger/folio fields
+    const amountForStripe = Math.round(totalAmount);
     const amountMinor = Math.round(totalAmount * 100);
     const ledger = await getOrCreateLedger({
       bookingRef,
       provider: "stripe",
       amountMinor,
-      currency: currency.toUpperCase(),
+      currency: "XAF",
       clientIdempotencyKey,
     });
 
@@ -47,10 +51,11 @@ export async function POST(request: NextRequest) {
         ledger.processor_ref,
       );
     } else {
+      // Stripe XAF is zero-decimal: send the whole XAF amount (not ×100)
       paymentIntent = await stripe.paymentIntents.create(
         {
-          amount: amountMinor,
-          currency,
+          amount: amountForStripe,
+          currency: "xaf",
           metadata: { bookingRef, payment_id: ledger.id },
         },
         { idempotencyKey: clientIdempotencyKey },

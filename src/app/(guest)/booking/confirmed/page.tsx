@@ -244,7 +244,7 @@ async function ConfirmedContent({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Taxes (12%)</span>
+                  <span className="text-gray-500">Taxes (10%)</span>
                   <span className="text-gray-300">${taxAmount}</span>
                 </div>
               </div>

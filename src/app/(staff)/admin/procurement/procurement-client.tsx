@@ -7,7 +7,6 @@ import {
   ShoppingCart,
   Plus,
   Search,
-  Download,
   ChevronRight,
   AlertCircle,
   CheckCircle2,
@@ -35,61 +34,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-
-// Static PO data — pending a dedicated procurement table
-const PURCHASE_ORDERS = [
-  {
-    id: "PO-4401",
-    item: "Premium Linen Set (King)",
-    supplier: "Regency Textiles Ltd",
-    amount: 12500.0,
-    status: "In Transit",
-    priority: "High",
-    date: "2026-10-24",
-  },
-  {
-    id: "PO-4402",
-    item: "Imported Wagyu Beef Prime",
-    supplier: "Global Gourmet Imports",
-    amount: 8200.0,
-    status: "Delivered",
-    priority: "Urgent",
-    date: "2026-10-23",
-  },
-  {
-    id: "PO-4403",
-    item: "Smart Lighting Hubs (V3)",
-    supplier: "Lumina Tech Solutions",
-    amount: 3400.0,
-    status: "Pending Approval",
-    priority: "Medium",
-    date: "2026-10-25",
-  },
-];
-
-const SUPPLIERS = [
-  {
-    name: "Regency Textiles Ltd",
-    category: "Linens & Decor",
-    rating: 4.8,
-    activeOrders: 3,
-  },
-  {
-    name: "Global Gourmet Imports",
-    category: "Food & Beverage",
-    rating: 4.9,
-    activeOrders: 1,
-  },
-  {
-    name: "Lumina Tech Solutions",
-    category: "Electronics",
-    rating: 4.5,
-    activeOrders: 0,
-  },
-];
+import type {
+  PurchaseOrder,
+  Supplier,
+  ProcurementBudget,
+  ProcurementKpis,
+} from "@/lib/data/procurement";
 
 interface Props {
-  alerts: { item: string; priority: string; status: string }[];
+  orders: PurchaseOrder[];
+  suppliers: Supplier[];
+  budgets: ProcurementBudget[];
+  kpis: ProcurementKpis;
   error: string | null;
 }
 
@@ -104,7 +60,7 @@ function BudgetProgress({
   total: number;
   color: string;
 }) {
-  const pct = (current / total) * 100;
+  const pct = total > 0 ? Math.min(100, (current / total) * 100) : 0;
   return (
     <div className="space-y-2">
       <div className="flex items-end justify-between">
@@ -112,7 +68,7 @@ function BudgetProgress({
           {label}
         </span>
         <span className="text-[11px] manrope-bold">
-          ${(current / 1000).toFixed(0)}k / ${(total / 1000).toFixed(0)}k
+          ${(current / 100000).toFixed(0)}k / ${(total / 100000).toFixed(0)}k
         </span>
       </div>
       <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -125,7 +81,32 @@ function BudgetProgress({
   );
 }
 
-export default function ProcurementClient({ alerts, error }: Props) {
+const STATUS_NEXT: Record<string, string | null> = {
+  pending_approval: "approved",
+  approved: "ordered",
+  ordered: "in_transit",
+  in_transit: "delivered",
+  delivered: null,
+  cancelled: null,
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_approval: "Pending Approval",
+  approved: "Approved",
+  ordered: "Ordered",
+  in_transit: "In Transit",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+export default function ProcurementClient({
+  orders: initialOrders,
+  suppliers,
+  budgets,
+  kpis,
+  error,
+}: Props) {
+  const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
   const [activeTab, setActiveTab] = useState("orders");
   const [isPOModalOpen, setIsPOModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -133,6 +114,17 @@ export default function ProcurementClient({ alerts, error }: Props) {
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
     to: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // New PO form state
+  const [newPO, setNewPO] = useState({
+    description: "",
+    supplier_id: "",
+    total_minor: "",
+    priority: "medium",
+    department: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -147,33 +139,88 @@ export default function ProcurementClient({ alerts, error }: Props) {
 
   const filteredOrders = useMemo(
     () =>
-      PURCHASE_ORDERS.filter((po) => {
+      orders.filter((po) => {
         const q = searchQuery.toLowerCase();
         const matchSearch =
           !searchQuery ||
-          po.item.toLowerCase().includes(q) ||
-          po.supplier.toLowerCase().includes(q) ||
-          po.id.toLowerCase().includes(q) ||
+          po.description.toLowerCase().includes(q) ||
+          (po.supplier_name || "").toLowerCase().includes(q) ||
+          po.po_number.toLowerCase().includes(q) ||
           po.status.toLowerCase().includes(q);
         const matchPriority =
           priorityFilter === "all" || po.priority === priorityFilter;
-        const d = new Date(po.date).getTime();
+        const d = new Date(po.created_at).getTime();
         const from = dateFilter.from
           ? new Date(dateFilter.from).getTime()
           : -Infinity;
-        const to = dateFilter.to
-          ? new Date(dateFilter.to).getTime()
-          : Infinity;
+        const to = dateFilter.to ? new Date(dateFilter.to).getTime() : Infinity;
         return matchSearch && matchPriority && d >= from && d <= to;
       }),
-    [searchQuery, priorityFilter, dateFilter],
+    [orders, searchQuery, priorityFilter, dateFilter],
   );
+
+  const activeOrders = filteredOrders.filter(
+    (o) => o.status !== "delivered" && o.status !== "cancelled",
+  );
+  const archivedOrders = filteredOrders.filter(
+    (o) => o.status === "delivered" || o.status === "cancelled",
+  );
+
+  const handleAdvanceStatus = async (orderId: string, nextStatus: string) => {
+    const res = await fetch(`/api/admin/procurement/orders/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (res.ok) {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)),
+      );
+    }
+  };
+
+  const handleCreatePO = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const res = await fetch("/api/admin/procurement/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: newPO.description,
+        supplier_id: newPO.supplier_id || null,
+        total_minor: newPO.total_minor
+          ? Math.round(parseFloat(newPO.total_minor) * 100)
+          : 0,
+        priority: newPO.priority,
+        department: newPO.department || null,
+        notes: newPO.notes || null,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Reload orders
+      const ordersRes = await fetch("/api/admin/procurement/orders");
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        setOrders(ordersData.orders || []);
+      }
+      setIsPOModalOpen(false);
+      setNewPO({
+        description: "",
+        supplier_id: "",
+        total_minor: "",
+        priority: "medium",
+        department: "",
+        notes: "",
+      });
+    }
+    setSubmitting(false);
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className=" mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
-
-        {/* ── Page Header ────────────────────────────── */}
+      <div className="mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
+        {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">
             <p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.4em]">
@@ -186,7 +233,6 @@ export default function ProcurementClient({ alerts, error }: Props) {
               <p className="text-red-500 text-sm font-medium">{error}</p>
             )}
           </div>
-
           <Dialog open={isPOModalOpen} onOpenChange={setIsPOModalOpen}>
             <DialogTrigger asChild>
               <Button className="h-14 px-8 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-2xl shadow-xl flex items-center gap-3 transition-all hover:scale-[1.02]">
@@ -194,7 +240,7 @@ export default function ProcurementClient({ alerts, error }: Props) {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[700px] p-0 border-0 overflow-hidden bg-white rounded-3xl">
-              <div className="p-8 md:p-12 space-y-10">
+              <form onSubmit={handleCreatePO} className="p-8 md:p-12 space-y-8">
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.3em]">
                     Logistic Orchestration
@@ -203,94 +249,140 @@ export default function ProcurementClient({ alerts, error }: Props) {
                     New Purchase Order
                   </DialogTitle>
                 </div>
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                        Item Description
-                      </Label>
-                      <Input
-                        placeholder="e.g. Premium Silk Linens"
-                        className="h-14 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium"
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                        Preferred Supplier
-                      </Label>
-                      <Select>
-                        <SelectTrigger className="h-14 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium">
-                          <SelectValue placeholder="Select Supplier" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-gray-100 shadow-2xl">
-                          {SUPPLIERS.map((s) => (
-                            <SelectItem key={s.name} value={s.name}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Item Description *
+                    </Label>
+                    <Input
+                      required
+                      value={newPO.description}
+                      onChange={(e) =>
+                        setNewPO({ ...newPO, description: e.target.value })
+                      }
+                      placeholder="e.g. Premium Silk Linens"
+                      className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium"
+                    />
                   </div>
-                  <p className="text-xs text-slate-400 italic">
-                    Connect to a procurement table to persist purchase orders.
-                  </p>
-                  <div className="flex items-center justify-end gap-6 pt-4">
-                    <button
-                      onClick={() => setIsPOModalOpen(false)}
-                      className="text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all"
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Preferred Supplier
+                    </Label>
+                    <Select
+                      value={newPO.supplier_id}
+                      onValueChange={(v) =>
+                        setNewPO({ ...newPO, supplier_id: v })
+                      }
                     >
-                      Discard Draft
-                    </button>
-                    <Button className="h-14 px-10 bg-[#0D2137] text-white manrope-bold rounded-xl shadow-xl hover:scale-[1.02] transition-all">
-                      Authorize Requisition
-                    </Button>
+                      <SelectTrigger className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium">
+                        <SelectValue placeholder="Select Supplier" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-gray-100 shadow-2xl">
+                        {suppliers.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Total Amount (FCFA)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newPO.total_minor}
+                      onChange={(e) =>
+                        setNewPO({ ...newPO, total_minor: e.target.value })
+                      }
+                      placeholder="0.00"
+                      className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Priority
+                    </Label>
+                    <Select
+                      value={newPO.priority}
+                      onValueChange={(v) => setNewPO({ ...newPO, priority: v })}
+                    >
+                      <SelectTrigger className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Department
+                    </Label>
+                    <Input
+                      value={newPO.department}
+                      onChange={(e) =>
+                        setNewPO({ ...newPO, department: e.target.value })
+                      }
+                      placeholder="e.g. Kitchen"
+                      className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium"
+                    />
                   </div>
                 </div>
-              </div>
+                <div className="flex items-center justify-end gap-6 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsPOModalOpen(false)}
+                    className="text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all"
+                  >
+                    Discard Draft
+                  </button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="h-14 px-10 bg-[#0D2137] text-white manrope-bold rounded-xl shadow-xl hover:scale-[1.02] transition-all"
+                  >
+                    {submitting ? "Creating…" : "Authorize Requisition"}
+                  </Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Live alerts from DB */}
-        {alerts.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {alerts.map((a, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "bg-white p-5 rounded-2xl border border-l-4 flex items-center gap-5",
-                  a.priority === "high"
-                    ? "border-l-red-500"
-                    : "border-l-amber-500",
-                )}
-              >
-                <AlertCircle
-                  className={cn(
-                    "w-5 h-5 shrink-0",
-                    a.priority === "high" ? "text-red-500" : "text-amber-500",
-                  )}
-                />
-                <div>
-                  <p className="manrope-bold text-sm text-[#0D2137]">
-                    {a.item}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    {a.status}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Quick Stats Row ────────────────────────── */}
+        {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           {[
-            { label: "Pending Orders", value: "14", icon: <Clock className="w-5 h-5" />, alert: false },
-            { label: "In Transit", value: "08", icon: <Truck className="w-5 h-5" />, alert: false },
-            { label: "Low Stock Alerts", value: String(alerts.length), icon: <AlertCircle className="w-5 h-5 text-red-500" />, alert: true },
-            { label: "Monthly Spend", value: "$184k", icon: <ShoppingCart className="w-5 h-5" />, alert: false },
+            {
+              label: "Pending Approval",
+              value: String(kpis.pendingApproval),
+              icon: <Clock className="w-5 h-5" />,
+              alert: kpis.pendingApproval > 0,
+            },
+            {
+              label: "In Transit",
+              value: String(kpis.inTransit),
+              icon: <Truck className="w-5 h-5" />,
+              alert: false,
+            },
+            {
+              label: "Delivered This Month",
+              value: String(kpis.deliveredThisMonth),
+              icon: <CheckCircle2 className="w-5 h-5" />,
+              alert: false,
+            },
+            {
+              label: "Total Spend",
+              value: `$${(kpis.totalSpendMinor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              icon: <ShoppingCart className="w-5 h-5" />,
+              alert: false,
+            },
           ].map((card) => (
             <div
               key={card.label}
@@ -316,6 +408,7 @@ export default function ProcurementClient({ alerts, error }: Props) {
 
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-8">
+            {/* Tab + Filters */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 px-2">
               <div className="flex bg-white/50 p-1 rounded-xl border border-gray-100">
                 <button
@@ -341,7 +434,6 @@ export default function ProcurementClient({ alerts, error }: Props) {
                   Archive
                 </button>
               </div>
-
               <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
                 <Select
                   value={priorityFilter}
@@ -352,12 +444,12 @@ export default function ProcurementClient({ alerts, error }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="Urgent">Urgent</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
-
                 <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl p-1 px-3 shadow-sm h-12 w-full sm:w-auto">
                   <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
                   <input
@@ -378,14 +470,11 @@ export default function ProcurementClient({ alerts, error }: Props) {
                     className="bg-transparent text-[10px] font-bold text-[#0D2137] outline-none w-28"
                   />
                   {(dateFilter.from || dateFilter.to) && (
-                    <button
-                      onClick={() => setDateFilter({ from: "", to: "" })}
-                    >
+                    <button onClick={() => setDateFilter({ from: "", to: "" })}>
                       <X className="w-3 h-3 text-gray-300 hover:text-red-500" />
                     </button>
                   )}
                 </div>
-
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
@@ -398,70 +487,87 @@ export default function ProcurementClient({ alerts, error }: Props) {
               </div>
             </div>
 
+            {/* Orders list */}
             <div className="space-y-4">
-              {filteredOrders.map((po) => (
-                <div
-                  key={po.id}
-                  className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden"
-                >
-                  <div className="flex items-center gap-6">
+              {(activeTab === "orders" ? activeOrders : archivedOrders).map(
+                (po) => {
+                  const nextStatus = STATUS_NEXT[po.status];
+                  return (
                     <div
-                      className={cn(
-                        "w-14 h-14 rounded-2xl flex items-center justify-center border-2",
-                        po.status === "Delivered"
-                          ? "bg-green-50 border-green-100 text-green-600"
-                          : po.status === "In Transit"
-                            ? "bg-blue-50 border-blue-100 text-blue-600"
-                            : "bg-amber-50 border-amber-100 text-amber-600",
-                      )}
+                      key={po.id}
+                      className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden"
                     >
-                      {po.status === "Delivered" ? (
-                        <CheckCircle2 className="w-6 h-6" />
-                      ) : po.status === "In Transit" ? (
-                        <Truck className="w-6 h-6" />
-                      ) : (
-                        <Clock className="w-6 h-6" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h4 className="manrope-bold text-base text-[#0D2137]">
-                          {po.item}
-                        </h4>
-                        <Badge
+                      <div className="flex items-center gap-6">
+                        <div
                           className={cn(
-                            "text-[8px] font-black uppercase tracking-widest border-0",
-                            po.priority === "Urgent"
-                              ? "bg-red-50 text-red-500"
-                              : po.priority === "High"
-                                ? "bg-amber-50 text-amber-600"
-                                : "bg-gray-50 text-gray-400",
+                            "w-14 h-14 rounded-2xl flex items-center justify-center border-2",
+                            po.status === "delivered"
+                              ? "bg-green-50 border-green-100 text-green-600"
+                              : po.status === "in_transit"
+                                ? "bg-blue-50 border-blue-100 text-blue-600"
+                                : po.status === "cancelled"
+                                  ? "bg-gray-50 border-gray-100 text-gray-400"
+                                  : "bg-amber-50 border-amber-100 text-amber-600",
                           )}
                         >
-                          {po.priority}
-                        </Badge>
+                          {po.status === "delivered" ? (
+                            <CheckCircle2 className="w-6 h-6" />
+                          ) : po.status === "in_transit" ? (
+                            <Truck className="w-6 h-6" />
+                          ) : (
+                            <Clock className="w-6 h-6" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <h4 className="manrope-bold text-base text-[#0D2137]">
+                              {po.description}
+                            </h4>
+                            <Badge
+                              className={cn(
+                                "text-[8px] font-black uppercase tracking-widest border-0",
+                                po.priority === "urgent"
+                                  ? "bg-red-50 text-red-500"
+                                  : po.priority === "high"
+                                    ? "bg-amber-50 text-amber-600"
+                                    : "bg-gray-50 text-gray-400",
+                              )}
+                            >
+                              {po.priority}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {po.po_number} · {po.supplier_name ?? "No supplier"}{" "}
+                            · {STATUS_LABELS[po.status] ?? po.status}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        {po.id} · {po.supplier}
-                      </p>
+                      <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <p className="manrope-bold text-lg text-[#0D2137]">
+                            ${(po.total_minor / 100).toLocaleString()}
+                          </p>
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                            {new Date(po.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {nextStatus && (
+                          <button
+                            onClick={() =>
+                              handleAdvanceStatus(po.id, nextStatus)
+                            }
+                            className="h-10 px-4 rounded-xl bg-[#0D2137] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0D2137]/80 transition-all"
+                          >
+                            → {STATUS_LABELS[nextStatus]}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-10 w-full sm:w-auto justify-between sm:justify-end">
-                    <div className="text-right">
-                      <p className="manrope-bold text-lg text-[#0D2137]">
-                        ${po.amount.toLocaleString()}
-                      </p>
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                        {po.date}
-                      </p>
-                    </div>
-                    <button className="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center text-slate-300 hover:text-[#0D2137] hover:bg-gray-100 transition-all border border-gray-100">
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {filteredOrders.length === 0 && (
+                  );
+                },
+              )}
+              {(activeTab === "orders" ? activeOrders : archivedOrders)
+                .length === 0 && (
                 <div className="bg-white p-20 rounded-[2rem] border border-dashed border-gray-200 text-center text-slate-400 manrope-bold italic">
                   No logistical records found matching your parameters.
                 </div>
@@ -470,6 +576,7 @@ export default function ProcurementClient({ alerts, error }: Props) {
           </div>
 
           <div className="lg:col-span-4 space-y-10">
+            {/* Suppliers */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 space-y-8">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -480,14 +587,11 @@ export default function ProcurementClient({ alerts, error }: Props) {
                     Preferred Vendors
                   </p>
                 </div>
-                <button className="p-2 bg-gray-50 rounded-lg text-[#0D2137] hover:bg-[#0D2137] hover:text-white transition-all">
-                  <Plus className="w-4 h-4" />
-                </button>
               </div>
               <div className="space-y-6">
-                {SUPPLIERS.map((sup) => (
+                {suppliers.slice(0, 5).map((sup) => (
                   <div
-                    key={sup.name}
+                    key={sup.id}
                     className="flex items-center justify-between group cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
@@ -503,34 +607,51 @@ export default function ProcurementClient({ alerts, error }: Props) {
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black text-[#E8924A]">
-                        {sup.rating} ★
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-300 uppercase">
-                        {sup.activeOrders} Active
-                      </span>
-                    </div>
+                    <span className="text-[10px] font-black text-[#E8924A]">
+                      {sup.rating > 0 ? `${sup.rating} ★` : "—"}
+                    </span>
                   </div>
                 ))}
+                {suppliers.length === 0 && (
+                  <p className="text-sm text-slate-400 italic">
+                    No suppliers yet.
+                  </p>
+                )}
               </div>
             </div>
 
+            {/* Budget bars */}
             <div className="bg-[#0D2137] rounded-3xl p-8 text-white shadow-2xl space-y-8 relative overflow-hidden">
               <h3 className="manrope-bold text-lg">Supply Budget</h3>
               <div className="space-y-6 relative z-10">
-                <BudgetProgress
-                  label="Food & Beverage"
-                  current={85000}
-                  total={120000}
-                  color="#E8924A"
-                />
-                <BudgetProgress
-                  label="Housekeeping"
-                  current={42000}
-                  total={50000}
-                  color="#1D61FF"
-                />
+                {budgets.length > 0 ? (
+                  budgets.map((b) => (
+                    <BudgetProgress
+                      key={b.id}
+                      label={b.department}
+                      current={
+                        kpis.totalSpendMinor / Math.max(budgets.length, 1)
+                      }
+                      total={b.budget_minor}
+                      color="#E8924A"
+                    />
+                  ))
+                ) : (
+                  <>
+                    <BudgetProgress
+                      label="Food & Beverage"
+                      current={0}
+                      total={12000000}
+                      color="#E8924A"
+                    />
+                    <BudgetProgress
+                      label="Housekeeping"
+                      current={0}
+                      total={5000000}
+                      color="#1D61FF"
+                    />
+                  </>
+                )}
               </div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
             </div>

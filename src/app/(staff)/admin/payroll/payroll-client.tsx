@@ -1,27 +1,23 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Download,
   Filter,
-  RefreshCcw,
   CheckCircle2,
   Search,
-  Wallet,
+  Edit2,
+  Banknote,
+  Calendar,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -29,91 +25,294 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { PayrollRow } from "@/lib/data/admin";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { formatMoneyMinor } from "@/lib/currency";
+import type {
+  PayrollRun,
+  PayrollItem,
+  PayoutReadiness,
+} from "@/lib/data/payroll";
 
 interface Props {
-  rows: PayrollRow[];
-  staffCount: number;
+  runs: PayrollRun[];
+  items: PayrollItem[];
+  payoutReadiness: PayoutReadiness[];
   error: string | null;
 }
 
-export default function PayrollClient({ rows, staffCount, error }: Props) {
-  const [payPeriod, setPayPeriod] = useState("current");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState({
-    label: "Draft Pending Approval",
-    color: "bg-[#E8924A]",
-  });
-  const [roleFilter, setRoleFilter] = useState("all");
+export default function PayrollClient({
+  runs,
+  items: initialItems,
+  payoutReadiness,
+  error,
+}: Props) {
+  const router = useRouter();
+  const [selectedRunId, setSelectedRunId] = useState(runs[0]?.id || "");
+  const [items, setItems] = useState(initialItems);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
-
-  const uniqueRoles = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.role))).sort(),
-    [rows],
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().split("T")[0],
   );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [editingItem, setEditingItem] = useState<PayrollItem | null>(null);
+  const [editGross, setEditGross] = useState("");
+  const [editDeductions, setEditDeductions] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
-  const grossTotal = rows.reduce((sum, r) => sum + r.gross, 0);
+  const selectedRun = runs.find((r) => r.id === selectedRunId);
 
-  const filteredRows = useMemo(
+  // Payout readiness map
+  const payoutMap = useMemo(() => {
+    const map: Record<string, PayoutReadiness> = {};
+    payoutReadiness.forEach((p) => {
+      map[p.staff_id] = p;
+    });
+    return map;
+  }, [payoutReadiness]);
+
+  const configuredCount = payoutReadiness.filter((p) => p.has_payout).length;
+
+  const filteredItems = useMemo(
     () =>
-      rows.filter((r) => {
+      items.filter((item) => {
         const q = searchQuery.toLowerCase();
-        const matchSearch =
+        return (
           !searchQuery ||
-          r.name.toLowerCase().includes(q) ||
-          r.id.toLowerCase().includes(q) ||
-          r.role.toLowerCase().includes(q);
-        const matchRole = roleFilter === "all" || r.role === roleFilter;
-        return matchSearch && matchRole;
+          item.staff?.full_name.toLowerCase().includes(q) ||
+          item.staff?.email.toLowerCase().includes(q) ||
+          item.staff?.role.toLowerCase().includes(q)
+        );
       }),
-    [rows, roleFilter, searchQuery],
+    [items, searchQuery],
   );
+
+  const handleRunChange = async (runId: string) => {
+    setSelectedRunId(runId);
+    setSelectedItems(new Set());
+
+    // Fetch items for this run
+    const res = await fetch(`/api/admin/payroll/runs/${runId}/items`);
+    if (res.ok) {
+      const data = await res.json();
+      setItems(data.items || []);
+    }
+  };
+
+  const handleGenerateRun = async () => {
+    setIsGenerating(true);
+    try {
+      const now = new Date();
+      const periodLabel = `${now.toLocaleString("default", { month: "long" })} ${now.getFullYear()}`;
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        .toISOString()
+        .split("T")[0];
+
+      const res = await fetch("/api/admin/payroll/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          period_label: periodLabel,
+          period_start: periodStart,
+          period_end: periodEnd,
+        }),
+      });
+
+      if (res.ok) {
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleApproveRun = async () => {
+    if (!selectedRun) return;
+
+    const res = await fetch(`/api/admin/payroll/runs/${selectedRun.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const data = await res.json();
+      alert(`Error: ${data.error}`);
+    }
+  };
+
+  const handleEditItem = (item: PayrollItem) => {
+    setEditingItem(item);
+    setEditGross((item.gross_minor / 100).toFixed(2));
+    setEditDeductions((item.deductions_minor / 100).toFixed(2));
+    setEditNotes(item.notes || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+
+    const gross_minor = Math.round(parseFloat(editGross) * 100);
+    const deductions_minor = Math.round(parseFloat(editDeductions) * 100);
+
+    const res = await fetch(`/api/admin/payroll/items/${editingItem.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gross_minor, deductions_minor, notes: editNotes }),
+    });
+
+    if (res.ok) {
+      setEditingItem(null);
+      router.refresh();
+    } else {
+      const data = await res.json();
+      alert(`Error: ${data.error}`);
+    }
+  };
+
+  const handleBulkPay = async () => {
+    if (selectedItems.size === 0) return;
+
+    setIsPaying(true);
+    try {
+      const res = await fetch("/api/admin/payroll/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemIds: Array.from(selectedItems),
+          payment_date: paymentDate,
+        }),
+      });
+
+      if (res.ok) {
+        setSelectedItems(new Set());
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
+      }
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   const handleExportCSV = () => {
-    const headers = ["Name", "Role", "Department", "Gross Salary", "Net Pay"];
-    const csvRows = filteredRows.map((r) => [
-      r.name,
-      r.role,
-      r.department || "",
-      r.gross.toFixed(2),
-      r.net.toFixed(2),
+    const headers = [
+      "Name",
+      "Role",
+      "Department",
+      "Gross (FCFA)",
+      "Deductions (FCFA)",
+      "Net (FCFA)",
+      "Status",
+      "Paid Date",
+    ];
+    const csvRows = filteredItems.map((item) => [
+      item.staff?.full_name || "",
+      item.staff?.role || "",
+      item.staff?.department || "",
+      (item.gross_minor / 100).toFixed(0),
+      (item.deductions_minor / 100).toFixed(0),
+      (item.net_minor / 100).toFixed(0),
+      item.payment_status,
+      item.paid_at || "",
     ]);
-    const csv = [
-      headers.join(","),
-      ...csvRows.map((r) => r.join(",")),
-    ].join("\n");
+    const csv = [headers.join(","), ...csvRows.map((r) => r.join(","))].join(
+      "\n",
+    );
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Jagamn_Payroll_${payPeriod.toUpperCase()}.csv`);
+    link.setAttribute(
+      "download",
+      `Jagamn_Payroll_${selectedRun?.period_label || "Export"}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleGeneratePayroll = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setCurrentStatus({
-        label: "Computation Finalized",
-        color: "bg-green-500",
-      });
-    }, 2000);
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredItems.map((i) => i.id)));
+    }
+  };
+
+  const toggleSelectItem = (id: string) => {
+    const newSet = new Set(selectedItems);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedItems(newSet);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { label: string; className: string }> = {
+      draft: { label: "Draft", className: "bg-gray-100 text-gray-700" },
+      approved: { label: "Approved", className: "bg-green-100 text-green-700" },
+      closed: { label: "Closed", className: "bg-blue-100 text-blue-700" },
+    };
+    const variant = variants[status] || variants.draft;
+    return (
+      <Badge
+        className={cn("text-[10px] font-black uppercase", variant.className)}
+      >
+        {variant.label}
+      </Badge>
+    );
+  };
+
+  const getPaymentStatusBadge = (status: string) => {
+    const variants: Record<string, { label: string; className: string }> = {
+      unpaid: { label: "Unpaid", className: "bg-gray-100 text-gray-700" },
+      processing: {
+        label: "Processing",
+        className: "bg-yellow-100 text-yellow-700",
+      },
+      paid: { label: "Paid", className: "bg-green-100 text-green-700" },
+      failed: { label: "Failed", className: "bg-red-100 text-red-700" },
+    };
+    const variant = variants[status] || variants.unpaid;
+    return (
+      <Badge
+        className={cn("text-[10px] font-black uppercase", variant.className)}
+      >
+        {variant.label}
+      </Badge>
+    );
   };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
       <div className="mx-auto pt-8 md:pt-12 space-y-8 md:space-y-12 px-4 md:px-0">
-
-        {/* ── Header ─────────────────────────────────── */}
+        {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">
             <p className="text-[10px] font-black text-[#0D2137]/40 uppercase tracking-[0.4em]">
               Financial Suite
             </p>
             <h1 className="manrope-bold text-3xl md:text-5xl text-[#0D2137] tracking-tight">
-              Payroll Computation
+              Payroll Management
             </h1>
             {error && (
               <p className="text-red-500 text-sm font-medium">{error}</p>
@@ -122,73 +321,72 @@ export default function PayrollClient({ rows, staffCount, error }: Props) {
 
           <div className="flex flex-col gap-2 w-full lg:w-auto">
             <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest text-center lg:text-right">
-              Pay Period
+              Payroll Run
             </p>
-            <Select value={payPeriod} onValueChange={setPayPeriod}>
-              <SelectTrigger className="w-full lg:w-[220px] h-12 bg-white border-gray-100 rounded-xl shadow-sm manrope-bold text-sm text-[#0D2137]">
-                <SelectValue placeholder="Select Period" />
+            <Select value={selectedRunId} onValueChange={handleRunChange}>
+              <SelectTrigger className="w-full lg:w-[280px] h-12 bg-white border-gray-100 rounded-xl shadow-sm manrope-bold text-sm text-[#0D2137]">
+                <SelectValue placeholder="Select Run" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-gray-100 shadow-2xl">
-                <SelectItem value="current" className="manrope-bold">
-                  Current Period
-                </SelectItem>
-                <SelectItem value="last-month" className="manrope-bold">
-                  Last Month
-                </SelectItem>
+                {runs.map((run) => (
+                  <SelectItem
+                    key={run.id}
+                    value={run.id}
+                    className="manrope-bold"
+                  >
+                    {run.period_label} {getStatusBadge(run.status)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* ── Stats Grid ─────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-          <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-[#0D2137] hover:shadow-md transition-all">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-[#0D2137]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-              Total Gross Payroll
+              Gross Total
             </p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="manrope-bold text-4xl text-[#0D2137] tracking-tight">
-                ${(grossTotal / 12).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </h3>
-              <span className="text-slate-400 font-bold text-sm">/mo</span>
-            </div>
+            <h3 className="manrope-bold text-3xl text-[#0D2137] tracking-tight">
+              {selectedRun
+                ? formatMoneyMinor(selectedRun.gross_total_minor)
+                : "—"}
+            </h3>
           </div>
-          <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-[#E8924A] hover:shadow-md transition-all">
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-[#E8924A]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-              Staff Count
+              Net Total
             </p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="manrope-bold text-4xl text-[#0D2137] tracking-tight">
-                {staffCount}
-              </h3>
-              <span className="text-slate-400 font-bold text-sm">
-                Active Employees
-              </span>
-            </div>
+            <h3 className="manrope-bold text-3xl text-[#0D2137] tracking-tight">
+              {selectedRun
+                ? formatMoneyMinor(selectedRun.net_total_minor)
+                : "—"}
+            </h3>
+          </div>
+          <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-green-500">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+              Payout Accounts
+            </p>
+            <h3 className="manrope-bold text-2xl text-[#0D2137] tracking-tight">
+              {configuredCount} / {payoutReadiness.length}
+            </h3>
           </div>
           <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-slate-400">
-            <p className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-4">
-              Computation Status
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+              Run Status
             </p>
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-3 h-3 rounded-full animate-pulse",
-                  currentStatus.color,
-                )}
-              />
-              <h3 className="manrope-bold text-xl md:text-2xl text-[#0D2137] tracking-tight">
-                {currentStatus.label}
-              </h3>
+            <div className="mt-2">
+              {selectedRun ? getStatusBadge(selectedRun.status) : "—"}
             </div>
           </div>
         </div>
 
-        {/* ── Table Section ──────────────────────────── */}
+        {/* Table Section */}
         <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-6 md:p-8 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="manrope-bold text-lg md:text-xl text-[#0D2137]">
-              Payroll Summary Table
+              Payroll Items
             </h2>
             <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -196,52 +394,10 @@ export default function PayrollClient({ rows, staffCount, error }: Props) {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ledger..."
+                  placeholder="Search staff..."
                   className="h-10 bg-gray-50 border-gray-100 rounded-xl pl-10 text-[10px] font-black uppercase tracking-widest shadow-sm"
                 />
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "w-10 h-10 rounded-xl transition-all shrink-0",
-                      roleFilter !== "all"
-                        ? "bg-jagamn-primary text-white shadow-lg"
-                        : "text-slate-400 hover:text-[#0D2137] hover:bg-gray-50",
-                    )}
-                  >
-                    <Filter className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 rounded-xl border-gray-100 shadow-2xl">
-                  <DropdownMenuLabel className="manrope-bold text-[10px] uppercase tracking-widest text-slate-400 p-4 pb-2">
-                    Filter by Role
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={roleFilter}
-                    onValueChange={setRoleFilter}
-                  >
-                    <DropdownMenuRadioItem
-                      value="all"
-                      className="manrope-bold text-sm"
-                    >
-                      All Roles
-                    </DropdownMenuRadioItem>
-                    {uniqueRoles.map((role) => (
-                      <DropdownMenuRadioItem
-                        key={role}
-                        value={role}
-                        className="manrope-bold text-sm"
-                      >
-                        {role}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
               <Button
                 onClick={handleExportCSV}
                 variant="ghost"
@@ -254,85 +410,129 @@ export default function PayrollClient({ rows, staffCount, error }: Props) {
           </div>
 
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left" style={{ minWidth: 800 }}>
+            <table className="w-full text-left" style={{ minWidth: 1000 }}>
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-50">
+                  <th className="px-6 md:px-8 py-5 w-12">
+                    <Checkbox
+                      checked={
+                        selectedItems.size === filteredItems.length &&
+                        filteredItems.length > 0
+                      }
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
                   <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Staff Name
+                    Staff
+                  </th>
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
+                    Gross
+                  </th>
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
+                    Deductions
+                  </th>
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
+                    Net
                   </th>
                   <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
-                    Role
+                    Status
                   </th>
-                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
-                    Annual Salary
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
+                    Payout
                   </th>
-                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
-                    Monthly Gross
-                  </th>
-                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
-                    Monthly Net
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredRows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="group hover:bg-gray-50/50 transition-colors cursor-pointer"
-                  >
-                    <td className="px-6 md:px-8 py-5 md:py-6">
-                      <div className="flex items-center gap-3 md:gap-4">
-                        <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-gray-100">
-                          <AvatarFallback className="text-[10px] font-black text-[#0D2137]">
-                            {r.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <span className="manrope-bold text-sm md:text-base text-[#0D2137] block">
-                            {r.name}
-                          </span>
-                          {r.department && (
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                              {r.department}
+                {filteredItems.map((item) => {
+                  const payout = payoutMap[item.staff_id];
+                  return (
+                    <tr
+                      key={item.id}
+                      className="group hover:bg-gray-50/50 transition-colors"
+                    >
+                      <td className="px-6 md:px-8 py-5">
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={() => toggleSelectItem(item.id)}
+                        />
+                      </td>
+                      <td className="px-6 md:px-8 py-5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8 border border-gray-100">
+                            {item.staff?.avatar_url && (
+                              <AvatarImage src={item.staff.avatar_url} />
+                            )}
+                            <AvatarFallback className="text-[10px] font-black">
+                              {item.staff?.full_name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <span className="manrope-bold text-sm text-[#0D2137] block">
+                              {item.staff?.full_name}
                             </span>
-                          )}
+                            <span className="text-[9px] font-black text-slate-400 uppercase">
+                              {item.staff?.role}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 md:px-8 py-5 md:py-6 text-center">
-                      <span className="text-xs md:text-sm font-medium text-slate-400">
-                        {r.role}
-                      </span>
-                    </td>
-                    <td className="px-6 md:px-8 py-5 md:py-6 text-right">
-                      <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        ${r.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td className="px-6 md:px-8 py-5 md:py-6 text-right">
-                      <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        ${(r.gross / 12).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td className="px-6 md:px-8 py-5 md:py-6 text-right">
-                      <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        ${(r.net / 12).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {filteredRows.length === 0 && (
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-right">
+                        <span className="manrope-bold text-sm text-[#0D2137]">
+                          {formatMoneyMinor(item.gross_minor)}
+                        </span>
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-right">
+                        <span className="manrope-bold text-sm text-[#0D2137]">
+                          {formatMoneyMinor(item.deductions_minor)}
+                        </span>
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-right">
+                        <span className="manrope-bold text-sm text-[#0D2137]">
+                          {formatMoneyMinor(item.net_minor)}
+                        </span>
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-center">
+                        {getPaymentStatusBadge(item.payment_status)}
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-center">
+                        {payout?.has_payout ? (
+                          <Badge className="bg-green-100 text-green-700 text-[9px]">
+                            {payout.method} ✓
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-100 text-red-700 text-[9px]">
+                            Not set
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-6 md:px-8 py-5 text-center">
+                        <Button
+                          onClick={() => handleEditItem(item)}
+                          variant="ghost"
+                          size="icon"
+                          className="w-8 h-8 rounded-lg"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={8}
                       className="px-8 py-20 text-center text-slate-400 manrope-bold italic"
                     >
-                      {rows.length === 0
-                        ? "No staff salary data available yet."
-                        : "No payroll records match your current filters."}
+                      {items.length === 0
+                        ? "No payroll items for this run."
+                        : "No items match your search."}
                     </td>
                   </tr>
                 )}
@@ -342,35 +542,107 @@ export default function PayrollClient({ rows, staffCount, error }: Props) {
 
           <div className="p-6 md:p-8 bg-gray-50/30 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs font-bold text-slate-400">
-              Showing{" "}
-              <span className="text-[#0D2137]">
-                {filteredRows.length > 0 ? "1" : "0"}–{filteredRows.length}
-              </span>{" "}
-              of{" "}
-              <span className="text-[#0D2137]">{rows.length}</span> staff
-              members
+              Showing {filteredItems.length} of {items.length} items
             </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="h-10 w-40 text-sm"
+                />
+              </div>
+              <Button
+                onClick={handleBulkPay}
+                disabled={selectedItems.size === 0 || isPaying}
+                className="h-10 px-6 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Banknote className="w-4 h-4 mr-2" />
+                Pay Selected ({selectedItems.size})
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* ── Footer Actions ─────────────────────────── */}
+        {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-end gap-4 md:gap-5">
           <Button
-            onClick={handleGeneratePayroll}
+            onClick={handleGenerateRun}
             disabled={isGenerating}
             variant="ghost"
-            className="w-full sm:w-auto h-14 md:h-16 px-8 md:px-10 rounded-2xl bg-[#0D2137]/5 text-[#0D2137] manrope-bold text-sm md:text-base flex items-center justify-center gap-3 transition-all hover:bg-[#0D2137]/10 disabled:opacity-50"
+            className="w-full sm:w-auto h-14 md:h-16 px-8 md:px-10 rounded-2xl bg-[#0D2137]/5 text-[#0D2137] manrope-bold text-sm md:text-base"
           >
-            <RefreshCcw
-              className={cn("w-5 h-5", isGenerating && "animate-spin")}
-            />
-            {isGenerating ? "Synchronizing..." : "Generate Payroll"}
+            <Plus className="w-5 h-5 mr-2" />
+            {isGenerating ? "Generating..." : "Generate New Run"}
           </Button>
-          <Button className="w-full sm:w-auto h-14 md:h-16 px-8 md:px-10 rounded-2xl bg-[#E8924A] hover:bg-[#E8924A]/90 text-white manrope-bold text-sm md:text-base flex items-center justify-center gap-3 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02]">
-            <CheckCircle2 className="w-5 h-5" /> Approve Payroll
-          </Button>
+          {selectedRun?.status === "draft" && (
+            <Button
+              onClick={handleApproveRun}
+              className="w-full sm:w-auto h-14 md:h-16 px-8 md:px-10 rounded-2xl bg-[#E8924A] hover:bg-[#E8924A]/90 text-white manrope-bold"
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Approve Run
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Payroll Item</DialogTitle>
+            <DialogDescription>
+              Adjust gross, deductions, or add notes for{" "}
+              {editingItem?.staff?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Gross (FCFA)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editGross}
+                onChange={(e) => setEditGross(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Deductions (FCFA)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editDeductions}
+                onChange={(e) => setEditDeductions(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Input
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Optional notes"
+              />
+            </div>
+            <div className="text-sm text-slate-500">
+              Net:{" "}
+              {formatMoneyMinor(
+                Math.round(
+                  (parseFloat(editGross) - parseFloat(editDeductions)) * 100,
+                ),
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingItem(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -40,8 +40,8 @@ export interface ConfirmResult {
  *                   Fapshi → `${transId}:SUCCESSFUL`
  * @param bookingRef The booking reference (JP-XXXX-YY)
  * @param transactionId  Provider transaction id (pi_xxx or fapshi transId)
- * @param amount     Amount paid (in the provider's currency unit)
- * @param currency   Currency code (e.g. "USD", "XAF")
+ * @param amount     Amount paid in XAF
+ * @param currency   Currency code (always "XAF")
  * @param paymentMethod  "card" | "mobile_money" | "orange_money"
  */
 export async function confirmBookingFromPayment({
@@ -111,7 +111,7 @@ export async function confirmBookingFromPayment({
       user_id: booking.user_id,
       app_user_id: booking.app_user_id,
       amount: amount ?? booking.total_amount,
-      currency: currency ?? (provider === "fapshi" ? "XAF" : "USD"),
+      currency: currency ?? "XAF",
       payment_method:
         paymentMethod ?? (provider === "fapshi" ? "mobile_money" : "card"),
       provider,

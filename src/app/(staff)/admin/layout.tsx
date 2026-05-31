@@ -17,14 +17,15 @@ import {
   Settings,
   LogOut,
   Search,
-  ChevronDown,
   Building2,
   TrendingUp,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { AccountButton } from "@/components/account/AccountPanel";
+import { SessionGuard } from "@/components/staff/session-guard";
 import {
   Tooltip,
   TooltipContent,
@@ -54,6 +55,7 @@ export default function AdminLayout({
   const [searchQuery, setSearchQuery] = useState("");
   const [staff, setStaff] = useState<{
     full_name: string;
+    email: string;
     role: string;
     avatar_url: string | null;
   } | null>(null);
@@ -187,7 +189,14 @@ export default function AdminLayout({
         </nav>
 
         {/* Bottom Section */}
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-white/5 space-y-2">
+          <AccountButton
+            isSidebarOpen={isSidebarOpen}
+            className={cn(
+              "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
+              isSidebarOpen ? "px-4" : "md:justify-center"
+            )}
+          />
           <button
             onClick={async () => {
               const supabase = (
@@ -252,9 +261,7 @@ export default function AdminLayout({
                   {staff?.full_name ?? "Admin Palace"}
                 </p>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                  {staff?.role
-                    ? staff.role.replace("_", " ")
-                    : "System Administrator"}
+                  {staff?.email ?? "admin@palace.com"}
                 </p>
               </div>
               <Avatar className="w-11 h-11 border-[2.5px] border-jagamn-tertiary p-0.5 shadow-sm">
@@ -271,7 +278,7 @@ export default function AdminLayout({
                           .map((part) => part[0])
                           .join("")
                           .slice(0, 2)
-                      : "AP"}
+                      : ""}
                   </AvatarFallback>
                 )}
               </Avatar>
@@ -284,5 +291,6 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+    </SessionGuard>
   );
 }

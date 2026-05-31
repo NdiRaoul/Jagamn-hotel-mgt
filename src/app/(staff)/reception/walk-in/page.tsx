@@ -26,6 +26,14 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface RoomOption {
   slug: string;
@@ -46,17 +54,21 @@ export default function WalkInBookingPage() {
   React.useEffect(() => {
     fetch("/api/rooms")
       .then((r) => r.json())
-      .then((data: { rooms?: { slug: string; name: string; price_per_night: number }[] }) => {
-        // map to RoomOption; available count comes from the summary view
-        const opts: RoomOption[] = (data.rooms ?? []).map((rt) => ({
-          slug: rt.slug,
-          name: rt.name,
-          available: 99, // availability checked server-side on submit
-          price: rt.price_per_night,
-        }));
-        setRooms(opts);
-        if (opts.length > 0) setSelectedRoom(opts[0].slug);
-      })
+      .then(
+        (data: {
+          rooms?: { slug: string; name: string; price_per_night: number }[];
+        }) => {
+          // map to RoomOption; available count comes from the summary view
+          const opts: RoomOption[] = (data.rooms ?? []).map((rt) => ({
+            slug: rt.slug,
+            name: rt.name,
+            available: 99, // availability checked server-side on submit
+            price: rt.price_per_night,
+          }));
+          setRooms(opts);
+          if (opts.length > 0) setSelectedRoom(opts[0].slug);
+        },
+      )
       .catch(() => {
         // fallback to empty — user can still fill form
       })
@@ -69,9 +81,7 @@ export default function WalkInBookingPage() {
   const [guestPhone, setGuestPhone] = useState("");
   const [guestCountry, setGuestCountry] = useState("US");
   const [guestIdNumber, setGuestIdNumber] = useState("");
-  const [checkIn, setCheckIn] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [checkIn, setCheckIn] = useState(new Date().toISOString().slice(0, 10));
   const [checkOut, setCheckOut] = useState(
     new Date(Date.now() + 86400000).toISOString().slice(0, 10),
   );
@@ -81,6 +91,10 @@ export default function WalkInBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const [cashDialog, setCashDialog] = useState<{ open: boolean; bookingId: string | null }>({ open: false, bookingId: null });
+  const [cashAmount, setCashAmount] = useState("");
+  const [processingCash, setProcessingCash] = useState(false);
+
   const selectedRoomData = rooms.find((r) => r.slug === selectedRoom);
   const nights = Math.max(
     1,
@@ -89,9 +103,8 @@ export default function WalkInBookingPage() {
     ),
   );
   const roomTotal = (selectedRoomData?.price ?? 0) * nights;
-  const resortFee = 150;
-  const tax = Math.round((roomTotal + resortFee) * 0.1);
-  const totalDue = roomTotal + resortFee + tax;
+  const tax = Math.round(roomTotal * 0.1);
+  const totalDue = roomTotal + tax;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +132,7 @@ export default function WalkInBookingPage() {
           guests: parseInt(guests, 10),
           payment_method: paymentMethod === "card" ? "card" : "cash",
           amount: totalDue * 100, // API expects minor units for Stripe; route handles conversion
-          currency: "usd",
+          currency: "xaf",
           clientIdempotencyKey: idempotencyKey,
         }),
       });
@@ -130,9 +143,12 @@ export default function WalkInBookingPage() {
         return;
       }
 
-      router.push(
-        `/reception/check-in/success?id=${data.bookingId}`,
-      );
+      if (paymentMethod === "cash") {
+        setCashAmount((totalDue).toString());
+        setCashDialog({ open: true, bookingId: data.bookingId });
+      } else {
+        router.push(`/reception/check-in/success?id=${data.bookingId}`);
+      }
     } catch {
       setFormError("Network error — please try again.");
     } finally {
@@ -390,12 +406,7 @@ export default function WalkInBookingPage() {
                 ${tax.toFixed(2)}
               </p>
             </div>
-            <div className="flex justify-between items-center py-2 border-t border-gray-50 pb-6">
-              <p className="text-sm font-medium text-gray-600">Resort Fee</p>
-              <p className="manrope-bold text-lg text-[#00152A]">
-                ${resortFee.toFixed(2)}
-              </p>
-            </div>
+            {/* Resort fee removed per pricing changes */}
             <div className="pt-6 border-t border-gray-200 flex justify-between items-end">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                 Total Due
@@ -454,6 +465,64 @@ export default function WalkInBookingPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={cashDialog.open} onOpenChange={(open) => !open && setCashDialog({ open: false, bookingId: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Cash Payment</DialogTitle>
+            <DialogDescription>
+              Enter the amount of cash received from the guest for this booking.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Amount Received (XAF)</Label>
+              <Input
+                type="number"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/reception/check-in/success?id=${cashDialog.bookingId}`)}
+              disabled={processingCash}
+            >
+              Skip for Now
+            </Button>
+            <Button
+              disabled={processingCash || !cashAmount || Number(cashAmount) <= 0}
+              onClick={async () => {
+                setProcessingCash(true);
+                try {
+                  const res = await fetch("/api/reception/cash-payment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      booking_id: cashDialog.bookingId,
+                      amount_minor: Number(cashAmount), // XAF has no minor units basically for Stripe, but backend assumes amount_minor for folio
+                      description: "Walk-in Initial Cash Payment",
+                    }),
+                  });
+                  if (res.ok) {
+                    router.push(`/reception/check-in/success?id=${cashDialog.bookingId}`);
+                  } else {
+                    const data = await res.json();
+                    alert(`Error: ${data.error}`);
+                  }
+                } finally {
+                  setProcessingCash(false);
+                }
+              }}
+            >
+              {processingCash ? "Processing..." : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

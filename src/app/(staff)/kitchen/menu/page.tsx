@@ -1,13 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
-import { MENU_ITEMS, type MenuItem } from "@/lib/kitchen-mock-data";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Star, Download, Plus, Edit3 } from "lucide-react";
-import Image from "next/image";
+import { Star, Plus, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { MenuItem } from "@/lib/data/menu";
 
-// ── Toggle Switch ──────────────────────────────────────────────────────────
+interface MenuCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
 function ToggleSwitch({
   enabled,
   onChange,
@@ -33,266 +52,315 @@ function ToggleSwitch({
   );
 }
 
-// ── Large Card ─────────────────────────────────────────────────────────────
-function LargeMenuCard({
-  item,
-  onToggle,
-}: {
-  item: MenuItem;
-  onToggle: (id: string) => void;
-}) {
-  const isAvailable = item.available;
-
-  return (
-    <div
-      className={cn(
-        "bg-white rounded-xl shadow-sm flex transition-all duration-300 p-5 gap-6",
-        isAvailable
-          ? "border-l-4 border-l-jagamn-primary"
-          : "border-l-4 border-l-[#94A3B8]",
-      )}
-    >
-      {/* Image Container with Padding */}
-      <div className="relative w-44 h-44 flex-shrink-0">
-        <div className="w-full h-full rounded-xl overflow-hidden relative shadow-inner bg-gray-50">
-          <Image
-            src={item.image}
-            alt={item.name}
-            fill
-            className={cn(
-              "object-cover transition-all duration-300",
-              !isAvailable && "grayscale opacity-60",
-            )}
-          />
-          {/* Out of Stock overlay */}
-          {!isAvailable && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-              <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
-                Out of Stock
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col justify-between transition-opacity duration-300 py-1",
-          !isAvailable && "opacity-60",
-        )}
-      >
-        <div className="space-y-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest mb-1">
-                {item.category}
-              </p>
-              <h3 className="manrope-bold text-3xl text-jagamn-primary">
-                {item.name}
-              </h3>
-            </div>
-            <div className="flex flex-col items-end gap-1.5">
-              <ToggleSwitch
-                enabled={isAvailable}
-                onChange={() => onToggle(item.id)}
-              />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                {isAvailable ? "Available" : "Unavailable"}
-              </span>
-            </div>
-          </div>
-          <p className="text-sm text-gray-500 leading-relaxed max-w-md">
-            {item.description}
-          </p>
-        </div>
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          {item.ingredients.map((ing, i) => (
-            <span
-              key={i}
-              className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-gray-200"
-            >
-              {ing.label} (INVENTORY: {ing.amount})
-            </span>
-          ))}
-          {item.id === "wagyu-ribeye" && (
-            <span className="bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-gray-200">
-              +3 MORE
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Small Card ─────────────────────────────────────────────────────────────
-function SmallMenuCard({
-  item,
-  onToggle,
-}: {
-  item: MenuItem;
-  onToggle: (id: string) => void;
-}) {
-  const isAvailable = item.available;
-
-  return (
-    <div
-      className={cn(
-        "bg-white rounded-xl shadow-sm flex gap-4 p-4 items-start transition-all duration-300",
-        item.inventoryOk
-          ? "border-l-[4px] border-l-jagamn-primary"
-          : "border-l-[4px] border-l-[#EA580C]",
-        !isAvailable && "opacity-60",
-      )}
-    >
-      {/* Image */}
-      <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-gray-50">
-        <Image
-          src={item.image}
-          alt={item.name}
-          fill
-          className={cn(
-            "object-cover transition-all duration-300",
-            !isAvailable && "grayscale",
-          )}
-        />
-      </div>
-
-      <div className="flex-1 space-y-2 min-w-0">
-        <h3 className="manrope-bold text-lg text-jagamn-primary">
-          {item.name}
-        </h3>
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
-          {item.description}
-        </p>
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-              INVENTORY CHECK
-            </p>
-            <p
-              className={cn(
-                "text-xs font-bold",
-                item.inventoryOk ? "text-jagamn-primary" : "text-[#EA580C]",
-              )}
-            >
-              {item.inventoryStatus}
-            </p>
-          </div>
-          <ToggleSwitch
-            enabled={isAvailable}
-            onChange={() => onToggle(item.id)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function MenuManagementPage() {
-  const [items, setItems] = useState<MenuItem[]>(MENU_ITEMS);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    description: "",
+    price: "",
+    category_id: "",
+    image_url: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleToggle = (id: string) => {
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/kitchen/menu").then((r) => r.json()),
+      fetch("/api/admin/menu/categories").then((r) => r.json()),
+    ])
+      .then(([menuData, catData]) => {
+        setItems(menuData.items || []);
+        setCategories(catData.categories || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggle = async (id: string, current: boolean) => {
+    // Optimistic update
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              available: !item.available,
-              // When toggling off, set outOfStock; when toggling on, clear it
-              outOfStock: item.available ? true : false,
-            }
-          : item,
+        item.id === id ? { ...item, is_available: !current } : item,
       ),
     );
+    const res = await fetch(`/api/admin/menu/items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_available: !current }),
+    });
+    if (!res.ok) {
+      // Revert on failure
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, is_available: current } : item,
+        ),
+      );
+    }
   };
 
-  const largeItems = items.filter((i) => i.size === "large");
-  const smallItems = items.filter((i) => i.size === "small");
-  const mostRequested = items[0];
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const res = await fetch("/api/kitchen/menu", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newItem.name,
+        description: newItem.description || null,
+        price: parseFloat(newItem.price) || 0,
+        category_id: newItem.category_id || null,
+        image_url: newItem.image_url || null,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setItems((prev) => [...prev, data.item]);
+      setIsAddOpen(false);
+      setNewItem({
+        name: "",
+        description: "",
+        price: "",
+        category_id: "",
+        image_url: "",
+      });
+    }
+    setSubmitting(false);
+  };
+
+  const mostRequested = items.find((i) => i.is_special) ?? items[0];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-[#BA722E]" />
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 relative">
-      {/* ── Header ────────────────────────────── */}
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div>
           <h1 className="manrope-bold text-4xl text-[#00152A]">
             Menu Management
           </h1>
           <p className="text-gray-500 text-sm mt-1 max-w-md">
-            Curating the season's finest ingredients for the Palace's signature
-            dining experience.
+            Manage availability and add new items to the Palace dining menu.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="h-11 px-6 border-gray-200 text-[#00152A] font-bold hover:bg-gray-50 flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export Menu
-          </Button>
-          <Button className="h-11 px-6 bg-[#00152A] hover:bg-[#0A2038] text-white font-bold shadow-md flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Add New Item
-          </Button>
-        </div>
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="h-11 px-6 bg-[#00152A] hover:bg-[#0A2038] text-white font-bold shadow-md flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Add New Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md p-8 rounded-2xl">
+            <DialogTitle className="manrope-bold text-2xl text-[#00152A] mb-6">
+              Add Menu Item
+            </DialogTitle>
+            <form onSubmit={handleAddItem} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Name *
+                </Label>
+                <Input
+                  required
+                  value={newItem.name}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, name: e.target.value })
+                  }
+                  placeholder="e.g. Wagyu Ribeye"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Category
+                </Label>
+                <Select
+                  value={newItem.category_id}
+                  onValueChange={(value) =>
+                    setNewItem({ ...newItem, category_id: value })
+                  }
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Description
+                </Label>
+                <Input
+                  value={newItem.description}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, description: e.target.value })
+                  }
+                  placeholder="Short description"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Price (XAF) *
+                </Label>
+                <Input
+                  required
+                  type="number"
+                  min="0"
+                  value={newItem.price}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, price: e.target.value })
+                  }
+                  placeholder="0"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  Image URL
+                </Label>
+                <Input
+                  value={newItem.image_url}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, image_url: e.target.value })
+                  }
+                  placeholder="/images/dish.png"
+                  className="h-11"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsAddOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-[#00152A] text-white"
+                >
+                  {submitting ? "Adding…" : "Add Item"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* ── Main Grid ─────────────────────────── */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-        {/* Left: Menu List */}
-        <div className="xl:col-span-2 space-y-6">
-          {largeItems.map((item) => (
-            <LargeMenuCard key={item.id} item={item} onToggle={handleToggle} />
-          ))}
-          {smallItems.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {smallItems.map((item) => (
-                <SmallMenuCard
-                  key={item.id}
-                  item={item}
-                  onToggle={handleToggle}
-                />
-              ))}
+        {/* Menu List */}
+        <div className="xl:col-span-2 space-y-4">
+          {items.length === 0 ? (
+            <div className="bg-white rounded-xl border border-dashed border-gray-200 p-16 text-center text-gray-400 italic">
+              No menu items yet. Add your first item above.
             </div>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                className={cn(
+                  "bg-white rounded-xl shadow-sm flex gap-4 p-5 items-start transition-all duration-300 border-l-4",
+                  item.is_available
+                    ? "border-l-[#00152A]"
+                    : "border-l-[#94A3B8] opacity-70",
+                )}
+              >
+                <div className="flex-1 space-y-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      {item.category_name && (
+                        <p className="text-[10px] font-bold text-[#BA722E] uppercase tracking-widest mb-0.5">
+                          {item.category_name}
+                        </p>
+                      )}
+                      <h3 className="manrope-bold text-xl text-[#00152A]">
+                        {item.name}
+                      </h3>
+                      {item.description && (
+                        <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <ToggleSwitch
+                        enabled={item.is_available}
+                        onChange={() =>
+                          handleToggle(item.id, item.is_available)
+                        }
+                      />
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
+                        {item.is_available ? "Available" : "Unavailable"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <span className="manrope-bold text-lg text-[#00152A]">
+                      {item.currency} {item.price.toLocaleString()}
+                    </span>
+                    {item.is_special && (
+                      <span className="bg-[#BA722E]/10 text-[#BA722E] text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
+                        Special
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Right: Most Requested */}
+        {/* Most Requested */}
         <div className="xl:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center space-y-4 sticky top-0">
-            <Star className="w-8 h-8 text-jagamn-tertiary fill-jagamn-tertiary mx-auto" />
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Most Requested
-            </p>
-            <h2 className="manrope-bold text-3xl text-jagamn-primary leading-tight">
-              {mostRequested.name}
-            </h2>
-            {/* 85% satisfaction progress bar */}
-            <div className="space-y-2 pt-1">
-              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-jagamn-tertiary rounded-full"
-                  style={{ width: "85%" }}
-                />
-              </div>
+          {mostRequested && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center space-y-4 sticky top-0">
+              <Star className="w-8 h-8 text-[#BA722E] fill-[#BA722E] mx-auto" />
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                85% Guest Satisfaction Score
+                Featured Item
               </p>
+              <h2 className="manrope-bold text-2xl text-[#00152A] leading-tight">
+                {mostRequested.name}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {mostRequested.description}
+              </p>
+              <p className="manrope-bold text-xl text-[#BA722E]">
+                {mostRequested.currency} {mostRequested.price.toLocaleString()}
+              </p>
+              <div className="pt-2">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  {items.filter((i) => i.is_available).length} / {items.length}{" "}
+                  items available
+                </p>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#BA722E] rounded-full"
+                    style={{
+                      width: `${items.length > 0 ? (items.filter((i) => i.is_available).length / items.length) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
-
-      {/* ── Floating Action Button ─────────────── */}
-      <button className="fixed bottom-8 right-8 w-14 h-14 bg-[#00152A] hover:bg-[#0A2038] text-white rounded-2xl shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-50">
-        <Edit3 className="w-5 h-5" />
-      </button>
     </div>
   );
 }

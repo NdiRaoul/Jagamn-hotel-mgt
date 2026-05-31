@@ -7,7 +7,7 @@ export interface ArrivalRecord {
   guestName: string;
   roomType: string;
   checkIn: string;
-  status: "confirmed" | "completed" | "pending" | "cancelled";
+  status: "confirmed" | "checked_in" | "completed" | "pending" | "cancelled";
   paymentStatus: string;
   actionHref: string | null;
 }
@@ -91,7 +91,7 @@ export async function getDepartures(
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,room_slug,check_out,total_amount,payment_status,status",
+      "id,booking_ref,guest_name,room_slug,check_out,total_amount,payment_status,status,booking_folio_balance(paid_minor, balance_minor)",
     )
     .eq("check_out", date)
     .neq("status", "cancelled")
@@ -101,8 +101,9 @@ export async function getDepartures(
     throw error;
   }
 
-  return (data || []).map((booking: Booking) => {
-    const amountPaid = 0;
+  return (data || []).map((booking: any) => {
+    // If view not found/joined, fallback to 0 balance (e.g. legacy bookings)
+    const folio = booking.booking_folio_balance?.[0] || { balance_minor: 0, paid_minor: booking.total_amount * 100 };
     return {
       id: booking.id,
       bookingRef: booking.booking_ref,
@@ -111,7 +112,12 @@ export async function getDepartures(
       checkOut: booking.check_out,
       status: booking.status as DepartureRecord["status"],
       paymentStatus: booking.payment_status || "pending",
-      balanceDue: Math.max(0, booking.total_amount - amountPaid),
+      balanceDue: folio.balance_minor / 100, // keep the TS interface in XAF for UI, or we should use minor. The interface says `balanceDue: number`. We divide by 100 to get XAF if minor was XAF*100, but wait!
+      // "Stripe XAF is zero-decimal, so do NOT ×100".
+      // Let's assume balance_minor is stored as minor units but since currency is XAF, minor = XAF.
+      // Wait, prompt G says: "*_minor values are XAF×100." Let me re-read prompt G.
+      // "currency rule ... XAF only ... *_minor values are XAF×100. Stripe XAF is zero-decimal so do NOT x100"
+      // Wait, if *_minor = XAF*100, then balanceDue should be balance_minor / 100. Let's do that.
       actionHref:
         booking.status !== "completed"
           ? `/reception/departures/check-out/${booking.id}`

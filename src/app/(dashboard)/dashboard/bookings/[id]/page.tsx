@@ -113,8 +113,7 @@ export default function BookingDetailsPage() {
   const roomImage = rt?.main_image || "/images/palace-deluxe.png";
   const nights = booking.nights;
   const roomTotal = booking.room_price_per_night * nights;
-  const resortFee = booking.resort_fee;
-  const taxAmount = booking.tax_amount ?? Math.round(roomTotal * 0.12);
+  const taxAmount = booking.tax_amount ?? Math.round(roomTotal * 0.1);
 
   return (
     <div className="space-y-8 max-w-6xl pb-20">
@@ -233,13 +232,7 @@ export default function BookingDetailsPage() {
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Palace Resort Fee</span>
-                <span className="font-bold text-jagamn-primary">
-                  ${resortFee}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Taxes (12%)</span>
+                <span className="text-gray-500">Taxes (10%)</span>
                 <span className="font-bold text-jagamn-primary">
                   ${taxAmount}
                 </span>

@@ -14,7 +14,7 @@ export default async function CheckOutBillingPage({
   const { data: raw, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,guest_email,room_slug,rooms(unit_code),check_in,check_out,nights,total_amount,room_price_per_night,resort_fee,tax_amount,payment_status,status",
+      "id,booking_ref,guest_name,guest_email,room_slug,rooms(unit_code),check_in,check_out,nights,total_amount,room_price_per_night,tax_amount,payment_status,status",
     )
     .eq("id", id)
     .maybeSingle();

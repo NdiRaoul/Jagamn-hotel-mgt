@@ -16,14 +16,16 @@ import {
   Settings,
   HelpCircle,
   Search,
-  ChevronDown,
   Menu,
   LogOut,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AccountButton } from "@/components/account/AccountPanel";
+import { SessionGuard } from "@/components/staff/session-guard";
 import {
   Dialog,
   DialogTrigger,
@@ -45,11 +47,6 @@ const RECEPTION_NAV = [
   { label: "Transactions", icon: Receipt, href: "/reception/transactions" },
 ];
 
-const BOTTOM_NAV = [
-  { label: "Settings", icon: Settings, href: "/reception/settings" },
-  { label: "Help & Support", icon: HelpCircle, href: "/reception/help" },
-];
-
 export default function ReceptionLayout({
   children,
 }: {
@@ -61,6 +58,7 @@ export default function ReceptionLayout({
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [staff, setStaff] = useState<{
     full_name: string;
+    email: string;
     role: string;
     avatar_url: string | null;
   } | null>(null);
@@ -99,22 +97,11 @@ export default function ReceptionLayout({
       >
         {/* Logo & Portal Info */}
         <div className="p-8 pb-6 flex items-center gap-4 flex-shrink-0">
-          <div className="w-10 h-10 rounded-lg bg-[#BA722E] flex items-center justify-center flex-shrink-0">
-            <Avatar className="w-10 h-10 rounded-lg">
-              <AvatarImage
-                src="/images/avatar-staff.png"
-                className="object-cover"
-              />
-              <AvatarFallback>RF</AvatarFallback>
-            </Avatar>
+          <div className="w-10 h-10 rounded-lg bg-[#BA722E] flex items-center justify-center flex-shrink-0 font-bold text-white text-lg">
+            P
           </div>
-          {(isSidebarOpen || !isSidebarOpen) && (
-            <div
-              className={cn(
-                "min-w-0 transition-opacity",
-                isSidebarOpen ? "opacity-100" : "opacity-0 md:hidden",
-              )}
-            >
+          {isSidebarOpen && (
+            <div className="min-w-0">
               <h2 className="manrope-bold text-sm leading-tight truncate">
                 Palace Management
               </h2>
@@ -177,23 +164,33 @@ export default function ReceptionLayout({
         </nav>
 
         {/* Bottom Profile & Logout */}
-        <div className="mt-auto p-6 border-t border-white/5 flex-shrink-0">
+        <div className="mt-auto p-4 border-t border-white/5 flex-shrink-0 space-y-2">
+          <AccountButton
+            isSidebarOpen={isSidebarOpen}
+            className="flex items-center gap-4 w-full text-left group px-4 py-2 hover:bg-white/5 rounded-md transition-colors"
+          />
           <Dialog open={isLogoutOpen} onOpenChange={setIsLogoutOpen}>
             <DialogTrigger asChild>
               <button className="flex items-center gap-4 w-full text-left group">
                 <Avatar className="w-10 h-10 border-2 border-transparent group-hover:border-[#BA722E] transition-all flex-shrink-0">
-                  <AvatarImage src="/images/avatar-staff.png" />
+                  {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
                   <AvatarFallback className="bg-[#BA722E] text-white">
-                    SJ
+                    {staff?.full_name
+                      ? staff.full_name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                      : ""}
                   </AvatarFallback>
                 </Avatar>
                 {isSidebarOpen && (
                   <div className="min-w-0 transition-opacity opacity-100">
                     <p className="text-sm font-bold text-white truncate">
-                      Sarah Jenkins
+                      {staff?.full_name ?? "Reception Staff"}
                     </p>
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold truncate">
-                      Front Desk Mgr
+                      {staff?.email ?? "reception@palace.com"}
                     </p>
                   </div>
                 )}
@@ -234,7 +231,13 @@ export default function ReceptionLayout({
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => (window.location.href = "/staff-login")}
+                    onClick={async () => {
+                      const supabase = (
+                        await import("@/lib/supabase")
+                      ).createSupabaseBrowserClient();
+                      await supabase.auth.signOut();
+                      router.push("/staff-login");
+                    }}
                     className="bg-[#00152A] hover:bg-[#0A2038] text-white px-8 font-bold rounded-lg shadow-md"
                   >
                     Logout
@@ -299,16 +302,25 @@ export default function ReceptionLayout({
 
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-[#00152A]">Robert Fox</p>
+                <p className="text-sm font-bold text-[#00152A]">
+                  {staff?.full_name ?? "Reception Staff"}
+                </p>
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-                  Receptionist
+                  {staff?.email ?? "reception@palace.com"}
                 </p>
               </div>
               <Avatar className="w-10 h-10 border-2 border-gray-100">
-                <AvatarImage src="/images/avatar-staff.png" />
-                <AvatarFallback>RF</AvatarFallback>
+                {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
+                <AvatarFallback>
+                  {staff?.full_name
+                    ? staff.full_name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                    : ""}
+                </AvatarFallback>
               </Avatar>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
             </div>
           </div>
         </header>
@@ -317,5 +329,6 @@ export default function ReceptionLayout({
         <main className="flex-1 overflow-y-auto p-10">{children}</main>
       </div>
     </div>
+    </SessionGuard>
   );
 }

@@ -4,7 +4,7 @@ import {
   supabaseAdmin,
 } from "@/lib/supabase-server";
 
-const ADMIN_ROLES = ["admin", "manager"];
+const ADMIN_ROLES = ["owner", "admin", "manager"];
 
 async function requireAdmin(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -32,17 +32,19 @@ async function requireAdmin(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
   if (guard) return guard;
+
+  const p = await params;
 
   const { data, error } = await supabaseAdmin
     .from("staff")
     .select(
       "id,auth_user_id,full_name,email,role,status,avatar_url,created_at,updated_at",
     )
-    .eq("id", params.id)
+    .eq("id", p.id)
     .maybeSingle();
 
   if (error) {
@@ -62,10 +64,12 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
   if (guard) return guard;
+
+  const p = await params;
 
   const body = await request.json().catch(() => ({}));
   const { full_name, email, role, status, avatar_url } = body as Record<
@@ -90,7 +94,7 @@ export async function PATCH(
   const { data, error } = await supabaseAdmin
     .from("staff")
     .update(updatePayload)
-    .eq("id", params.id)
+    .eq("id", p.id)
     .select(
       "id,auth_user_id,full_name,email,role,status,avatar_url,created_at,updated_at",
     )
@@ -116,15 +120,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
   if (guard) return guard;
 
-  const { error } = await supabaseAdmin
-    .from("staff")
-    .delete()
-    .eq("id", params.id);
+  const p = await params;
+
+  const { error } = await supabaseAdmin.from("staff").delete().eq("id", p.id);
 
   if (error) {
     console.error("[admin/staff/id] delete failed:", error);

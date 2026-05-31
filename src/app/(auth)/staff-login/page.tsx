@@ -16,27 +16,37 @@ export default function StaffLoginPage() {
   const supabase = createSupabaseBrowserClient();
 
   const redirectTo = searchParams.get("redirect") || "";
+  const isTimeout = searchParams.get("timeout") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(isTimeout ? "Session expired due to inactivity. Please sign in again." : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allowedAdmin = ["admin", "manager"];
-  const allowedReception = ["admin", "manager", "receptionist", "front_desk"];
+  const portalFor = (role: string) =>
+    role === "owner"
+      ? "/superadmin"
+      : role === "admin" || role === "manager"
+        ? "/admin"
+        : role === "kitchen"
+          ? "/kitchen"
+          : role === "storekeeper"
+            ? "/admin/procurement"
+            : "/reception"; // reception
 
-  const getDefaultDestination = (role: string) =>
-    allowedAdmin.includes(role) ? "/admin" : "/reception";
-
-  const getAllowedRedirect = (role: string, path: string) => {
-    if (!path) return null;
-    if (path.startsWith("/admin")) {
-      return allowedAdmin.includes(role) ? path : null;
-    }
-    if (path.startsWith("/reception")) {
-      return allowedReception.includes(role) ? path : null;
-    }
-    return null;
-  };
+  const canVisit = (role: string, path: string) =>
+    role === "owner"
+      ? true
+      : path.startsWith("/superadmin")
+        ? false
+        : path.startsWith("/admin/procurement")
+          ? ["admin", "manager", "storekeeper"].includes(role)
+          : path.startsWith("/admin")
+            ? ["admin", "manager"].includes(role)
+            : path.startsWith("/kitchen")
+              ? role === "kitchen"
+              : path.startsWith("/reception")
+                ? ["admin", "manager", "reception"].includes(role)
+                : false;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,8 +82,9 @@ export default function StaffLoginPage() {
     }
 
     const destination =
-      getAllowedRedirect(staffData.role, redirectTo) ||
-      getDefaultDestination(staffData.role);
+      redirectTo && canVisit(staffData.role, redirectTo)
+        ? redirectTo
+        : portalFor(staffData.role);
     router.push(destination);
   }
   return (

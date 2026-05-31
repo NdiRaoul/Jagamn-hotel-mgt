@@ -10,8 +10,9 @@ export async function POST(request: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { transId, refundAmountUsd } = await request.json();
+  const { transId, refundAmountXaf } = await request.json();
 
+  // Fapshi is XAF-native - pass XAF directly (no conversion)
   const res = await fetch(`${process.env.FAPSHI_BASE_URL}/refund`, {
     method: "POST",
     headers: {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       transId,
-      amount: Math.round(refundAmountUsd * 615),
+      amount: Math.round(refundAmountXaf),
     }),
   });
 

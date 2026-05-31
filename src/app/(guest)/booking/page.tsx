@@ -32,6 +32,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { CountrySelect } from "@/components/ui/country-select";
 import { IdInput } from "@/components/ui/id-input";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import { getRoomBySlug } from "@/lib/data/rooms";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -84,7 +85,7 @@ function BookingContent() {
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const roomTotal = room ? room.price * nights : 0;
-  const tax = Math.round(roomTotal * 0.12);
+  const tax = Math.round(roomTotal * 0.1);
   const totalPrice = roomTotal + tax;
 
   // Pre-fill from session
@@ -269,7 +270,7 @@ function BookingContent() {
           body: JSON.stringify({
             bookingRef: bookingData.bookingRef,
             totalAmount: totalPrice,
-            currency: "usd",
+            currency: "xaf",
             clientIdempotencyKey,
           }),
         });
@@ -808,7 +809,7 @@ function BookingContent() {
             >
               {isProcessing
                 ? "Processing..."
-                : `Confirm & Pay $${totalPrice.toLocaleString()}`}
+                : `Confirm & Pay ${formatMoney(totalPrice)}`}
             </Button>
           </div>
         </div>
@@ -860,15 +861,11 @@ function BookingContent() {
                 <span className="text-gray-400">
                   {room.name} ({nights} Night{nights !== 1 ? "s" : ""})
                 </span>
-                <span className="font-bold">${roomTotal.toLocaleString()}</span>
+                <span className="font-bold">{formatMoney(roomTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Palace Resort Fee</span>
-                <span className="font-bold">${resortFee}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Estimated Taxes (12%)</span>
-                <span className="font-bold">${tax}</span>
+                <span className="text-gray-400">Estimated Taxes (10%)</span>
+                <span className="font-bold">{formatMoney(tax)}</span>
               </div>
             </div>
 
@@ -878,7 +875,7 @@ function BookingContent() {
                   Total Price
                 </p>
                 <p className="text-3xl manrope-bold">
-                  ${totalPrice.toLocaleString()}
+                  {formatMoney(totalPrice)}
                 </p>
               </div>
               <span className="text-[10px] text-gray-500">All inclusive</span>

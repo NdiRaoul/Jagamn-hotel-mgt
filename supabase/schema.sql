@@ -57,8 +57,7 @@ drop type if exists staff_status cascade;
 -- ============================================================
 
 create type staff_role as enum (
-  'admin', 'manager', 'receptionist', 'front_desk',
-  'housekeeping', 'maintenance', 'fb', 'security'
+  'owner', 'admin', 'manager', 'reception', 'kitchen', 'storekeeper'
 );
 
 create type staff_status as enum ('active', 'suspended', 'removed');
@@ -152,7 +151,7 @@ create table staff (
   auth_user_id    uuid          unique references auth.users(id) on delete cascade,
   full_name       text          not null,
   email           text          unique not null,
-  role            staff_role    not null default 'receptionist',
+  role            staff_role    not null default 'reception',
   status          staff_status  not null default 'active',
   avatar_url      text,
   must_reset_pw   boolean       not null default false,
@@ -596,13 +595,12 @@ $$;
 
 -- ============================================================
 -- FUNCTION — current_user_role() for RLS policies
--- Returns the role of the calling user from the users table.
--- Allowed values: guest | member | receptionist | storekeeper | manager | admin
--- ============================================================
 
 create or replace function current_user_role()
 returns text language sql stable as $$
   select role from users where auth_user_id = auth.uid() limit 1;
+-- Returns the role of the calling user from the users table.
+-- Allowed values: guest | member | owner | admin | manager | reception | kitchen | storekeeper
 $$;
 
 -- ============================================================
@@ -876,10 +874,10 @@ create policy "payments_select_own"
 create policy "payments_insert_own"
   on payments for insert with check (auth.uid() = user_id);
 
--- bookings: staff (receptionist/manager/admin) can read all bookings
+-- bookings: staff (reception/manager/admin) can read all bookings
 create policy "bookings_select_staff"
   on bookings for select
-  using (current_user_role() in ('receptionist', 'manager', 'admin'));
+  using (current_user_role() in ('reception', 'manager', 'admin'));
 
 -- menu: public read
 create policy "menu_cat_public_read"
@@ -893,7 +891,7 @@ create policy "dining_orders_own"
   on dining_orders for select
   using (
     app_user_id in (select id from users where auth_user_id = auth.uid())
-    or current_user_role() in ('receptionist', 'manager', 'admin')
+    or current_user_role() in ('reception', 'manager', 'admin')
   );
 
 -- stay_preferences: own row only
@@ -909,3 +907,998 @@ create policy "notifications_own"
 
 -- audit_log, payment_ledger, payment_events, refunds, webhook_events,
 -- dining_order_items: service role only (no user-facing policies — service role bypasses RLS)
+
+
+-- ============================================================
+-- MERGED FROM: 02_schema_additions.sql
+-- ============================================================
+-- ============================================================
+-- Jagamn Palace — Schema Additions v6
+-- Run in Supabase SQL Editor AFTER the base schema.
+-- This file is idempotent — safe to re-run.
+-- ============================================================
+
+-- ============================================================
+-- SECTION 0 — Role enum migration (run first, commit, then rest)
+-- Only runs if the old enum is missing the new values.
+-- ============================================================
+
+do $$
+begin
+  -- Add missing values if they don't exist yet
+  if not exists (
+    select 1 from pg_enum
+    where enumtypid = 'staff_role'::regtype
+      and enumlabel = 'storekeeper'
+  ) then
+    alter type staff_role add value if not exists 'storekeeper';
+  end if;
+end;
+$$;
+
+-- Remap any legacy role labels to the canonical six
+update staff set role = 'reception'   where role::text in ('receptionist','front_desk');
+update staff set role = 'kitchen'     where role::text in ('fb','chef');
+update staff set role = 'storekeeper' where role::text in ('maintenance','store_keeper');
+update staff set role = 'admin'       where role::text in ('housekeeping','security','concierge');
+
+-- ============================================================
+-- SECTION 1 — New tables
+-- ============================================================
+
+-- ── Add is_owner to staff if not present ────────────────────
+alter table staff add column if not exists is_owner boolean not null default false;
+update staff set is_owner = true where role = 'owner';
+
+-- ── departments ──────────────────────────────────────────────
+create table if not exists departments (
+  id          uuid        primary key default gen_random_uuid(),
+  name        text        unique not null,
+  is_active   boolean     default true,
+  sort_order  integer     default 0,
+  created_at  timestamptz default now()
+);
+
+-- ── positions ────────────────────────────────────────────────
+create table if not exists positions (
+  id              uuid        primary key default gen_random_uuid(),
+  title           text        not null,
+  department_id   uuid        references departments(id) on delete set null,
+  default_role    text,
+  is_active       boolean     default true,
+  created_at      timestamptz default now(),
+  unique (title, department_id)
+);
+
+-- ── staff_payout_accounts ────────────────────────────────────
+create table if not exists staff_payout_accounts (
+  id                  uuid        primary key default gen_random_uuid(),
+  staff_id            uuid        not null references staff(id) on delete cascade,
+  method              text        not null,  -- 'stripe' | 'mtn_momo' | 'orange_money' | 'bank'
+  provider            text,
+  account_number      text,
+  account_last4       text,
+  account_holder_name text,
+  stripe_account_id   text,
+  stripe_status       text,
+  is_verified         boolean     default false,
+  is_default          boolean     default false,
+  created_at          timestamptz default now(),
+  updated_at          timestamptz default now()
+);
+
+-- ── leave_types ──────────────────────────────────────────────
+create table if not exists leave_types (
+  id          uuid        primary key default gen_random_uuid(),
+  name        text        not null,
+  code        text        unique not null,
+  color       text        default '#6B7280',
+  max_days    integer     default 30,
+  is_active   boolean     default true,
+  created_at  timestamptz default now()
+);
+
+-- ── leave_requests ───────────────────────────────────────────
+create table if not exists leave_requests (
+  id              uuid        primary key default gen_random_uuid(),
+  staff_id        uuid        not null references staff(id) on delete cascade,
+  leave_type_id   uuid        references leave_types(id) on delete set null,
+  start_date      date        not null,
+  end_date        date        not null,
+  days            integer     not null default 1,
+  reason          text,
+  supporting_doc  text,
+  status          text        not null default 'pending',  -- pending | approved | rejected
+  decided_by      uuid        references staff(id) on delete set null,
+  decided_at      timestamptz,
+  manager_notes   text,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+-- ── leave_balances ───────────────────────────────────────────
+create table if not exists leave_balances (
+  id              uuid        primary key default gen_random_uuid(),
+  staff_id        uuid        not null references staff(id) on delete cascade,
+  leave_type_id   uuid        not null references leave_types(id) on delete cascade,
+  year            integer     not null,
+  accrued         integer     not null default 0,
+  used            integer     not null default 0,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  unique (staff_id, leave_type_id, year)
+);
+
+-- ── payroll_runs ─────────────────────────────────────────────
+create table if not exists payroll_runs (
+  id                  uuid        primary key default gen_random_uuid(),
+  period_label        text        not null,
+  period_start        date        not null,
+  period_end          date        not null,
+  status              text        not null default 'draft',  -- draft | approved | closed
+  gross_total_minor   bigint      not null default 0,
+  net_total_minor     bigint      not null default 0,
+  generated_by        uuid        references staff(id) on delete set null,
+  approved_by         uuid        references staff(id) on delete set null,
+  approved_at         timestamptz,
+  created_at          timestamptz default now(),
+  updated_at          timestamptz default now()
+);
+
+-- ── payroll_items ────────────────────────────────────────────
+create table if not exists payroll_items (
+  id                  uuid        primary key default gen_random_uuid(),
+  run_id              uuid        not null references payroll_runs(id) on delete cascade,
+  staff_id            uuid        not null references staff(id) on delete cascade,
+  gross_minor         bigint      not null default 0,
+  deductions_minor    bigint      not null default 0,
+  net_minor           bigint      not null default 0,
+  payment_status      text        not null default 'unpaid',  -- unpaid | processing | paid | failed
+  payment_method      text,
+  payment_ref         text,
+  paid_at             timestamptz,
+  notes               text,
+  idempotency_key     text        unique,
+  created_at          timestamptz default now(),
+  updated_at          timestamptz default now(),
+  unique (run_id, staff_id)
+);
+
+-- ── staff_deductions ─────────────────────────────────────────
+create table if not exists staff_deductions (
+  id              uuid        primary key default gen_random_uuid(),
+  staff_id        uuid        not null references staff(id) on delete cascade,
+  category        text        not null,  -- 'absence' | 'penalty' | 'loan' | 'tax' | 'other'
+  reason_type     text,
+  amount_minor    bigint      not null,
+  reason          text,
+  applied_on      date        not null default current_date,
+  created_by      uuid        references staff(id) on delete set null,
+  created_at      timestamptz default now()
+);
+
+-- ── suppliers ────────────────────────────────────────────────
+create table if not exists suppliers (
+  id          uuid        primary key default gen_random_uuid(),
+  name        text        not null,
+  category    text,
+  contact     text,
+  email       text,
+  phone       text,
+  rating      numeric(3,1) default 0,
+  is_active   boolean     default true,
+  created_at  timestamptz default now()
+);
+
+-- ── purchase_orders ──────────────────────────────────────────
+create table if not exists purchase_orders (
+  id              uuid        primary key default gen_random_uuid(),
+  po_number       text        unique not null default '',
+  supplier_id     uuid        references suppliers(id) on delete set null,
+  description     text        not null,
+  total_minor     bigint      not null default 0,
+  currency        text        default 'USD',
+  status          text        not null default 'pending_approval',
+  -- pending_approval | approved | ordered | in_transit | delivered | cancelled
+  priority        text        default 'medium',  -- low | medium | high | urgent
+  department      text,
+  ordered_at      timestamptz,
+  delivered_at    timestamptz,
+  created_by      uuid        references staff(id) on delete set null,
+  notes           text,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+-- Auto-generate PO number
+create or replace function generate_po_number()
+returns trigger language plpgsql as $$
+declare
+  v_num text;
+  v_attempts int := 0;
+begin
+  if new.po_number is null or new.po_number = '' then
+    loop
+      v_num := 'PO-' || lpad(floor(random() * 10000)::int::text, 4, '0');
+      if not exists (select 1 from purchase_orders where po_number = v_num) then
+        new.po_number := v_num;
+        exit;
+      end if;
+      v_attempts := v_attempts + 1;
+      if v_attempts > 100 then raise exception 'Could not generate PO number'; end if;
+    end loop;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_po_number on purchase_orders;
+create trigger trg_po_number
+  before insert on purchase_orders
+  for each row execute function generate_po_number();
+
+-- ── purchase_order_items ─────────────────────────────────────
+create table if not exists purchase_order_items (
+  id              uuid        primary key default gen_random_uuid(),
+  order_id        uuid        not null references purchase_orders(id) on delete cascade,
+  description     text        not null,
+  quantity        integer     not null default 1,
+  unit_price_minor bigint     not null default 0,
+  total_minor     bigint      generated always as (quantity * unit_price_minor) stored
+);
+
+-- ── procurement_budgets ──────────────────────────────────────
+create table if not exists procurement_budgets (
+  id              uuid        primary key default gen_random_uuid(),
+  department      text        not null,
+  year            integer     not null,
+  month           integer,
+  budget_minor    bigint      not null default 0,
+  created_at      timestamptz default now(),
+  unique (department, year, month)
+);
+
+-- ── inventory_items ──────────────────────────────────────────
+create table if not exists inventory_items (
+  id              uuid        primary key default gen_random_uuid(),
+  name            text        not null,
+  category        text,
+  unit            text        default 'unit',
+  on_hand         integer     not null default 0,
+  reorder_level   integer     not null default 5,
+  is_active       boolean     default true,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+-- ── inventory_requests ───────────────────────────────────────
+create table if not exists inventory_requests (
+  id              uuid        primary key default gen_random_uuid(),
+  item_id         uuid        references inventory_items(id) on delete set null,
+  item_name       text        not null,
+  quantity        integer     not null default 1,
+  requested_by    uuid        references staff(id) on delete set null,
+  status          text        not null default 'requested',  -- requested | approved | fulfilled | rejected
+  notes           text,
+  fulfilled_at    timestamptz,
+  fulfilled_by    uuid        references staff(id) on delete set null,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+-- ── folio_entries ────────────────────────────────────────────
+create table if not exists folio_entries (
+  id              uuid        primary key default gen_random_uuid(),
+  booking_id      uuid        not null references bookings(id) on delete cascade,
+  booking_ref     text        not null,
+  category        text        not null,  -- 'room' | 'tax' | 'dining' | 'minibar' | 'damage' | 'misc' | 'cash' | 'card' | 'payment'
+  description     text,
+  amount_minor    bigint      not null,  -- positive = charge, negative = payment/credit
+  entry_type      text        not null default 'charge',  -- 'charge' | 'payment'
+  created_by      uuid        references staff(id) on delete set null,
+  created_at      timestamptz default now()
+);
+
+create index if not exists folio_entries_booking_id_idx on folio_entries (booking_id);
+create index if not exists folio_entries_booking_ref_idx on folio_entries (booking_ref);
+
+-- ── staff_payout_accounts updated_at trigger ─────────────────
+create or replace function set_updated_at_generic()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end;
+$$;
+
+drop trigger if exists spa_updated_at on staff_payout_accounts;
+create trigger spa_updated_at before update on staff_payout_accounts
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists leave_requests_updated_at on leave_requests;
+create trigger leave_requests_updated_at before update on leave_requests
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists leave_balances_updated_at on leave_balances;
+create trigger leave_balances_updated_at before update on leave_balances
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists payroll_runs_updated_at on payroll_runs;
+create trigger payroll_runs_updated_at before update on payroll_runs
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists payroll_items_updated_at on payroll_items;
+create trigger payroll_items_updated_at before update on payroll_items
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists purchase_orders_updated_at on purchase_orders;
+create trigger purchase_orders_updated_at before update on purchase_orders
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists inventory_items_updated_at on inventory_items;
+create trigger inventory_items_updated_at before update on inventory_items
+  for each row execute function set_updated_at_generic();
+
+drop trigger if exists inventory_requests_updated_at on inventory_requests;
+create trigger inventory_requests_updated_at before update on inventory_requests
+  for each row execute function set_updated_at_generic();
+
+-- ============================================================
+-- SECTION 2 — Reporting views (12 total)
+-- ============================================================
+
+-- 1. revenue_daily
+create or replace view revenue_daily as
+select
+  date_trunc('day', pe.created_at)::date as day,
+  coalesce(sum(pl.amount_minor) filter (
+    where pe.type = 'processor_succeeded'
+  ), 0) as revenue_minor
+from payment_ledger pl
+join payment_events pe on pe.payment_id = pl.id
+group by 1
+order by 1;
+
+-- 2. revenue_monthly
+create or replace view revenue_monthly as
+select
+  date_trunc('month', pe.created_at)::date as month,
+  coalesce(sum(pl.amount_minor) filter (
+    where pe.type = 'processor_succeeded'
+  ), 0) as revenue_minor
+from payment_ledger pl
+join payment_events pe on pe.payment_id = pl.id
+group by 1
+order by 1;
+
+-- 3. revenue_by_room_type
+create or replace view revenue_by_room_type as
+select
+  rt.name as room_type,
+  coalesce(sum(b.total_amount), 0) as revenue_minor
+from bookings b
+join room_types rt on rt.id = b.room_type_id
+where b.payment_status = 'paid'
+group by rt.name
+order by revenue_minor desc;
+
+-- 4. occupancy_daily (30-day rolling window)
+create or replace view occupancy_daily as
+select
+  d.day,
+  count(distinct b.id) as occupied_rooms,
+  (select count(*) from rooms where is_active = true) as total_rooms,
+  round(
+    count(distinct b.id)::numeric /
+    nullif((select count(*) from rooms where is_active = true), 0) * 100,
+    1
+  ) as occupancy_pct
+from generate_series(
+  current_date - interval '29 days',
+  current_date,
+  interval '1 day'
+) as d(day)
+left join bookings b
+  on b.check_in <= d.day
+  and b.check_out > d.day
+  and b.status not in ('cancelled', 'expired')
+group by d.day
+order by d.day;
+
+-- 5. hr_leave_summary
+create or replace view hr_leave_summary as
+select
+  lt.name as leave_type,
+  count(*) filter (where lr.status = 'pending')  as pending_count,
+  count(*) filter (where lr.status = 'approved') as approved_count,
+  count(*) filter (where lr.status = 'rejected') as rejected_count,
+  sum(lr.days) filter (where lr.status = 'approved') as total_days_approved
+from leave_requests lr
+join leave_types lt on lt.id = lr.leave_type_id
+where extract(year from lr.created_at) = extract(year from current_date)
+group by lt.name;
+
+-- 6. payroll_monthly
+create or replace view payroll_monthly as
+select
+  pr.period_label,
+  pr.period_start,
+  pr.period_end,
+  pr.status,
+  pr.gross_total_minor,
+  pr.net_total_minor,
+  count(pi.id) as staff_count,
+  count(pi.id) filter (where pi.payment_status = 'paid') as paid_count
+from payroll_runs pr
+left join payroll_items pi on pi.run_id = pr.id
+group by pr.id, pr.period_label, pr.period_start, pr.period_end,
+         pr.status, pr.gross_total_minor, pr.net_total_minor
+order by pr.period_start desc;
+
+-- 7. procurement_status_summary
+create or replace view procurement_status_summary as
+select
+  status,
+  count(*) as order_count,
+  coalesce(sum(total_minor), 0) as total_minor
+from purchase_orders
+group by status;
+
+-- 8. dining_order_status_summary
+create or replace view dining_order_status_summary as
+select
+  status,
+  count(*) as order_count,
+  coalesce(sum(total_amount), 0) as total_amount
+from dining_orders
+group by status;
+
+-- 9. dining_daily
+create or replace view dining_daily as
+select
+  date_trunc('day', created_at)::date as day,
+  count(*) as order_count,
+  coalesce(sum(total_amount), 0) as revenue
+from dining_orders
+where status != 'cancelled'
+group by 1
+order by 1;
+
+-- 10. dining_top_items
+create or replace view dining_top_items as
+select
+  doi.item_name,
+  sum(doi.quantity) as total_ordered,
+  sum(doi.quantity * doi.unit_price) as total_revenue
+from dining_order_items doi
+join dining_orders do2 on do2.id = doi.order_id
+where do2.status != 'cancelled'
+group by doi.item_name
+order by total_ordered desc
+limit 20;
+
+-- 11. inventory_low_stock
+create or replace view inventory_low_stock as
+select *
+from inventory_items
+where on_hand <= reorder_level
+  and is_active = true
+order by (on_hand::float / nullif(reorder_level, 0)) asc;
+
+-- 12. booking_folio_balance
+create or replace view booking_folio_balance as
+select
+  b.id as booking_id,
+  b.booking_ref,
+  b.guest_name,
+  b.total_amount as booking_total_minor,
+  coalesce(sum(fe.amount_minor) filter (where fe.entry_type = 'charge'), 0) as charges_minor,
+  coalesce(sum(abs(fe.amount_minor)) filter (where fe.entry_type = 'payment'), 0) as paid_minor,
+  coalesce(sum(fe.amount_minor) filter (where fe.entry_type = 'charge'), 0)
+    - coalesce(sum(abs(fe.amount_minor)) filter (where fe.entry_type = 'payment'), 0) as balance_minor
+from bookings b
+left join folio_entries fe on fe.booking_id = b.id
+group by b.id, b.booking_ref, b.guest_name, b.total_amount;
+
+-- ============================================================
+-- SECTION 3 — decide_leave RPC
+-- ============================================================
+
+create or replace function decide_leave(
+  p_id     uuid,
+  p_status text,
+  p_notes  text,
+  p_actor  uuid
+) returns void language plpgsql security definer as $$
+declare
+  v_staff_id    uuid;
+  v_type_id     uuid;
+  v_days        integer;
+  v_year        integer;
+begin
+  select staff_id, leave_type_id, days, extract(year from start_date)::int
+    into v_staff_id, v_type_id, v_days, v_year
+    from leave_requests
+   where id = p_id;
+
+  update leave_requests
+     set status = p_status,
+         decided_by = p_actor,
+         decided_at = now(),
+         manager_notes = p_notes,
+         updated_at = now()
+   where id = p_id;
+
+  if p_status = 'approved' then
+    insert into leave_balances (staff_id, leave_type_id, year, accrued, used)
+    values (v_staff_id, v_type_id, v_year, v_days, v_days)
+    on conflict (staff_id, leave_type_id, year)
+    do update set used = leave_balances.used + v_days,
+                  updated_at = now();
+  end if;
+end;
+$$;
+
+-- ============================================================
+-- SECTION 4 — RLS for new tables
+-- ============================================================
+
+alter table departments          enable row level security;
+alter table positions            enable row level security;
+alter table staff_payout_accounts enable row level security;
+alter table leave_types          enable row level security;
+alter table leave_requests       enable row level security;
+alter table leave_balances       enable row level security;
+alter table payroll_runs         enable row level security;
+alter table payroll_items        enable row level security;
+alter table staff_deductions     enable row level security;
+alter table suppliers            enable row level security;
+alter table purchase_orders      enable row level security;
+alter table purchase_order_items enable row level security;
+alter table procurement_budgets  enable row level security;
+alter table inventory_items      enable row level security;
+alter table inventory_requests   enable row level security;
+alter table folio_entries        enable row level security;
+
+-- Staff can read departments/positions/leave_types
+create policy "staff read departments" on departments for select using (is_staff());
+create policy "staff read positions"   on positions   for select using (is_staff());
+create policy "staff read leave_types" on leave_types for select using (is_staff());
+
+-- Staff can read/write their own leave requests and balances
+create policy "staff own leave_requests" on leave_requests
+  for all using (
+    staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
+    or staff_role() in ('owner','admin','manager')
+  );
+
+create policy "staff own leave_balances" on leave_balances
+  for all using (
+    staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
+    or staff_role() in ('owner','admin','manager')
+  );
+
+-- Staff can read/write their own payout accounts
+create policy "staff own payout_accounts" on staff_payout_accounts
+  for all using (
+    staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
+    or staff_role() in ('owner','admin','manager')
+  );
+
+-- Payroll: admin/manager/owner only
+create policy "admin payroll_runs" on payroll_runs
+  for all using (staff_role() in ('owner','admin','manager'));
+
+create policy "admin payroll_items" on payroll_items
+  for all using (
+    staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
+    or staff_role() in ('owner','admin','manager')
+  );
+
+create policy "admin staff_deductions" on staff_deductions
+  for all using (staff_role() in ('owner','admin','manager'));
+
+-- Procurement: admin/manager/owner/storekeeper
+create policy "procurement read suppliers" on suppliers
+  for select using (staff_role() in ('owner','admin','manager','storekeeper'));
+create policy "procurement write suppliers" on suppliers
+  for all using (staff_role() in ('owner','admin','manager','storekeeper'));
+
+create policy "procurement purchase_orders" on purchase_orders
+  for all using (staff_role() in ('owner','admin','manager','storekeeper'));
+
+create policy "procurement po_items" on purchase_order_items
+  for all using (staff_role() in ('owner','admin','manager','storekeeper'));
+
+create policy "procurement budgets" on procurement_budgets
+  for all using (staff_role() in ('owner','admin','manager','storekeeper'));
+
+-- Inventory: kitchen/storekeeper/admin/manager/owner
+create policy "inventory read" on inventory_items
+  for select using (staff_role() in ('owner','admin','manager','kitchen','storekeeper'));
+create policy "inventory write" on inventory_items
+  for all using (staff_role() in ('owner','admin','manager','storekeeper'));
+
+create policy "inventory_requests all" on inventory_requests
+  for all using (staff_role() in ('owner','admin','manager','kitchen','storekeeper'));
+
+-- Folio: staff can read/write
+create policy "staff folio" on folio_entries
+  for all using (staff_role() in ('owner','admin','manager','reception'));
+
+-- Departments/positions write: admin/manager/owner
+create policy "admin write departments" on departments
+  for all using (staff_role() in ('owner','admin','manager'));
+create policy "admin write positions" on positions
+  for all using (staff_role() in ('owner','admin','manager'));
+
+-- ============================================================
+-- MERGED FROM: 03_staff_fk.sql
+-- ============================================================
+-- ============================================================
+-- Jagamn Palace — Staff Foreign Keys Migration
+-- Run AFTER 02_schema_additions.sql
+-- Adds department_id and position_id foreign keys to staff table
+-- ============================================================
+
+-- Add department_id column if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'staff' AND column_name = 'department_id'
+  ) THEN
+    ALTER TABLE staff ADD COLUMN department_id UUID REFERENCES departments(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Add position_id column if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'staff' AND column_name = 'position_id'
+  ) THEN
+    ALTER TABLE staff ADD COLUMN position_id UUID REFERENCES positions(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS staff_department_id_idx ON staff(department_id);
+CREATE INDEX IF NOT EXISTS staff_position_id_idx ON staff(position_id);
+
+-- Migrate existing department and position text fields to FK relationships
+-- This will attempt to match existing text values to department/position records
+
+DO $$
+DECLARE
+  staff_record RECORD;
+  dept_id UUID;
+  pos_id UUID;
+BEGIN
+  -- For each staff member with a department text value
+  FOR staff_record IN 
+    SELECT id, department, position 
+    FROM staff 
+    WHERE department IS NOT NULL AND department_id IS NULL
+  LOOP
+    -- Try to find matching department
+    SELECT id INTO dept_id 
+    FROM departments 
+    WHERE name = staff_record.department 
+    LIMIT 1;
+    
+    -- If found, update the FK
+    IF dept_id IS NOT NULL THEN
+      UPDATE staff 
+      SET department_id = dept_id 
+      WHERE id = staff_record.id;
+    END IF;
+  END LOOP;
+
+  -- For each staff member with a position text value
+  FOR staff_record IN 
+    SELECT id, position 
+    FROM staff 
+    WHERE position IS NOT NULL AND position_id IS NULL
+  LOOP
+    -- Try to find matching position
+    SELECT id INTO pos_id 
+    FROM positions 
+    WHERE title = staff_record.position 
+    LIMIT 1;
+    
+    -- If found, update the FK
+    IF pos_id IS NOT NULL THEN
+      UPDATE staff 
+      SET position_id = pos_id 
+      WHERE id = staff_record.id;
+    END IF;
+  END LOOP;
+END $$;
+
+-- Note: We keep the original department and position text columns for backward compatibility
+-- They can be removed in a future migration once all code is updated to use the FK relationships
+
+COMMENT ON COLUMN staff.department_id IS 'Foreign key to departments table - preferred over text department field';
+COMMENT ON COLUMN staff.position_id IS 'Foreign key to positions table - preferred over text position field';
+
+-- ============================================================
+-- MERGED FROM: 04_flow_partitioning_hiredate.sql
+-- ============================================================
+-- ============================================================
+-- Jagamn Palace — Flow Completion + Partitioning + Currency Base
+-- Run AFTER 02_schema_additions.sql and 03_staff_fk.sql
+-- This file is idempotent — safe to re-run.
+-- ============================================================
+
+-- ============================================================
+-- SECTION 1 — Dining → Kitchen → Storekeeper Flow
+-- ============================================================
+
+-- Add dining_order_id to inventory_requests (link stock requests to orders)
+ALTER TABLE inventory_requests 
+  ADD COLUMN IF NOT EXISTS dining_order_id UUID REFERENCES dining_orders(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS inventory_requests_dining_order_idx 
+  ON inventory_requests(dining_order_id);
+
+-- Add staff_id to notifications (for individual staff notifications)
+ALTER TABLE notifications 
+  ADD COLUMN IF NOT EXISTS staff_id UUID REFERENCES staff(id) ON DELETE CASCADE;
+
+-- Add role to notifications (for role-based fan-out)
+ALTER TABLE notifications 
+  ADD COLUMN IF NOT EXISTS role TEXT;
+
+-- Update notifications indexes
+CREATE INDEX IF NOT EXISTS notifications_staff_idx 
+  ON notifications(staff_id, is_read) WHERE staff_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS notifications_role_idx 
+  ON notifications(role, is_read) WHERE role IS NOT NULL;
+
+-- Create notify_role function for role-based fan-out
+CREATE OR REPLACE FUNCTION notify_role(
+  p_role TEXT,
+  p_type TEXT,
+  p_title TEXT,
+  p_body TEXT
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  INSERT INTO notifications (role, type, title, body, is_read, created_at)
+  VALUES (p_role, p_type, p_title, p_body, false, now());
+END;
+$$;
+
+COMMENT ON FUNCTION notify_role IS 'Fan-out notification to all staff with a given role';
+
+-- ============================================================
+-- SECTION 2 — Help Articles (Dynamic Help Center)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS help_articles (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  role        TEXT,       -- 'kitchen' | 'reception' | 'storekeeper' | 'account' | NULL (global)
+  slug        TEXT        NOT NULL,
+  title       TEXT        NOT NULL,
+  body        TEXT        NOT NULL,
+  category    TEXT,
+  sort_order  INTEGER     DEFAULT 0,
+  is_active   BOOLEAN     DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (role, slug)
+);
+
+CREATE INDEX IF NOT EXISTS help_articles_role_idx ON help_articles(role, is_active, sort_order);
+
+-- ============================================================
+-- SECTION 3 — Remove Resort Fee
+-- ============================================================
+
+-- Drop resort_fee column from room_types if it exists
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'room_types' AND column_name = 'resort_fee'
+  ) THEN
+    ALTER TABLE room_types DROP COLUMN resort_fee;
+  END IF;
+END $$;
+
+-- ============================================================
+-- SECTION 4 — Backfill hire_date + Indexes
+-- ============================================================
+
+-- Backfill demo hire dates for seeded staff (idempotent)
+-- This gives realistic tenure for payroll/HR views
+DO $$
+DECLARE
+  staff_record RECORD;
+  random_days INTEGER;
+BEGIN
+  FOR staff_record IN 
+    SELECT id, email FROM staff WHERE hire_date IS NULL
+  LOOP
+    -- Random hire date between 1-5 years ago
+    random_days := floor(random() * 1825 + 365)::INTEGER;
+    UPDATE staff 
+    SET hire_date = current_date - (random_days || ' days')::INTERVAL
+    WHERE id = staff_record.id;
+  END LOOP;
+END $$;
+
+-- Index hire_date for tenure reports
+CREATE INDEX IF NOT EXISTS staff_hire_date_idx ON staff(hire_date) WHERE hire_date IS NOT NULL;
+
+-- ============================================================
+-- SECTION 5 — Hot-Path Indexes
+-- ============================================================
+
+-- Dining orders by status and time (kitchen board queries)
+CREATE INDEX IF NOT EXISTS dining_orders_status_created_idx 
+  ON dining_orders(status, created_at DESC);
+
+-- Folio entries by booking (checkout balance queries)
+CREATE INDEX IF NOT EXISTS folio_entries_booking_created_idx 
+  ON folio_entries(booking_id, created_at);
+
+-- Payroll items by run (payroll detail queries)
+CREATE INDEX IF NOT EXISTS payroll_items_run_idx 
+  ON payroll_items(run_id, staff_id);
+
+-- Notifications by created_at (recent notifications queries)
+CREATE INDEX IF NOT EXISTS notifications_created_idx 
+  ON notifications(created_at DESC);
+
+-- Leave requests by status and staff (HR dashboard)
+CREATE INDEX IF NOT EXISTS leave_requests_status_staff_idx 
+  ON leave_requests(status, staff_id, created_at DESC);
+
+-- Purchase orders by status (procurement dashboard)
+CREATE INDEX IF NOT EXISTS purchase_orders_status_idx 
+  ON purchase_orders(status, created_at DESC);
+
+-- ============================================================
+-- SECTION 6 — Currency Base Documentation
+-- ============================================================
+
+-- All stored money values are in XAF (Central African CFA Franc)
+-- - room_types.price_per_night: whole XAF (e.g., 122000)
+-- - menu_items.price: whole XAF (e.g., 4500)
+-- - bookings.total_amount, tax_amount: whole XAF
+-- - staff.salary: whole XAF (monthly)
+-- - *_minor columns (payroll_*, folio_entries.amount_minor): XAF × 100
+--
+-- Display conversion happens at the boundary via src/lib/currency.ts:
+-- - CEMAC countries (CM, CF, TD, CG, GQ, GA) → display as FCFA (XAF)
+-- - United Kingdom (GB) → display as GBP
+-- - All others → display as USD
+--
+-- Indicative rates (to be replaced with live/admin-set rates in production):
+-- - 1 USD ≈ 615 XAF
+-- - 1 GBP ≈ 780 XAF
+
+COMMENT ON COLUMN room_types.price_per_night IS 'Whole XAF (base currency)';
+COMMENT ON COLUMN menu_items.price IS 'Whole XAF (base currency)';
+COMMENT ON COLUMN bookings.total_amount IS 'Whole XAF (base currency)';
+COMMENT ON COLUMN staff.salary IS 'Whole XAF monthly (base currency)';
+
+-- ============================================================
+-- SECTION 7 — Optional: Charged Currency Tracking
+-- ============================================================
+
+-- Optional columns to track what currency was actually charged
+-- (for reporting when guests pay in their display currency)
+ALTER TABLE bookings 
+  ADD COLUMN IF NOT EXISTS charged_currency TEXT,
+  ADD COLUMN IF NOT EXISTS charged_amount INTEGER,
+  ADD COLUMN IF NOT EXISTS exchange_rate_used NUMERIC(10,4);
+
+ALTER TABLE dining_orders 
+  ADD COLUMN IF NOT EXISTS charged_currency TEXT,
+  ADD COLUMN IF NOT EXISTS charged_amount INTEGER,
+  ADD COLUMN IF NOT EXISTS exchange_rate_used NUMERIC(10,4);
+
+COMMENT ON COLUMN bookings.charged_currency IS 'Currency actually charged (USD/GBP/XAF) - optional for reporting';
+COMMENT ON COLUMN bookings.charged_amount IS 'Amount charged in charged_currency - optional for reporting';
+COMMENT ON COLUMN bookings.exchange_rate_used IS 'XAF per unit of charged_currency - optional for reporting';
+
+-- ============================================================
+-- SECTION 8 — Partitioning Templates (Commented)
+-- ============================================================
+
+-- Partitioning is recommended for high-volume append-heavy tables
+-- when they grow beyond ~10M rows or when date-range queries dominate.
+--
+-- Tables to partition (by created_at, monthly):
+-- - audit_log
+-- - notifications
+-- - payment_events
+-- - folio_entries
+-- - dining_orders (+ cascade dining_order_items)
+--
+-- MIGRATION APPROACH (for existing populated tables):
+-- 1. Create partitioned table *_p with same structure
+-- 2. Create monthly child partitions + default partition
+-- 3. Copy data: INSERT INTO *_p SELECT * FROM *
+-- 4. Swap names: ALTER TABLE * RENAME TO *_old; ALTER TABLE *_p RENAME TO *
+-- 5. Drop old table after verification
+--
+-- FRESH INSTALL: Convert the CREATE TABLE to CREATE TABLE ... PARTITION BY RANGE (created_at)
+-- and create child partitions immediately.
+--
+-- AUTOMATION: Use pg_partman extension or a monthly cron/Edge function to create new partitions.
+--
+-- Example (audit_log):
+/*
+CREATE TABLE audit_log_p (
+  LIKE audit_log INCLUDING ALL
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE audit_log_p_2026_05 PARTITION OF audit_log_p
+  FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+
+CREATE TABLE audit_log_p_2026_06 PARTITION OF audit_log_p
+  FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
+
+CREATE TABLE audit_log_p_default PARTITION OF audit_log_p DEFAULT;
+
+-- Copy data
+INSERT INTO audit_log_p SELECT * FROM audit_log;
+
+-- Swap
+ALTER TABLE audit_log RENAME TO audit_log_old;
+ALTER TABLE audit_log_p RENAME TO audit_log;
+
+-- Verify and drop
+DROP TABLE audit_log_old;
+*/
+
+-- ============================================================
+-- SECTION 9 — Optional: Property/Tenant Sharding Scaffold
+-- ============================================================
+
+-- For future horizontal scaling, add a property_id/tenant_id column
+-- to all top-level tables. This enables:
+-- - Citus distributed tables: SELECT create_distributed_table('bookings','property_id')
+-- - Per-property databases (app-level sharding)
+-- - Read replica routing by property
+--
+-- Example (commented, add when multi-property support is needed):
+/*
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS property_id UUID DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS property_id UUID DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE room_types ADD COLUMN IF NOT EXISTS property_id UUID DEFAULT '00000000-0000-0000-0000-000000000001';
+-- ... etc for all top-level tables
+
+CREATE INDEX bookings_property_idx ON bookings(property_id);
+CREATE INDEX staff_property_idx ON staff(property_id);
+-- ... etc
+*/
+
+-- ============================================================
+-- SECTION 10 — RLS for New Columns/Tables
+-- ============================================================
+
+ALTER TABLE help_articles ENABLE ROW LEVEL SECURITY;
+
+-- Staff can read help articles for their role or global articles
+CREATE POLICY "staff_read_help" ON help_articles
+  FOR SELECT USING (
+    is_staff() AND (
+      role IS NULL 
+      OR role = staff_role()
+    )
+  );
+
+-- Admin/owner can manage help articles
+CREATE POLICY "admin_manage_help" ON help_articles
+  FOR ALL USING (staff_role() IN ('owner', 'admin'));
+
+-- ============================================================
+-- DONE
+-- ============================================================
+
+-- Run this file, then proceed with:
+-- 1. npx tsx scripts/seed.ts
+-- 2. npx tsx scripts/04_seed_samples.ts

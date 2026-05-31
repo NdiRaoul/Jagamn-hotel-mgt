@@ -7,7 +7,6 @@ export function buildReceiptEmailHtml(data: {
   nights: number;
   guests: number;
   pricePerNight: number;
-  resortFee: number;
   taxAmount: number;
   totalAmount: number;
   paymentMethod: string;
@@ -45,11 +44,7 @@ export function buildReceiptEmailHtml(data: {
           <td style="text-align:right;color:#00152A;">$${data.pricePerNight} × ${data.nights} = $${data.pricePerNight * data.nights}</td>
         </tr>
         <tr>
-          <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Resort Fee</td>
-          <td style="text-align:right;color:#00152A;">$${data.resortFee}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Taxes (12%)</td>
+          <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Taxes (10%)</td>
           <td style="text-align:right;color:#00152A;">$${data.taxAmount}</td>
         </tr>
         <tr>

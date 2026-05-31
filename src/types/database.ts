@@ -116,7 +116,6 @@ export interface Booking {
   nights: number;
   guests: number;
   room_price_per_night: number;
-  resort_fee: number;
   tax_amount: number | null;
   total_amount: number;
   payment_method: string | null;
@@ -182,7 +181,7 @@ export interface Staff {
   auth_user_id: string;
   full_name: string;
   email: string;
-  role: string; // staff_role enum: 'admin' | 'manager' | 'receptionist' | 'front_desk' | ...
+  role: string; // staff_role enum: 'owner' | 'admin' | 'manager' | 'reception' | 'kitchen' | 'storekeeper'
   status: string; // staff_status enum: 'active' | 'suspended' | 'removed'
   avatar_url: string | null;
   must_reset_pw: boolean;
@@ -192,6 +191,7 @@ export interface Staff {
   position: string | null;
   salary: number | null;
   hire_date: string | null;
+  is_owner: boolean;
   created_at: string;
   updated_at: string;
 }

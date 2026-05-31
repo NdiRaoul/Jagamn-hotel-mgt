@@ -24,19 +24,44 @@ export async function createSupabaseServerClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, options),
             );
           } catch {
             // Called from a Server Component — safe to ignore
           }
         },
       },
-    }
+    },
+  );
+}
+
+// Route handler client (synchronous version for API routes)
+export function createSupabaseRouteHandlerClient() {
+  const cookieStore = cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // Called from a Route Handler — safe to ignore
+          }
+        },
+      },
+    },
   );
 }
 
 // Service-role admin client — bypasses RLS, never expose to browser
 export const supabaseAdmin = createClient(
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );

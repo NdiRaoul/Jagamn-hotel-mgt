@@ -55,7 +55,7 @@ const ROOM_TYPES: RoomTypeInsert[] = [
     collection_label: "Garden Collection",
     collection: "garden_collection",
     badge: null,
-    price_per_night: 199,
+    price_per_night: 122000, // XAF (was 199 USD)
     sqft: 820,
     bed_type: "Queen Garden",
     max_guests: 2,
@@ -80,7 +80,7 @@ const ROOM_TYPES: RoomTypeInsert[] = [
     collection_label: "Heritage Collection",
     collection: "heritage_collection",
     badge: null,
-    price_per_night: 299,
+    price_per_night: 184000, // XAF (was 299 USD)
     sqft: 1268,
     bed_type: "King Terrace",
     max_guests: 3,
@@ -105,7 +105,7 @@ const ROOM_TYPES: RoomTypeInsert[] = [
     collection_label: "Signature Collection",
     collection: "signature_collection",
     badge: "Most Popular",
-    price_per_night: 450,
+    price_per_night: 277000, // XAF (was 450 USD)
     sqft: 1800,
     bed_type: "King Canopy",
     max_guests: 4,
@@ -130,7 +130,7 @@ const ROOM_TYPES: RoomTypeInsert[] = [
     collection_label: "Royal Collection",
     collection: "royal_collection",
     badge: null,
-    price_per_night: 899,
+    price_per_night: 553000, // XAF (was 899 USD)
     sqft: 3500,
     bed_type: "Emperor King",
     max_guests: 6,
@@ -155,7 +155,7 @@ const ROOM_TYPES: RoomTypeInsert[] = [
     collection_label: "Presidential Collection",
     collection: "presidential_collection",
     badge: "Ultra Exclusive",
-    price_per_night: 1499,
+    price_per_night: 922000, // XAF (was 1499 USD)
     sqft: 5200,
     bed_type: "Twin Emperor",
     max_guests: 8,
@@ -361,20 +361,23 @@ type AdminAccount = {
   email: string;
   password: string;
   full_name: string;
-  role:
-    | "admin"
-    | "manager"
-    | "receptionist"
-    | "front_desk"
-    | "housekeeping"
-    | "maintenance"
-    | "fb"
-    | "security";
   department: string;
   position: string;
+  role: "owner" | "admin" | "manager" | "reception" | "kitchen" | "storekeeper";
+  salary?: number;
+  is_owner?: boolean;
 };
-
-const ADMIN_ACCOUNTS: AdminAccount[] = [
+const ALL_STAFF_ACCOUNTS: AdminAccount[] = [
+  {
+    email: "owner@jagamnpalace.com",
+    password: "Owner123",
+    full_name: "Owner Account",
+    role: "owner",
+    department: "Executive",
+    position: "Owner",
+    salary: 0,
+    is_owner: true,
+  },
   {
     email: "admin@jagamnpalace.com",
     password: "Admin123",
@@ -382,6 +385,8 @@ const ADMIN_ACCOUNTS: AdminAccount[] = [
     role: "admin",
     department: "Management",
     position: "System Administrator",
+    salary: 0,
+    is_owner: false,
   },
   {
     email: "manager@jagamnpalace.com",
@@ -390,14 +395,38 @@ const ADMIN_ACCOUNTS: AdminAccount[] = [
     role: "manager",
     department: "Management",
     position: "General Manager",
+    salary: 0,
+    is_owner: false,
   },
   {
     email: "reception@jagamnpalace.com",
     password: "Reception123",
     full_name: "Front Desk Officer",
-    role: "receptionist",
+    role: "reception",
     department: "Front Office",
     position: "Senior Receptionist",
+    salary: 0,
+    is_owner: false,
+  },
+  {
+    email: "kitchen@jagamnpalace.com",
+    password: "Kitchen123",
+    full_name: "Kitchen User",
+    role: "kitchen",
+    department: "Kitchen",
+    position: "Chef",
+    salary: 0,
+    is_owner: false,
+  },
+  {
+    email: "store@jagamnpalace.com",
+    password: "Store123",
+    full_name: "Store Keeper",
+    role: "storekeeper",
+    department: "Procurement",
+    position: "Store Keeper",
+    salary: 0,
+    is_owner: false,
   },
 ];
 
@@ -667,7 +696,7 @@ async function seed() {
 
   // ── 6. Admin Accounts ─────────────────────────────────────
   console.log("\n── Admin Accounts ──────────────────────────────────────");
-  for (const admin of ADMIN_ACCOUNTS) {
+  for (const admin of ALL_STAFF_ACCOUNTS) {
     // Check if auth user already exists by trying to list users
     // We use admin.createUser which is idempotent via email check
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
@@ -728,6 +757,8 @@ async function seed() {
         status: "active",
         department: admin.department,
         position: admin.position,
+        salary: admin.salary ?? 0,
+        is_owner: admin.is_owner ?? false,
         must_reset_pw: false,
       },
       { onConflict: "auth_user_id" },
@@ -748,6 +779,478 @@ async function seed() {
         detail: `role=${admin.role}`,
       });
     }
+  }
+
+  // ── 7. Seed Extensions (from 03_seed_additions.ts) ──────────
+  console.log(
+    "\n── Seed Extensions (Departments, Positions, Leave Types, Menu, Inventory, Procurement) ──",
+  );
+
+  // Departments
+  const DEPARTMENTS = [
+    { name: "Executive", sort_order: 1 },
+    { name: "Management", sort_order: 2 },
+    { name: "Front Office", sort_order: 3 },
+    { name: "Kitchen", sort_order: 4 },
+    { name: "Procurement", sort_order: 5 },
+    { name: "Housekeeping", sort_order: 6 },
+    { name: "Sales", sort_order: 7 },
+    { name: "Finance", sort_order: 8 },
+  ];
+
+  for (const dept of DEPARTMENTS) {
+    const { error } = await supabase
+      .from("departments")
+      .upsert(dept, { onConflict: "name" });
+    log(`department: ${dept.name}`, !error, error?.message);
+    summary.push({
+      step: `department:${dept.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Positions
+  const { data: depts } = await supabase.from("departments").select("id, name");
+  const deptMap = new Map(
+    (depts ?? []).map((d: { id: string; name: string }) => [d.name, d.id]),
+  );
+
+  const POSITIONS = [
+    { title: "Owner", department: "Executive", default_role: "owner" },
+    {
+      title: "System Administrator",
+      department: "Management",
+      default_role: "admin",
+    },
+    {
+      title: "General Manager",
+      department: "Management",
+      default_role: "manager",
+    },
+    {
+      title: "Assistant Manager",
+      department: "Management",
+      default_role: "manager",
+    },
+    {
+      title: "Senior Receptionist",
+      department: "Front Office",
+      default_role: "reception",
+    },
+    {
+      title: "Receptionist",
+      department: "Front Office",
+      default_role: "reception",
+    },
+    {
+      title: "Front Desk Supervisor",
+      department: "Front Office",
+      default_role: "reception",
+    },
+    { title: "Executive Chef", department: "Kitchen", default_role: "kitchen" },
+    { title: "Sous Chef", department: "Kitchen", default_role: "kitchen" },
+    { title: "Chef", department: "Kitchen", default_role: "kitchen" },
+    {
+      title: "Store Supervisor",
+      department: "Procurement",
+      default_role: "storekeeper",
+    },
+    {
+      title: "Procurement Officer",
+      department: "Procurement",
+      default_role: "storekeeper",
+    },
+    {
+      title: "Housekeeping Lead",
+      department: "Housekeeping",
+      default_role: "admin",
+    },
+    { title: "Sales Manager", department: "Sales", default_role: "manager" },
+    { title: "Finance Officer", department: "Finance", default_role: "admin" },
+  ];
+
+  for (const pos of POSITIONS) {
+    const dept_id = deptMap.get(pos.department) ?? null;
+    const { error } = await supabase.from("positions").upsert(
+      {
+        title: pos.title,
+        department_id: dept_id,
+        default_role: pos.default_role,
+      },
+      { onConflict: "title,department_id" },
+    );
+    log(`position: ${pos.title}`, !error, error?.message);
+    summary.push({
+      step: `position:${pos.title}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Leave Types
+  const LEAVE_TYPES = [
+    {
+      name: "Annual Paid Leave",
+      code: "annual",
+      color: "#E8924A",
+      max_days: 24,
+    },
+    { name: "Sick Leave", code: "sick", color: "#EF4444", max_days: 12 },
+    {
+      name: "Maternity Leave",
+      code: "maternity",
+      color: "#8B5CF6",
+      max_days: 90,
+    },
+    {
+      name: "Paternity Leave",
+      code: "paternity",
+      color: "#3B82F6",
+      max_days: 14,
+    },
+    {
+      name: "Compassionate Leave",
+      code: "compassionate",
+      color: "#6B7280",
+      max_days: 5,
+    },
+    { name: "Unpaid Leave", code: "unpaid", color: "#9CA3AF", max_days: 30 },
+  ];
+
+  for (const lt of LEAVE_TYPES) {
+    const { error } = await supabase
+      .from("leave_types")
+      .upsert(lt, { onConflict: "code" });
+    log(`leave_type: ${lt.name}`, !error, error?.message);
+    summary.push({
+      step: `leave_type:${lt.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Menu Categories
+  const MENU_CATEGORIES = [
+    { name: "Breakfast", sort_order: 1 },
+    { name: "Main Course", sort_order: 2 },
+    { name: "Beverages", sort_order: 3 },
+  ];
+
+  for (const cat of MENU_CATEGORIES) {
+    const { error } = await supabase.from("menu_categories").insert(cat);
+    log(`menu_category: ${cat.name}`, !error, error?.message);
+    summary.push({
+      step: `menu_category:${cat.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Menu Items
+  const { data: cats } = await supabase
+    .from("menu_categories")
+    .select("id, name");
+  const catMap = new Map(
+    (cats ?? []).map((c: { id: string; name: string }) => [c.name, c.id]),
+  );
+
+  const MENU_ITEMS = [
+    {
+      name: "Palace Eggs Benedict",
+      category: "Breakfast",
+      price: 4500,
+      description: "Poached eggs on toasted brioche with hollandaise sauce",
+      is_special: false,
+    },
+    {
+      name: "Rajasthani Thali Breakfast",
+      category: "Breakfast",
+      price: 5500,
+      description:
+        "Traditional Indian breakfast platter with dal, roti, and chutneys",
+      is_special: true,
+    },
+    {
+      name: "Wagyu Beef Tenderloin",
+      category: "Main Course",
+      price: 18000,
+      description:
+        "A5 Wagyu with truffle jus, roasted vegetables, and potato gratin",
+      is_special: true,
+    },
+    {
+      name: "Butter Chicken Royale",
+      category: "Main Course",
+      price: 8500,
+      description: "Slow-cooked chicken in rich tomato-cream sauce with naan",
+      is_special: false,
+    },
+    {
+      name: "Palace Chai",
+      category: "Beverages",
+      price: 1200,
+      description: "Spiced masala tea with cardamom and ginger",
+      is_special: false,
+    },
+    {
+      name: "Mango Lassi",
+      category: "Beverages",
+      price: 1500,
+      description: "Chilled yogurt drink with fresh Alphonso mango",
+      is_special: false,
+    },
+  ];
+
+  for (const item of MENU_ITEMS) {
+    const cat_id = catMap.get(item.category) ?? null;
+    const { error } = await supabase.from("menu_items").insert({
+      name: item.name,
+      category_id: cat_id,
+      price: item.price,
+      description: item.description,
+      is_special: item.is_special,
+      is_available: true,
+      currency: "XAF",
+    });
+    log(`menu_item: ${item.name}`, !error, error?.message);
+    summary.push({
+      step: `menu_item:${item.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Inventory Items
+  const INVENTORY_ITEMS = [
+    {
+      name: "Saffron (premium)",
+      category: "Spices",
+      unit: "grams",
+      on_hand: 500,
+      reorder_level: 100,
+    },
+    {
+      name: "Wagyu Beef A5",
+      category: "Proteins",
+      unit: "kg",
+      on_hand: 15,
+      reorder_level: 5,
+    },
+    {
+      name: "Alphonso Mangoes",
+      category: "Produce",
+      unit: "kg",
+      on_hand: 30,
+      reorder_level: 10,
+    },
+  ];
+
+  for (const item of INVENTORY_ITEMS) {
+    const { error } = await supabase
+      .from("inventory_items")
+      .insert({ ...item, is_active: true });
+    log(`inventory: ${item.name}`, !error, error?.message);
+    summary.push({
+      step: `inventory:${item.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Procurement Budgets
+  const year = new Date().getFullYear();
+  const BUDGETS = [
+    {
+      department: "Food & Beverage",
+      year,
+      month: null,
+      budget_minor: 12000000,
+    },
+    { department: "Housekeeping", year, month: null, budget_minor: 5000000 },
+    { department: "Maintenance", year, month: null, budget_minor: 3000000 },
+    { department: "Technology", year, month: null, budget_minor: 2000000 },
+  ];
+
+  for (const budget of BUDGETS) {
+    const { error } = await supabase
+      .from("procurement_budgets")
+      .upsert(budget, { onConflict: "department,year,month" });
+    log(`budget: ${budget.department} ${year}`, !error, error?.message);
+    summary.push({
+      step: `budget:${budget.department}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Suppliers
+  const SUPPLIERS = [
+    {
+      name: "Global Gourmet Imports",
+      category: "Food & Beverage",
+      rating: 4.9,
+    },
+    {
+      name: "Palace Provisions Co.",
+      category: "General Supplies",
+      rating: 4.6,
+    },
+    {
+      name: "Spice Route Traders",
+      category: "Spices & Condiments",
+      rating: 4.7,
+    },
+  ];
+
+  for (const sup of SUPPLIERS) {
+    const { error } = await supabase
+      .from("suppliers")
+      .insert({ ...sup, is_active: true });
+    log(`supplier: ${sup.name}`, !error, error?.message);
+    summary.push({
+      step: `supplier:${sup.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // ── 8. Sample Data (from 04_seed_samples.ts) ────────────────
+  console.log("\n── Sample Data (Salaries, Leave, Payroll, Dining, Help) ──");
+
+  // Staff Salaries + Hire Dates
+  const STAFF_SALARIES: Record<string, { salary: number; hire_date: string }> =
+    {
+      "owner@jagamnpalace.com": { salary: 0, hire_date: "2020-01-15" },
+      "admin@jagamnpalace.com": { salary: 850000, hire_date: "2021-03-10" },
+      "manager@jagamnpalace.com": { salary: 750000, hire_date: "2021-06-01" },
+      "reception@jagamnpalace.com": { salary: 450000, hire_date: "2022-02-14" },
+      "kitchen@jagamnpalace.com": { salary: 550000, hire_date: "2021-09-20" },
+      "store@jagamnpalace.com": { salary: 400000, hire_date: "2023-01-05" },
+    };
+
+  for (const [email, data] of Object.entries(STAFF_SALARIES)) {
+    const { error } = await supabase
+      .from("staff")
+      .update({ salary: data.salary, hire_date: data.hire_date })
+      .eq("email", email);
+    log(`staff salary: ${email}`, !error, error?.message);
+    summary.push({
+      step: `staff_salary:${email}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "updated",
+    });
+  }
+
+  // Help Articles
+  const HELP_ARTICLES: Array<{
+    role: string | null;
+    slug: string;
+    title: string;
+    body: string;
+    category: string;
+    sort_order: number;
+  }> = [
+    {
+      role: null,
+      slug: "contact-support",
+      title: "Contact Support",
+      body: "For technical assistance, contact IT Support at ext. 5000 or email support@jagamnpalace.com. For urgent issues outside business hours, call the duty manager at +237 670 000 000.",
+      category: "General",
+      sort_order: 1,
+    },
+    {
+      role: "kitchen",
+      slug: "order-workflow",
+      title: "Order Workflow",
+      body: "1. New orders appear automatically on the Orders board\n2. Tap 'Acknowledge' to move to Preparing\n3. If ingredients are short, tap 'Request Stock' on the order\n4. When plated, tap 'Mark Ready' to notify the guest\n5. After delivery, tap 'Delivered' to complete",
+      category: "Orders",
+      sort_order: 1,
+    },
+    {
+      role: "kitchen",
+      slug: "inventory-requests",
+      title: "Requesting Stock",
+      body: "When an ingredient is running low:\n1. Open the order that needs the ingredient\n2. Tap 'Request Stock'\n3. Select the item or enter a custom name\n4. Specify quantity and add notes\n5. The storekeeper will be notified automatically\n\nNote: Orders can proceed to ready/delivered without waiting for stock fulfillment.",
+      category: "Inventory",
+      sort_order: 2,
+    },
+    {
+      role: "kitchen",
+      slug: "menu-management",
+      title: "Managing the Menu",
+      body: "To update menu items:\n1. Go to Menu tab\n2. Toggle availability with the switch\n3. Edit prices, descriptions, or images\n4. Changes appear immediately for guests\n\nTo add new items, contact the admin or use the 'Add Item' button.",
+      category: "Menu",
+      sort_order: 3,
+    },
+    {
+      role: "reception",
+      slug: "check-in-process",
+      title: "Check-In Process",
+      body: "1. Find the reservation in Arrivals\n2. Verify guest ID and booking details\n3. Assign a room (system suggests available units)\n4. Collect payment if not pre-paid\n5. Issue room key and welcome packet\n6. Tap 'Complete Check-In'",
+      category: "Front Desk",
+      sort_order: 1,
+    },
+    {
+      role: "reception",
+      slug: "walk-in-bookings",
+      title: "Walk-In Bookings",
+      body: "For guests without reservations:\n1. Go to Walk-In tab\n2. Select room type and dates\n3. Enter guest details\n4. Choose payment method (Card or Cash)\n5. For cash: specify amount received, partial, or no payment\n6. System assigns room automatically\n7. Print confirmation and issue key",
+      category: "Bookings",
+      sort_order: 2,
+    },
+    {
+      role: "reception",
+      slug: "checkout-folio",
+      title: "Checkout & Folio",
+      body: "At checkout:\n1. Open the departure in Departures tab\n2. Review the folio (room charges, dining, minibar, etc.)\n3. Add any final charges if needed\n4. Verify balance is settled\n5. If balance outstanding, collect payment or request manager override\n6. Complete checkout and email receipt",
+      category: "Front Desk",
+      sort_order: 3,
+    },
+    {
+      role: "account",
+      slug: "leave-requests",
+      title: "Requesting Leave",
+      body: "To request time off:\n1. Go to Leave tab in My Account\n2. Select leave type (Annual, Sick, etc.)\n3. Choose start and end dates\n4. Add reason and optional supporting document\n5. Submit for approval\n\nYou can view your remaining balance and cancel pending requests.",
+      category: "Leave",
+      sort_order: 1,
+    },
+    {
+      role: "account",
+      slug: "payslips",
+      title: "Viewing Payslips",
+      body: "Access your payslips in My Account > Payslips:\n- View all past payslips\n- See gross, deductions, and net pay\n- Download PDF for your records\n- Check payment status and date",
+      category: "Payroll",
+      sort_order: 2,
+    },
+    {
+      role: "account",
+      slug: "payout-setup",
+      title: "Setting Up Payout",
+      body: "To receive salary payments:\n1. Go to My Account > Payout\n2. Choose method: Stripe, MTN MoMo, Orange Money, or Bank\n3. Enter account details\n4. For Stripe: complete onboarding flow\n5. For MoMo/Bank: verify details with admin\n6. Set as default payout method\n\nPayroll will use your default method for payments.",
+      category: "Payroll",
+      sort_order: 3,
+    },
+    {
+      role: "storekeeper",
+      slug: "fulfilling-requests",
+      title: "Fulfilling Stock Requests",
+      body: "When kitchen requests stock:\n1. View requests in Requests tab\n2. Check inventory availability\n3. Approve and fulfill, or reject with reason\n4. Update inventory levels\n5. Kitchen is notified automatically\n\nNote: Full storekeeper portal coming soon.",
+      category: "Inventory",
+      sort_order: 1,
+    },
+  ];
+
+  for (const article of HELP_ARTICLES) {
+    const { error } = await supabase
+      .from("help_articles")
+      .upsert(article, { onConflict: "role,slug" });
+    log(`help_article: ${article.slug}`, !error, error?.message);
+    summary.push({
+      step: `help_article:${article.slug}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
   }
 
   // ── Summary ────────────────────────────────────────────────

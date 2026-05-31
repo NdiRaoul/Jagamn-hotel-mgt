@@ -40,6 +40,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatMoney } from "@/lib/currency";
 import {
   Select,
   SelectContent,
@@ -51,13 +52,12 @@ import { Label } from "@/components/ui/label";
 import type { Staff } from "@/types/database";
 
 const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-[#F3F7FF] text-[#2E4FB8]",
   admin: "bg-[#E8EFFE] text-[#4F7BDD]",
   manager: "bg-[#E8EFFE] text-[#4F7BDD]",
-  receptionist: "bg-[#EAF7ED] text-[#2E7D32]",
-  front_desk: "bg-[#EAF7ED] text-[#2E7D32]",
-  housekeeping: "bg-[#EAEAEA] text-[#606060]",
+  reception: "bg-[#EAF7ED] text-[#2E7D32]",
   kitchen: "bg-[#EAEAEA] text-[#606060]",
-  store_keeper: "bg-[#FFF1E6] text-[#E8924A]",
+  storekeeper: "bg-[#FFF1E6] text-[#E8924A]",
 };
 
 const RoleBadge = ({ role }: { role: string }) => (
@@ -92,6 +92,7 @@ interface AddStaffForm {
   position: string;
   role: string;
   salary: string;
+  hire_date: string;
   password: string;
 }
 
@@ -103,6 +104,7 @@ const EMPTY_FORM: AddStaffForm = {
   position: "",
   role: "",
   salary: "",
+  hire_date: "",
   password: "",
 };
 
@@ -162,6 +164,13 @@ export default function StaffClient({ staff, error }: Props) {
     return Array.from(depts).sort();
   }, [staff]);
 
+  const positions = useMemo(() => {
+    const pos = new Set(
+      staff.map((s) => s.position).filter(Boolean) as string[],
+    );
+    return Array.from(pos).sort();
+  }, [staff]);
+
   const filteredStaff = useMemo(() => {
     let result = [...staff];
 
@@ -188,9 +197,7 @@ export default function StaffClient({ staff, error }: Props) {
         const from = dateFilter.from
           ? new Date(dateFilter.from).getTime()
           : -Infinity;
-        const to = dateFilter.to
-          ? new Date(dateFilter.to).getTime()
-          : Infinity;
+        const to = dateFilter.to ? new Date(dateFilter.to).getTime() : Infinity;
         return hireDate >= from && hireDate <= to;
       });
     }
@@ -250,6 +257,7 @@ export default function StaffClient({ staff, error }: Props) {
         body: JSON.stringify({
           ...form,
           salary: form.salary ? parseFloat(form.salary) : 0,
+          hire_date: form.hire_date || null,
           password: form.password || undefined,
         }),
       });
@@ -285,9 +293,12 @@ export default function StaffClient({ staff, error }: Props) {
     if (!createdCredentials) return;
     setSending(true);
     try {
-      await fetch(`/api/staff/${createdCredentials.staff.id}/send-credentials`, {
-        method: "POST",
-      });
+      await fetch(
+        `/api/staff/${createdCredentials.staff.id}/send-credentials`,
+        {
+          method: "POST",
+        },
+      );
       setSent(true);
     } finally {
       setSending(false);
@@ -433,7 +444,8 @@ export default function StaffClient({ staff, error }: Props) {
                       Personnel Onboarding
                     </h2>
                     <p className="text-gray-400 text-sm font-medium">
-                      Enroll a new team member into the Palace management system.
+                      Enroll a new team member into the Palace management
+                      system.
                     </p>
                   </div>
 
@@ -545,27 +557,73 @@ export default function StaffClient({ staff, error }: Props) {
                       <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                         Department
                       </Label>
-                      <Input
-                        value={form.department}
-                        onChange={(e) =>
-                          setForm({ ...form, department: e.target.value })
-                        }
-                        placeholder="e.g. Front Desk"
-                        className="h-12 bg-white border-gray-200 rounded-xl"
-                      />
+                      <div className="flex gap-2">
+                        <Select
+                          value={form.department || "none"}
+                          onValueChange={(v) =>
+                            setForm({
+                              ...form,
+                              department: v === "none" ? "" : v,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-12 bg-white border-gray-200 rounded-xl">
+                            <SelectValue placeholder="Choose department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {departments.map((d) => (
+                              <SelectItem key={d} value={d}>
+                                {d}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Or enter new..."
+                          value={form.department}
+                          onChange={(e) =>
+                            setForm({ ...form, department: e.target.value })
+                          }
+                          className="h-12 bg-white border-gray-200 rounded-xl flex-1"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                         Position / Title
                       </Label>
-                      <Input
-                        value={form.position}
-                        onChange={(e) =>
-                          setForm({ ...form, position: e.target.value })
-                        }
-                        placeholder="e.g. Senior Receptionist"
-                        className="h-12 bg-white border-gray-200 rounded-xl"
-                      />
+                      <div className="flex gap-2">
+                        <Select
+                          value={form.position || "none"}
+                          onValueChange={(v) =>
+                            setForm({
+                              ...form,
+                              position: v === "none" ? "" : v,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-12 bg-white border-gray-200 rounded-xl">
+                            <SelectValue placeholder="Choose position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {positions.map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {p}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Or enter new..."
+                          value={form.position}
+                          onChange={(e) =>
+                            setForm({ ...form, position: e.target.value })
+                          }
+                          className="h-12 bg-white border-gray-200 rounded-xl flex-1"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
@@ -580,17 +638,12 @@ export default function StaffClient({ staff, error }: Props) {
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="owner">Owner</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="receptionist">
-                            Receptionist
-                          </SelectItem>
-                          <SelectItem value="front_desk">Front Desk</SelectItem>
-                          <SelectItem value="housekeeping">
-                            Housekeeping
-                          </SelectItem>
+                          <SelectItem value="reception">Reception</SelectItem>
                           <SelectItem value="kitchen">Kitchen</SelectItem>
-                          <SelectItem value="store_keeper">
+                          <SelectItem value="storekeeper">
                             Store Keeper
                           </SelectItem>
                         </SelectContent>
@@ -598,11 +651,11 @@ export default function StaffClient({ staff, error }: Props) {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                        Annual Salary (USD)
+                        Annual Salary (FCFA)
                       </Label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
-                          $
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-xs">
+                          FCFA
                         </span>
                         <Input
                           type="number"
@@ -642,10 +695,17 @@ export default function StaffClient({ staff, error }: Props) {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={submitting || !form.full_name || !form.email || !form.role}
+                      disabled={
+                        submitting ||
+                        !form.full_name ||
+                        !form.email ||
+                        !form.role
+                      }
                       className="h-12 px-10 bg-jagamn-primary text-white manrope-bold rounded-xl shadow-lg gap-2"
                     >
-                      {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {submitting && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       {submitting ? "Creating…" : "Create Staff Account"}
                     </Button>
                   </div>
@@ -693,9 +753,11 @@ export default function StaffClient({ staff, error }: Props) {
             Monthly Payroll Forecast
           </p>
           <h2 className="manrope-bold text-3xl md:text-5xl mb-6">
-            ${(
-              staff.reduce((sum, s) => sum + (s.salary ?? 0), 0) / 12
-            ).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            {formatMoney(
+              Math.round(
+                staff.reduce((sum, s) => sum + (s.salary ?? 0), 0) / 12,
+              ),
+            )}
           </h2>
           <div className="absolute bottom-[-20%] right-[-10%] w-40 h-40 bg-white/5 rounded-full blur-2xl" />
         </div>
@@ -888,7 +950,10 @@ export default function StaffClient({ staff, error }: Props) {
                           <MoreHorizontal className="w-5 h-5 text-gray-400" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-48 rounded-xl"
+                      >
                         <DropdownMenuItem
                           onClick={() =>
                             router.push(`/admin/staff/${member.id}`)
@@ -898,9 +963,7 @@ export default function StaffClient({ staff, error }: Props) {
                           <Eye className="w-4 h-4" /> View Profile
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setEditModal({ open: true, member })
-                          }
+                          onClick={() => setEditModal({ open: true, member })}
                           className="text-[10px] font-black uppercase tracking-widest gap-2 py-3 px-4"
                         >
                           <Briefcase className="w-4 h-4" /> Edit Details

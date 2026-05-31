@@ -45,12 +45,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const xafAmount = Math.max(100, Math.round(amount * 615));
+    // Fapshi is XAF-native. `amount` from the client is whole XAF.
+    const amountXaf = Math.max(100, Math.round(amount));
+    const amountMinor = amountXaf * 100;
 
     const ledger = await getOrCreateLedger({
       bookingRef,
       provider: "fapshi",
-      amountMinor: xafAmount,
+      amountMinor,
       currency: "XAF",
       clientIdempotencyKey,
     });
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
     await appendEvent(ledger.id, "intent_created", { source: "server" });
 
     const payload = {
-      amount: xafAmount,
+      amount: amountXaf,
       phone,
       medium,
       externalId: ledger.id,

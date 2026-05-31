@@ -1,20 +1,35 @@
-import { getPayrollSummary } from "@/lib/data/admin";
+import {
+  getPayrollRuns,
+  getPayrollItems,
+  getPayoutReadiness,
+} from "@/lib/data/payroll";
 import PayrollClient from "./payroll-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PayrollPage() {
-  let data: Awaited<ReturnType<typeof getPayrollSummary>> = {
-    rows: [],
-    staffCount: 0,
-  };
+  let runs: Awaited<ReturnType<typeof getPayrollRuns>> = [];
+  let items: Awaited<ReturnType<typeof getPayrollItems>> = [];
+  let payoutReadiness: Awaited<ReturnType<typeof getPayoutReadiness>> = [];
   let error: string | null = null;
 
   try {
-    data = await getPayrollSummary();
+    runs = await getPayrollRuns(12);
+    // Get items for the most recent run if available
+    if (runs.length > 0) {
+      items = await getPayrollItems(runs[0].id);
+    }
+    payoutReadiness = await getPayoutReadiness();
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load payroll data";
   }
 
-  return <PayrollClient rows={data.rows} staffCount={data.staffCount} error={error} />;
+  return (
+    <PayrollClient
+      runs={runs}
+      items={items}
+      payoutReadiness={payoutReadiness}
+      error={error}
+    />
+  );
 }

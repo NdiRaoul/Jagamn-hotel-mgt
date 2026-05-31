@@ -107,7 +107,9 @@ export default function FBClient({ summary, error }: Props) {
   );
 
   const liveCount = items.filter((i) => i.status === "available").length;
-  const outOfStockCount = items.filter((i) => i.status === "out_of_stock").length;
+  const outOfStockCount = items.filter(
+    (i) => i.status === "out_of_stock",
+  ).length;
 
   return (
     <div className="space-y-12 pb-20 animate-in fade-in duration-700">
@@ -123,9 +125,7 @@ export default function FBClient({ summary, error }: Props) {
           <p className="text-slate-400 font-medium max-w-2xl text-sm md:text-base leading-relaxed">
             Curate seasonal specialties and manage real-time availability.
           </p>
-          {error && (
-            <p className="text-red-500 text-sm font-medium">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
         </div>
         <Dialog>
           <DialogTrigger asChild>
@@ -133,9 +133,7 @@ export default function FBClient({ summary, error }: Props) {
               <Plus className="w-5 h-5" /> Add Menu Item
             </Button>
           </DialogTrigger>
-          <AddMenuModal
-            onAdd={(item) => setItems((prev) => [...prev, item])}
-          />
+          <AddMenuModal onAdd={(item) => setItems((prev) => [...prev, item])} />
         </Dialog>
       </div>
 
@@ -348,11 +346,7 @@ export default function FBClient({ summary, error }: Props) {
   );
 }
 
-function AddMenuModal({
-  onAdd,
-}: {
-  onAdd: (item: LocalMenuItem) => void;
-}) {
+function AddMenuModal({ onAdd }: { onAdd: (item: LocalMenuItem) => void }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -446,7 +440,7 @@ function AddMenuModal({
             </div>
             <div className="space-y-4">
               <label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Price (USD)
+                Price (FCFA)
               </label>
               <div className="relative">
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl manrope-bold text-slate-400">

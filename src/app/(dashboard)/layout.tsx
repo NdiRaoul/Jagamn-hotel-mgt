@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { GuestNotificationBell } from "@/components/notifications/guest-notification-bell";
 
 const NAV_ITEMS = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
@@ -349,10 +350,7 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-6 ml-10">
-            <button className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-50 transition-colors">
-              <Bell className="w-5 h-5 text-gray-400" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-            </button>
+            <GuestNotificationBell />
 
             {/* User dropdown */}
             <DropdownMenu>

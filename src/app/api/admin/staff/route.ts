@@ -4,7 +4,7 @@ import {
   supabaseAdmin,
 } from "@/lib/supabase-server";
 
-const ADMIN_ROLES = ["admin", "manager"];
+const ADMIN_ROLES = ["owner", "admin", "manager"];
 
 async function requireAdmin(request: NextRequest) {
   const supabase = await createSupabaseServerClient();

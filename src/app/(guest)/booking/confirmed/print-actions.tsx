@@ -1,6 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 
@@ -11,18 +12,17 @@ export interface ReceiptData {
   guestPhone: string | null;
   guestCountry: string | null;
   roomName: string;
-  checkIn: string;   // pre-formatted e.g. "May 12, 2025"
+  checkIn: string; // pre-formatted e.g. "May 12, 2025"
   checkOut: string;
   nights: number;
   guestCount: number;
   roomPricePerNight: number;
   roomTotal: number;
-  resortFee: number;
   taxAmount: number;
   totalAmount: number;
   paymentMethod: string | null;
   paymentStatus: string;
-  issuedAt: string;  // pre-formatted date
+  issuedAt: string; // pre-formatted date
 }
 
 function generateReceiptPDF(data: ReceiptData) {
@@ -79,7 +79,9 @@ function generateReceiptPDF(data: ReceiptData) {
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...midGray);
-  doc.text(`Status: ${data.paymentStatus.toUpperCase()}`, W - 56, y + 26, { align: "right" });
+  doc.text(`Status: ${data.paymentStatus.toUpperCase()}`, W - 56, y + 26, {
+    align: "right",
+  });
 
   y += 64;
 
@@ -138,10 +140,9 @@ function generateReceiptPDF(data: ReceiptData) {
 
   row(
     `${data.roomName} × ${data.nights} night${data.nights !== 1 ? "s" : ""}`,
-    `$${data.roomTotal.toLocaleString()}`,
+    `${formatMoney(data.roomTotal)}`,
   );
-  row("Palace Resort Fee", `$${data.resortFee.toLocaleString()}`);
-  row("Taxes (12%)", `$${data.taxAmount.toLocaleString()}`);
+  row("Taxes (10%)", `${formatMoney(data.taxAmount)}`);
 
   y += 4;
 
@@ -156,7 +157,9 @@ function generateReceiptPDF(data: ReceiptData) {
 
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(`$${data.totalAmount.toLocaleString()}`, W - 56, y + 22, { align: "right" });
+  doc.text(`${formatMoney(data.totalAmount)}`, W - 56, y + 22, {
+    align: "right",
+  });
 
   y += 52;
 
@@ -184,7 +187,9 @@ function generateReceiptPDF(data: ReceiptData) {
 
   doc.setFontSize(7);
   doc.setTextColor(180, 180, 180);
-  doc.text("Jagamn Palace  •  Excellence since 1892", W / 2, y + 28, { align: "center" });
+  doc.text("Jagamn Palace  •  Excellence since 1892", W / 2, y + 28, {
+    align: "center",
+  });
 
   // ── Save ─────────────────────────────────────────────────────────────────
   doc.save(`Jagamn-Receipt-${data.bookingRef}.pdf`);

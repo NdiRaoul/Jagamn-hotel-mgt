@@ -17,7 +17,7 @@ export async function getStaff(filters?: StaffFilters): Promise<Staff[]> {
   let request = supabaseAdmin
     .from("staff")
     .select(
-      "id,auth_user_id,full_name,email,role,status,avatar_url,must_reset_pw,staff_code,phone,department,position,salary,hire_date,created_at,updated_at",
+      "id,auth_user_id,full_name,email,role,status,avatar_url,must_reset_pw,staff_code,phone,department,position,salary,hire_date,is_owner,created_at,updated_at",
     );
 
   if (filters?.query) {

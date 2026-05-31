@@ -66,12 +66,35 @@ export function StaffEditModal({
   const [department, setDepartment] = useState(staff.department ?? "");
   const [position, setPosition] = useState(staff.position ?? "");
   const [role, setRole] = useState(staff.role);
-  const [salary, setSalary] = useState(staff.salary != null ? String(staff.salary) : "");
+  const [salary, setSalary] = useState(
+    staff.salary != null ? String(staff.salary) : "",
+  );
 
   const isSuspended = staff.status === "suspended";
   const [suspendToggle, setSuspendToggle] = useState(isSuspended);
 
   const [saving, setSaving] = useState(false);
+
+  // Suggested options (derived from common palace departments/roles)
+  const SUGGESTED_DEPARTMENTS = [
+    "Executive",
+    "Management",
+    "Front Office",
+    "Kitchen",
+    "Procurement",
+    "Housekeeping",
+    "Sales",
+  ];
+
+  const SUGGESTED_POSITIONS = [
+    "General Manager",
+    "Assistant Manager",
+    "Senior Receptionist",
+    "Receptionist",
+    "Chef",
+    "Sous Chef",
+    "Store Supervisor",
+  ];
   const [resettingPw, setResettingPw] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -84,10 +107,16 @@ export function StaffEditModal({
   const mutate = async (url: string, method: string, body?: object) => {
     const res = await fetch(url, {
       method,
-      ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+      ...(body
+        ? {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        : {}),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+    if (!res.ok)
+      throw new Error(data.error ?? `Request failed (${res.status})`);
     return data;
   };
 
@@ -124,9 +153,14 @@ export function StaffEditModal({
     setApiError(null);
     setResettingPw(true);
     try {
-      const data = await mutate(`/api/staff/${staff.id}/reset-password`, "POST");
+      const data = await mutate(
+        `/api/staff/${staff.id}/reset-password`,
+        "POST",
+      );
       if (data.tempPassword) {
-        alert(`New temporary password:\n${data.tempPassword}\n\nShare this securely with the staff member.`);
+        alert(
+          `New temporary password:\n${data.tempPassword}\n\nShare this securely with the staff member.`,
+        );
       } else {
         alert("Password reset email sent.");
       }
@@ -328,21 +362,61 @@ export function StaffEditModal({
                   <Label className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
                     Department
                   </Label>
-                  <Input
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                  />
+                  <div className="flex gap-2">
+                    <Select
+                      value={department || "none"}
+                      onValueChange={(v) =>
+                        setDepartment(v === "none" ? "" : v)
+                      }
+                    >
+                      <SelectTrigger className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary">
+                        <SelectValue placeholder="Choose department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {SUGGESTED_DEPARTMENTS.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Or enter new..."
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all flex-1"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
                     Position / Title
                   </Label>
-                  <Input
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
-                  />
+                  <div className="flex gap-2">
+                    <Select
+                      value={position || "none"}
+                      onValueChange={(v) => setPosition(v === "none" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary">
+                        <SelectValue placeholder="Choose position" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {SUGGESTED_POSITIONS.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Or enter new..."
+                      value={position}
+                      onChange={(e) => setPosition(e.target.value)}
+                      className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all flex-1"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
@@ -353,13 +427,12 @@ export function StaffEditModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="owner">Owner</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="receptionist">Receptionist</SelectItem>
-                      <SelectItem value="front_desk">Front Desk</SelectItem>
-                      <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                      <SelectItem value="reception">Reception</SelectItem>
                       <SelectItem value="kitchen">Kitchen</SelectItem>
-                      <SelectItem value="store_keeper">Store Keeper</SelectItem>
+                      <SelectItem value="storekeeper">Store Keeper</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -367,7 +440,7 @@ export function StaffEditModal({
 
               <div className="space-y-1.5">
                 <Label className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
-                  Base Annual Salary (USD)
+                  Base Annual Salary (FCFA)
                 </Label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">
@@ -436,8 +509,8 @@ export function StaffEditModal({
                       Remove {staff.full_name}?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This permanently deletes the staff record and revokes their
-                      auth account. This action cannot be undone.
+                      This permanently deletes the staff record and revokes
+                      their auth account. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

@@ -6,7 +6,7 @@ import {
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia",
+  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
 });
 
 const FAPSHI_BASE_URL =
@@ -67,13 +67,15 @@ export async function POST(
     if (payment) {
       try {
         if (payment.provider === "stripe" && payment.stripe_payment_intent_id) {
+          // Stripe XAF is zero-decimal - send whole franc amount (no ×100)
           const refund = await stripe.refunds.create({
             payment_intent: payment.stripe_payment_intent_id,
-            amount: Math.round(refundAmount * 100),
+            amount: Math.round(refundAmount),
           });
           refundTxId = refund.id;
           refundStatus = refund.status === "succeeded" ? "refunded" : "pending";
         } else if (payment.provider === "fapshi" && payment.fapshi_trans_id) {
+          // Fapshi is XAF-native - pass XAF directly (no conversion)
           const res = await fetch(`${FAPSHI_BASE_URL}/refund`, {
             method: "POST",
             headers: {
@@ -83,7 +85,7 @@ export async function POST(
             },
             body: JSON.stringify({
               transId: payment.fapshi_trans_id,
-              amount: Math.round(refundAmount * 615),
+              amount: Math.round(refundAmount),
             }),
           });
           const d = await res.json();

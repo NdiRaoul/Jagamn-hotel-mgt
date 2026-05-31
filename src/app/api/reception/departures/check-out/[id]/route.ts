@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 
-const ALLOWED_ROLES = ["admin", "manager", "receptionist", "front_desk"];
+const ALLOWED_ROLES = ["owner", "admin", "manager", "reception"];
 
 async function requireAuthorized(request: NextRequest) {
-  const session = await getStaffSession(request);
+  const session = await getStaffSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (
-    session.staff.status !== "active" ||
-    !ALLOWED_ROLES.includes(session.staff.role)
+    session.status !== "active" ||
+    !ALLOWED_ROLES.includes(session.role)
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -20,14 +20,15 @@ async function requireAuthorized(request: NextRequest) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await requireAuthorized(request);
   if (session instanceof NextResponse) {
     return session;
   }
 
-  const bookingId = params.id;
+  const p = await params;
+  const bookingId = p.id;
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from("bookings")
     .select("id,total_amount,payment_status,status")
@@ -98,8 +99,8 @@ export async function POST(
   }
 
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "booking.check_out",
     target_type: "booking",
     target_id: bookingId,

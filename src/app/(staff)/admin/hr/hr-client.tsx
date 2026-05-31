@@ -34,52 +34,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Staff } from "@/types/database";
-
-// Leave requests and deductions remain static until a dedicated HR table is added
-const LEAVE_REQUESTS = [
-  {
-    id: "LR-1042",
-    staff: { name: "Elena Rodriguez", role: "Housekeeping Lead", id: "ST-1042" },
-    category: "Sick Leave",
-    dates: { from: "2026-10-28", to: "2026-10-29" },
-    duration: "2 Days",
-    status: "Pending",
-    type: "SICK LEAVE",
-    reason: "Experiencing severe seasonal flu symptoms and requiring medical rest.",
-    balance: { accrued: 12, used: 4, available: 8 },
-  },
-  {
-    id: "LR-1043",
-    staff: { name: "Sterling Holt", role: "Front Desk Supervisor", id: "ST-2091" },
-    category: "Annual Paid Leave",
-    dates: { from: "2026-10-24", to: "2026-10-26" },
-    duration: "3 Days",
-    status: "Pending",
-    type: "ANNUAL",
-    reason: "Attending a family gathering and personal commitments.",
-    balance: { accrued: 24, used: 6, available: 18 },
-  },
-];
-
-const RECENT_DEDUCTIONS = [
-  {
-    id: "D-901",
-    staff: { name: "Julian Thorne", dept: "Front Desk", id: "ST-3301" },
-    type: "ABSENCE",
-    tag: "UNEXCUSED",
-    amount: "145.00",
-    date: "2026-05-15",
-    reason: "Employee failed to report for the morning shift without prior notification.",
-  },
-];
+import type { LeaveRequest, Deduction, LeaveType } from "@/lib/data/hr";
+import type { HrLeaveSummary } from "@/lib/data/admin";
 
 interface Props {
   roster: Staff[];
   housekeepingTasks: { room: string; task: string; dueDate: string }[];
+  leaveRequests: LeaveRequest[];
+  leaveTypes: LeaveType[];
+  deductions: Deduction[];
+  leaveSummary: HrLeaveSummary[];
   error: string | null;
 }
 
-export default function HRClient({ roster, housekeepingTasks, error }: Props) {
+export default function HRClient({
+  roster,
+  housekeepingTasks,
+  leaveRequests,
+  leaveTypes,
+  deductions,
+  leaveSummary,
+  error,
+}: Props) {
   const [activeTab, setActiveTab] = useState<"leave" | "deductions">("leave");
   const [leaveStatusFilter, setLeaveStatusFilter] = useState("Pending");
   const [leaveTypeFilter, setLeaveTypeFilter] = useState("all");
@@ -88,7 +64,7 @@ export default function HRClient({ roster, housekeepingTasks, error }: Props) {
     from: "",
     to: "",
   });
-  const [selectedRequest, setSelectedRequest] = useState(LEAVE_REQUESTS[0]);
+  const [selectedRequest, setSelectedRequest] = useState(leaveRequests[0]);
 
   useEffect(() => {
     const handler = (e: CustomEvent<string>) => setSearchQuery(e.detail || "");
@@ -102,41 +78,50 @@ export default function HRClient({ roster, housekeepingTasks, error }: Props) {
 
   const filteredLeave = useMemo(
     () =>
-      LEAVE_REQUESTS.filter((req) => {
+      leaveRequests.filter((req) => {
         const q = searchQuery.toLowerCase();
+        const staffName = req.staff?.full_name || "";
+        const leaveTypeName = req.leave_types?.name || "";
         const matchSearch =
           !searchQuery ||
-          req.staff.name.toLowerCase().includes(q) ||
+          staffName.toLowerCase().includes(q) ||
           req.id.toLowerCase().includes(q) ||
-          req.category.toLowerCase().includes(q);
+          leaveTypeName.toLowerCase().includes(q);
         const matchStatus =
-          leaveStatusFilter === "All" || req.status === leaveStatusFilter;
+          leaveStatusFilter === "All" ||
+          req.status.toLowerCase() === leaveStatusFilter.toLowerCase();
         const matchType =
-          leaveTypeFilter === "all" || req.category.includes(leaveTypeFilter);
-        const d = new Date(req.dates.from).getTime();
+          leaveTypeFilter === "all" ||
+          leaveTypeName.toLowerCase().includes(leaveTypeFilter.toLowerCase());
+        const d = new Date(req.start_date).getTime();
         const from = dateFilter.from
           ? new Date(dateFilter.from).getTime()
           : -Infinity;
-        const to = dateFilter.to
-          ? new Date(dateFilter.to).getTime()
-          : Infinity;
+        const to = dateFilter.to ? new Date(dateFilter.to).getTime() : Infinity;
         return matchSearch && matchStatus && matchType && d >= from && d <= to;
       }),
-    [searchQuery, leaveStatusFilter, leaveTypeFilter, dateFilter],
+    [
+      leaveRequests,
+      searchQuery,
+      leaveStatusFilter,
+      leaveTypeFilter,
+      dateFilter,
+    ],
   );
 
   const filteredDeductions = useMemo(
     () =>
-      RECENT_DEDUCTIONS.filter((d) => {
+      deductions.filter((d) => {
         const q = searchQuery.toLowerCase();
+        const staffName = d.staff?.full_name || "";
         return (
           !searchQuery ||
-          d.staff.name.toLowerCase().includes(q) ||
+          staffName.toLowerCase().includes(q) ||
           d.id.toLowerCase().includes(q) ||
-          d.type.toLowerCase().includes(q)
+          d.category.toLowerCase().includes(q)
         );
       }),
-    [searchQuery],
+    [deductions, searchQuery],
   );
 
   return (
@@ -154,10 +139,7 @@ export default function HRClient({ roster, housekeepingTasks, error }: Props) {
             Housekeeping Tasks Today:
           </span>
           {housekeepingTasks.map((t, i) => (
-            <span
-              key={i}
-              className="text-xs font-bold text-amber-700"
-            >
+            <span key={i} className="text-xs font-bold text-amber-700">
               Room {t.room} — {t.task}
             </span>
           ))}
@@ -269,9 +251,9 @@ function LeaveView({
 }: {
   leaveStatusFilter: string;
   setLeaveStatusFilter: (v: string) => void;
-  selectedRequest: (typeof LEAVE_REQUESTS)[0];
-  setSelectedRequest: (r: (typeof LEAVE_REQUESTS)[0]) => void;
-  requests: (typeof LEAVE_REQUESTS);
+  selectedRequest: LeaveRequest | undefined;
+  setSelectedRequest: (r: LeaveRequest) => void;
+  requests: LeaveRequest[];
   staffCount: number;
 }) {
   return (
@@ -336,65 +318,72 @@ function LeaveView({
             ))}
           </div>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-            {requests.map((req) => (
-              <div
-                key={req.id}
-                onClick={() => setSelectedRequest(req)}
-                className={cn(
-                  "p-6 rounded-xl transition-all cursor-pointer group relative overflow-hidden",
-                  selectedRequest.id === req.id
-                    ? "bg-white border-[#0D2137] shadow-xl border-l-4 border-l-[#0D2137]"
-                    : "bg-gray-100/40 hover:bg-white",
-                )}
-              >
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[#0D2137] flex items-center justify-center text-white text-xs font-black">
-                      {req.staff.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+            {requests.map((req) => {
+              const staffName = req.staff?.full_name || "Unknown";
+              const staffRole = req.staff?.role || "";
+              const leaveTypeName = req.leave_types?.name || "Leave";
+              const leaveTypeColor = req.leave_types?.color || "#E8924A";
+              return (
+                <div
+                  key={req.id}
+                  onClick={() => setSelectedRequest(req)}
+                  className={cn(
+                    "p-6 rounded-xl transition-all cursor-pointer group relative overflow-hidden",
+                    selectedRequest?.id === req.id
+                      ? "bg-white border-[#0D2137] shadow-xl border-l-4 border-l-[#0D2137]"
+                      : "bg-gray-100/40 hover:bg-white",
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-[#0D2137] flex items-center justify-center text-white text-xs font-black">
+                        {staffName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <div>
+                        <h4 className="manrope-bold text-[15px] text-[#0D2137] leading-tight">
+                          {staffName}
+                        </h4>
+                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                          {staffRole}
+                        </p>
+                      </div>
                     </div>
+                    <Badge
+                      className={cn(
+                        "border-0 text-[8px] font-black px-2 py-1 rounded-lg uppercase",
+                      )}
+                      style={{
+                        backgroundColor: `${leaveTypeColor}20`,
+                        color: leaveTypeColor,
+                      }}
+                    >
+                      {leaveTypeName.split(" ")[0]}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="manrope-bold text-[15px] text-[#0D2137] leading-tight">
-                        {req.staff.name}
-                      </h4>
-                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
-                        {req.staff.role}
+                      <p className="text-[11px] font-bold text-slate-400">
+                        {req.start_date} — {req.end_date}
+                      </p>
+                      <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+                        {req.days} Day{req.days !== 1 ? "s" : ""}
                       </p>
                     </div>
+                    <ChevronRight
+                      className={cn(
+                        "w-5 h-5 transition-transform",
+                        selectedRequest?.id === req.id
+                          ? "text-[#0D2137] translate-x-1"
+                          : "text-slate-200",
+                      )}
+                    />
                   </div>
-                  <Badge
-                    className={cn(
-                      "border-0 text-[8px] font-black px-2 py-1 rounded-lg uppercase",
-                      req.category.includes("Sick")
-                        ? "bg-[#E1E7EF] text-[#0D2137]"
-                        : "bg-[#FFF7ED] text-[#E8924A]",
-                    )}
-                  >
-                    {req.category.split(" ")[0]}
-                  </Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-400">
-                      {req.dates.from} — {req.dates.to}
-                    </p>
-                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
-                      {req.duration}
-                    </p>
-                  </div>
-                  <ChevronRight
-                    className={cn(
-                      "w-5 h-5 transition-transform",
-                      selectedRequest.id === req.id
-                        ? "text-[#0D2137] translate-x-1"
-                        : "text-slate-200",
-                    )}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {requests.length === 0 && (
               <div className="text-center py-20 text-slate-400 italic font-bold">
                 No requests found.
@@ -409,18 +398,19 @@ function LeaveView({
               <div className="bg-[#0D2137] p-6 md:p-10 text-white relative overflow-hidden">
                 <div className="flex items-center gap-6 md:gap-8 relative z-10">
                   <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-white flex items-center justify-center text-[#0D2137] text-xl md:text-2xl font-black">
-                    {selectedRequest.staff.name
+                    {(selectedRequest.staff?.full_name || "")
                       .split(" ")
                       .map((n) => n[0])
                       .join("")}
                   </div>
                   <div>
                     <h2 className="manrope-bold text-2xl md:text-4xl tracking-tight mb-2">
-                      {selectedRequest.staff.name}
+                      {selectedRequest.staff?.full_name || "Unknown"}
                     </h2>
                     <p className="text-xs font-bold text-slate-400">
-                      {selectedRequest.staff.role} · ID:{" "}
-                      {selectedRequest.staff.id}
+                      {selectedRequest.staff?.role || ""} · ID:{" "}
+                      {selectedRequest.staff?.staff_code ||
+                        selectedRequest.staff_id.slice(0, 8)}
                     </p>
                   </div>
                 </div>
@@ -434,7 +424,7 @@ function LeaveView({
                         Leave Category
                       </p>
                       <h3 className="manrope-bold text-xl md:text-2xl text-[#0D2137]">
-                        {selectedRequest.category}
+                        {selectedRequest.leave_types?.name || "Leave"}
                       </h3>
                     </div>
                     <div className="space-y-4">
@@ -447,7 +437,7 @@ function LeaveView({
                             From
                           </p>
                           <p className="manrope-bold text-sm text-[#0D2137]">
-                            {selectedRequest.dates.from}
+                            {selectedRequest.start_date}
                           </p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-gray-200" />
@@ -456,7 +446,7 @@ function LeaveView({
                             To
                           </p>
                           <p className="manrope-bold text-sm text-[#0D2137]">
-                            {selectedRequest.dates.to}
+                            {selectedRequest.end_date}
                           </p>
                         </div>
                       </div>
@@ -466,7 +456,7 @@ function LeaveView({
                         Reason
                       </p>
                       <p className="text-sm leading-relaxed text-gray-500">
-                        {selectedRequest.reason}
+                        {selectedRequest.reason || "No reason provided"}
                       </p>
                     </div>
                   </div>
@@ -474,32 +464,40 @@ function LeaveView({
                     <div className="flex items-center gap-3 mb-8">
                       <Clock className="w-4 h-4 text-[#0D2137]" />
                       <h4 className="text-[10px] font-black text-[#0D2137] uppercase tracking-widest">
-                        Leave Balance
+                        Request Details
                       </h4>
                     </div>
                     <div className="space-y-6">
                       <div>
                         <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">
-                          Available Balance
+                          Total Days Requested
                         </p>
                         <div className="flex items-end gap-2">
                           <span className="manrope-bold text-4xl text-[#0D2137]">
-                            {selectedRequest.balance.available}
+                            {selectedRequest.days}
                           </span>
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
                             Days
                           </span>
                         </div>
                       </div>
-                      <Progress
-                        value={
-                          (selectedRequest.balance.available /
-                            selectedRequest.balance.accrued) *
-                          100
-                        }
-                        className="h-1.5 bg-gray-200"
-                        indicatorClassName="bg-[#E8924A]"
-                      />
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">
+                          Status
+                        </p>
+                        <Badge
+                          className={cn(
+                            "text-[9px] font-black px-2 py-1 rounded-lg uppercase",
+                            selectedRequest.status === "approved"
+                              ? "bg-green-50 text-green-600"
+                              : selectedRequest.status === "rejected"
+                                ? "bg-red-50 text-red-600"
+                                : "bg-amber-50 text-amber-600",
+                          )}
+                        >
+                          {selectedRequest.status}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -523,11 +521,7 @@ function LeaveView({
   );
 }
 
-function DeductionsView({
-  requests,
-}: {
-  requests: typeof RECENT_DEDUCTIONS;
-}) {
+function DeductionsView({ requests }: { requests: Deduction[] }) {
   return (
     <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
       <table className="w-full" style={{ minWidth: 900 }}>
@@ -581,10 +575,7 @@ function DeductionsView({
                 {d.date}
               </td>
               <td className="px-10 py-6 text-right">
-                <Button
-                  variant="ghost"
-                  className="h-10 w-10 p-0 rounded-xl"
-                >
+                <Button variant="ghost" className="h-10 w-10 p-0 rounded-xl">
                   <Info className="w-4 h-4 text-slate-300" />
                 </Button>
               </td>

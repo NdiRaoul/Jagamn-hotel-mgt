@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 
-const ALLOWED_ROLES = ["admin", "manager", "receptionist", "front_desk"];
+const ALLOWED_ROLES = ["owner", "admin", "manager", "reception"];
 
 async function requireAuthorized(request: NextRequest) {
-  const session = await getStaffSession(request);
+  const session = await getStaffSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (
-    session.staff.status !== "active" ||
-    !ALLOWED_ROLES.includes(session.staff.role)
-  ) {
+  if (session.status !== "active" || !ALLOWED_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return session;
@@ -96,8 +93,8 @@ export async function POST(request: NextRequest) {
     .select("room_id")
     .neq("room_id", null)
     .neq("status", "cancelled")
-    .lte("check_in", toDateKey(checkOutDate))
-    .gte("check_out", toDateKey(checkInDate));
+    .lt("check_in", toDateKey(checkOutDate))
+    .gt("check_out", toDateKey(checkInDate));
 
   const occupiedRoomIds = (activeBookings || [])
     .map((row) => row.room_id as string | null)
@@ -120,7 +117,14 @@ export async function POST(request: NextRequest) {
     console.error("[walk-in] room lookup error:", roomError);
   }
 
-  const assignedRoomId = availableRoom?.id ?? null;
+  if (!availableRoom) {
+    return NextResponse.json(
+      { error: "No rooms available for the selected dates" },
+      { status: 409 },
+    );
+  }
+
+  const assignedRoomId = availableRoom.id;
 
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from("bookings")
@@ -176,7 +180,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           bookingRef: booking.booking_ref,
           totalAmount,
-          currency: currency && typeof currency === "string" ? currency : "usd",
+          currency: "xaf",
           clientIdempotencyKey,
         }),
       },
@@ -211,13 +215,13 @@ export async function POST(request: NextRequest) {
   }
 
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "booking.walk_in",
     target_type: "booking",
     target_id: booking.id,
     payload: {
-      roomSlug,
+      roomSlug: room_slug,
       assignedRoomId,
       totalAmount,
       paymentMethod: payment_method,

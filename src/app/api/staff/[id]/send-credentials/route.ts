@@ -4,18 +4,18 @@ import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaffById } from "@/lib/data/staff";
 import { resend } from "@/lib/resend";
 
-const ADMIN_ROLES = ["admin"];
+const ADMIN_ROLES = ["owner", "admin"];
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getStaffSession(request);
+  const session = await getStaffSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (
-    session.staff.status !== "active" ||
-    !ADMIN_ROLES.includes(session.staff.role)
+    session.status !== "active" ||
+    !ADMIN_ROLES.includes(session.role)
   )
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -71,8 +71,8 @@ export async function POST(
   }
 
   await supabaseAdmin.from("audit_log").insert({
-    actor_id: session.staff.auth_user_id,
-    actor_role: session.staff.role,
+    actor_id: session.auth_user_id,
+    actor_role: session.role,
     action: "staff.send_credentials",
     target_type: "staff",
     target_id: id,

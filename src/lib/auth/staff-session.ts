@@ -1,62 +1,61 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import type { NextRequest } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-server";
-import type { Staff } from "@/types/database";
+  createSupabaseServerClient,
+  supabaseAdmin,
+} from "@/lib/supabase-server";
+import { checkSessionActivity } from "./session-timeout";
 
-async function createServerClientForRequest(request?: NextRequest) {
-  const cookieSource = request ? request.cookies : await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieSource.getAll();
-        },
-        setAll(_cookies) {
-          // Middleware and server components do not need to persist cookie changes here.
-          return;
-        },
-      },
-    },
-  );
-
-  return supabase;
+export interface StaffSession {
+  id: string;
+  auth_user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  status: string;
+  department: string | null;
+  position: string | null;
+  must_reset_pw: boolean;
 }
 
-export type StaffSession = {
-  staff: Staff;
-  role: Staff["role"];
-};
+/**
+ * Get the current staff session from auth cookies
+ * Returns null if not authenticated or not active staff
+ */
+export async function getStaffSession(): Promise<StaffSession | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
 
-export async function getStaffSession(
-  request?: NextRequest,
-): Promise<StaffSession | null> {
-  const supabase = await createServerClientForRequest(request);
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    // Check idle timeout
+    const isActive = await checkSessionActivity();
+    if (!isActive) {
+      return null;
+    }
 
-  if (userError || !user) {
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return null;
+    }
+
+    // Get staff record
+    const { data: staff, error: staffError } = await supabaseAdmin
+      .from("staff")
+      .select(
+        "id, auth_user_id, email, full_name, role, status, department, position, must_reset_pw",
+      )
+      .eq("auth_user_id", user.id)
+      .eq("status", "active")
+      .single();
+
+    if (staffError || !staff) {
+      return null;
+    }
+
+    return staff as StaffSession;
+  } catch (error) {
+    console.error("Staff session error:", error);
     return null;
   }
-
-  const { data: staff, error } = await supabaseAdmin
-    .from("staff")
-    .select(
-      "id,auth_user_id,full_name,email,role,status,avatar_url,must_reset_pw,created_at,updated_at",
-    )
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (error || !staff) {
-    return null;
-  }
-
-  return {
-    staff: staff as Staff,
-    role: staff.role as Staff["role"],
-  };
 }

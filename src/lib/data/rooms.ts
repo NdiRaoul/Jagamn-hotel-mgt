@@ -21,8 +21,8 @@ export type Room = {
   name: string;
   collectionLabel: string; // e.g. "Heritage Collection"
   badge?: string; // e.g. "Most Popular"
-  price: number; // per night in USD
-  resortFee?: number; // admin-set resort fee in USD (0 = no fee)
+  price: number; // per night in XAF
+  // resortFee removed — resort fee is no longer a product-level field
   description: string;
   longDescription: string;
   sqft: number;
