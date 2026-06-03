@@ -36,6 +36,7 @@ import {
 import type { Staff } from "@/types/database";
 import type { LeaveRequest, Deduction, LeaveType } from "@/lib/data/hr";
 import type { HrLeaveSummary } from "@/lib/data/admin";
+import { formatMoneyMinor } from "@/lib/currency";
 
 interface Props {
   roster: Staff[];
@@ -545,18 +546,21 @@ function DeductionsView({ requests }: { requests: Deduction[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {requests.map((d) => (
+          {requests.map((d) => {
+            const staffName = d.staff?.full_name ?? "—";
+            const staffCode = d.staff?.staff_code ?? d.staff_id;
+            return (
             <tr key={d.id} className="group hover:bg-gray-50 transition-colors">
               <td className="px-10 py-6 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-black">
-                  {d.staff.name[0]}
+                  {staffName.charAt(0)}
                 </div>
                 <div>
                   <p className="manrope-bold text-sm text-[#0D2137]">
-                    {d.staff.name}
+                    {staffName}
                   </p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">
-                    {d.staff.id}
+                    {staffCode}
                   </p>
                 </div>
               </td>
@@ -565,14 +569,14 @@ function DeductionsView({ requests }: { requests: Deduction[] }) {
                   variant="outline"
                   className="text-[9px] font-black uppercase tracking-widest"
                 >
-                  {d.type}
+                  {d.category}
                 </Badge>
               </td>
               <td className="px-10 py-6 text-red-500 manrope-bold text-base">
-                -${d.amount}
+                -{formatMoneyMinor(d.amount_minor)}
               </td>
               <td className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {d.date}
+                {d.applied_on}
               </td>
               <td className="px-10 py-6 text-right">
                 <Button variant="ghost" className="h-10 w-10 p-0 rounded-xl">
@@ -580,7 +584,8 @@ function DeductionsView({ requests }: { requests: Deduction[] }) {
                 </Button>
               </td>
             </tr>
-          ))}
+            );
+          })}
           {requests.length === 0 && (
             <tr>
               <td

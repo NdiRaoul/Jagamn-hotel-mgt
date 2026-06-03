@@ -1,213 +1,242 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  FileText,
-  Download,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Download, FileText } from "lucide-react";
 import { formatMoneyMinor } from "@/lib/currency";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import type { Payslip } from "@/lib/data/self-service";
 
-const statusConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
-  unpaid: {
-    label: "Unpaid",
-    icon: <Clock className="w-4 h-4" />,
-    className: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  },
-  processing: {
-    label: "Processing",
-    icon: <Clock className="w-4 h-4" />,
-    className: "bg-blue-50 text-blue-700 border-blue-200",
-  },
-  paid: {
-    label: "Paid",
-    icon: <CheckCircle2 className="w-4 h-4" />,
-    className: "bg-green-50 text-green-700 border-green-200",
-  },
-  failed: {
-    label: "Failed",
-    icon: <XCircle className="w-4 h-4" />,
-    className: "bg-red-50 text-red-700 border-red-200",
-  },
-};
+interface Payslip {
+  id: string;
+  payroll_run_id: string;
+  staff_id: string;
+  base_salary_minor: number;
+  deductions_minor: number;
+  net_pay_minor: number;
+  status: string;
+  paid_at: string | null;
+  run_period_start: string;
+  run_period_end: string;
+  run_status: string;
+}
+
+interface StaffInfo {
+  id: string;
+  full_name: string;
+  email: string;
+}
 
 export function PayslipsSection() {
-  const [payslips, setPayslips] = useState<Payslip[]>([]);
-  const [staff, setStaff] = useState<any>(null);
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [staff, setStaff] = useState<StaffInfo | null>(null);
 
   useEffect(() => {
-    fetch("/api/account/payslips")
-      .then((r) => r.json())
-      .then((data) => {
-        setPayslips(data.payslips || []);
-        setStaff(data.staff);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    loadPayslips();
   }, []);
 
-  const downloadPDF = async (payslip: Payslip) => {
-    if (!staff) return;
-    setIsGenerating(payslip.id);
+  async function loadPayslips() {
     try {
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const margin = 20;
-      let yPos = margin;
-
-      doc.setFontSize(20);
-      doc.setTextColor(13, 33, 55);
-      doc.text("JAGAMN PALACE", margin, yPos);
-      yPos += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Payslip", margin, yPos);
-
-      yPos += 15;
-      doc.setFontSize(11);
-      doc.setTextColor(13, 33, 55);
-      const infoY = yPos;
-      doc.text(`Employee: ${staff.full_name}`, margin, infoY);
-      doc.text(`Email: ${staff.email}`, margin, infoY + 7);
-      if (payslip.run) {
-        doc.text(
-          `Period: ${new Date(payslip.run.period_start).toLocaleDateString()} - ${new Date(payslip.run.period_end).toLocaleDateString()}`,
-          margin,
-          infoY + 14
-        );
-      }
-      yPos = infoY + 30;
-
-      const tableData = [
-        ["Component", "Amount"],
-        ["Gross Monthly Salary", formatMoneyMinor(payslip.gross_minor)],
-        ["Deductions", formatMoneyMinor(payslip.deductions_minor)],
-        ["Net Amount", formatMoneyMinor(payslip.net_minor)],
-      ];
-
-      (doc as any).autoTable({
-        startY: yPos,
-        head: [tableData[0]],
-        body: tableData.slice(1),
-        margin: { left: margin, right: margin },
-        styles: { font: "helvetica", fontSize: 10, cellPadding: 6, textColor: [50, 50, 50] },
-        headStyles: { fillColor: [232, 146, 74], textColor: [255, 255, 255], fontStyle: "bold" },
+      setLoading(true);
+      const res = await fetch("/api/account/payslips");
+      if (!res.ok) throw new Error("Failed to load payslips");
+      const data = await res.json();
+      setPayslips(data.payslips || []);
+      setStaff(data.staff || null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
-
-      yPos = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      const status = statusConfig[payslip.payment_status] || statusConfig.unpaid;
-      doc.text(`Status: ${status.label}`, margin, yPos);
-      if (payslip.paid_at) {
-        doc.text(`Paid on: ${new Date(payslip.paid_at).toLocaleDateString()}`, margin, yPos + 7);
-      }
-
-      doc.save(`payslip_${staff.full_name}_${payslip.run?.period_label ?? payslip.id}.pdf`);
     } finally {
-      setIsGenerating(null);
+      setLoading(false);
     }
-  };
+  }
+
+  function downloadPayslip(payslip: Payslip) {
+    if (!staff) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Jagamn Palace", pageWidth / 2, 20, { align: "center" });
+
+    doc.setFontSize(16);
+    doc.text("Payslip", pageWidth / 2, 30, { align: "center" });
+
+    // Period
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const periodStart = new Date(payslip.run_period_start).toLocaleDateString();
+    const periodEnd = new Date(payslip.run_period_end).toLocaleDateString();
+    doc.text(`Period: ${periodStart} - ${periodEnd}`, pageWidth / 2, 40, {
+      align: "center",
+    });
+
+    // Staff Info
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Employee Information", 20, 55);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Name: ${staff.full_name}`, 20, 65);
+    doc.text(`Email: ${staff.email}`, 20, 72);
+    doc.text(`Employee ID: ${staff.id.slice(0, 8)}`, 20, 79);
+
+    // Payment Details
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Details", 20, 95);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Base Salary: ${formatMoneyMinor(payslip.base_salary_minor)}`,
+      20,
+      105,
+    );
+    doc.text(
+      `Deductions: ${formatMoneyMinor(payslip.deductions_minor)}`,
+      20,
+      112,
+    );
+
+    // Net Pay (highlighted)
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Net Pay: ${formatMoneyMinor(payslip.net_pay_minor)}`, 20, 125);
+
+    // Status
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Status: ${payslip.status.toUpperCase()}`, 20, 135);
+    if (payslip.paid_at) {
+      doc.text(
+        `Paid On: ${new Date(payslip.paid_at).toLocaleDateString()}`,
+        20,
+        142,
+      );
+    }
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    doc.text(
+      "This is a computer-generated document. No signature required.",
+      pageWidth / 2,
+      280,
+      { align: "center" },
+    );
+
+    // Save
+    const filename = `payslip_${periodStart.replace(/\//g, "-")}_${staff.full_name.replace(/\s+/g, "_")}.pdf`;
+    doc.save(filename);
+
+    toast({
+      title: "Success",
+      description: "Payslip downloaded",
+    });
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-jagamn-primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {payslips.length === 0 ? (
-        <div className="bg-white border border-gray-100 rounded-2xl p-12 text-center shadow-sm">
-          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">No payslips available yet</p>
-        </div>
-      ) : (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-50">
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest">Period</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">Gross</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">Deductions</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">Net</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {payslips.map((payslip) => {
-                  const status = statusConfig[payslip.payment_status] || statusConfig.unpaid;
-                  return (
-                    <tr key={payslip.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-slate-400" />
-                          <div>
-                            <p className="manrope-bold text-sm text-[#0D2137]">
-                              {payslip.run?.period_label ?? "Unknown"}
-                            </p>
-                            {payslip.run && (
-                              <p className="text-xs text-slate-500">
-                                {new Date(payslip.run.period_start).toLocaleDateString()} -{" "}
-                                {new Date(payslip.run.period_end).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm text-slate-600">
-                        {formatMoneyMinor(payslip.gross_minor)}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm text-slate-600">
+      <div>
+        <h3 className="text-lg font-bold text-jagamn-primary mb-4">
+          My Payslips
+        </h3>
+        <div className="space-y-3">
+          {payslips.map((payslip) => (
+            <div
+              key={payslip.id}
+              className="p-4 bg-white rounded-lg border border-gray-200 hover:border-jagamn-primary transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <FileText className="w-5 h-5 text-jagamn-primary" />
+                    <h4 className="font-bold text-jagamn-primary">
+                      {new Date(payslip.run_period_start).toLocaleDateString()}{" "}
+                      - {new Date(payslip.run_period_end).toLocaleDateString()}
+                    </h4>
+                    <span
+                      className={`px-2 py-1 text-xs font-bold uppercase tracking-wider rounded ${
+                        payslip.status === "paid"
+                          ? "bg-green-100 text-green-700"
+                          : payslip.status === "approved"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {payslip.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wider">
+                        Base Salary
+                      </p>
+                      <p className="font-medium text-jagamn-primary">
+                        {formatMoneyMinor(payslip.base_salary_minor)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wider">
+                        Deductions
+                      </p>
+                      <p className="font-medium text-red-600">
                         {formatMoneyMinor(payslip.deductions_minor)}
-                      </td>
-                      <td className="px-6 py-4 text-right manrope-bold text-sm text-[#0D2137]">
-                        {formatMoneyMinor(payslip.net_minor)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="outline" className={`flex items-center gap-1 w-fit ${status.className}`}>
-                          {status.icon}
-                          <span className="text-[10px] uppercase font-black">{status.label}</span>
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => downloadPDF(payslip)}
-                          disabled={isGenerating === payslip.id}
-                          className="text-[#E8924A] hover:text-[#E8924A] hover:bg-[#E8924A]/10"
-                        >
-                          {isGenerating === payslip.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                          <span className="ml-2">PDF</span>
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs uppercase tracking-wider">
+                        Net Pay
+                      </p>
+                      <p className="font-bold text-jagamn-primary text-lg">
+                        {formatMoneyMinor(payslip.net_pay_minor)}
+                      </p>
+                    </div>
+                  </div>
+                  {payslip.paid_at && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Paid on {new Date(payslip.paid_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadPayslip(payslip)}
+                  className="ml-4"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          ))}
+          {payslips.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">No payslips available yet</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

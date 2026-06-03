@@ -9,7 +9,7 @@ import {
 } from "@/lib/payments/confirm-booking";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
+  apiVersion: "2026-05-27.dahlia",
 });
 
 export async function POST(request: NextRequest) {
@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch (err: any) {
-    console.error("[webhook] signature verification failed:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[webhook] signature verification failed:", message);
     return NextResponse.json(
-      { error: `Webhook Error: ${err.message}` },
+      { error: `Webhook Error: ${message}` },
       { status: 400 },
     );
   }
@@ -75,7 +76,6 @@ export async function POST(request: NextRequest) {
           amount: pi.amount ? pi.amount / 100 : undefined,
           currency: pi.currency?.toUpperCase(),
           paymentMethod: "card",
-          paymentId,
         });
       }
 
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       if (ledger?.id) {
         await appendEvent(ledger.id, "refund_succeeded", {
           source: "webhook",
-          amountMinor: refund?.amount ?? null,
+          amountMinor: refund?.amount ?? undefined,
           payload: { refundId, stripeRefundStatus: refund?.status },
         });
 

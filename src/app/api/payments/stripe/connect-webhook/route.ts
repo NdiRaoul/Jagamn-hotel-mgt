@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import {
-  checkWebhookDuplicate,
-  markWebhookProcessed,
-} from "@/lib/redis/webhook";
+import { isEventProcessed, markEventProcessed } from "@/lib/redis/webhook";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
+  apiVersion: "2026-05-27.dahlia",
 });
 
 const WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET!;
@@ -28,19 +25,20 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
       console.error(
         "[Stripe Connect webhook] signature verification failed:",
-        err.message,
+        message,
       );
       return NextResponse.json(
-        { error: `Webhook signature verification failed: ${err.message}` },
+        { error: `Webhook signature verification failed: ${message}` },
         { status: 400 },
       );
     }
 
     // Check for duplicate
-    const isDuplicate = await checkWebhookDuplicate("stripe_connect", event.id);
+    const isDuplicate = await isEventProcessed("stripe_connect", event.id);
     if (isDuplicate) {
       console.log(
         `[Stripe Connect webhook] Duplicate event ${event.id}, skipping`,
@@ -145,7 +143,11 @@ export async function POST(request: NextRequest) {
 
         // Update payroll item if metadata contains payroll_item_id
         if (transfer.metadata?.payroll_item_id) {
-          const updates: any = {
+          const updates: {
+            payment_ref: string;
+            updated_at: string;
+            payment_status?: string;
+          } = {
             payment_ref: transfer.id,
             updated_at: new Date().toISOString(),
           };
@@ -174,11 +176,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark as processed
-    await markWebhookProcessed("stripe_connect", event.id);
+    await markEventProcessed("stripe_connect", event.id);
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Stripe Connect webhook] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

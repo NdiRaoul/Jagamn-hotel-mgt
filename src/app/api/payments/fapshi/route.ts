@@ -168,7 +168,6 @@ export async function GET(request: NextRequest) {
           amount: typeof data.amount === "number" ? data.amount : undefined,
           currency: "XAF",
           paymentMethod: "mobile_money",
-          paymentId,
         });
       } else if (status === "FAILED" || status === "EXPIRED") {
         await appendEvent(paymentId, "processor_failed", {

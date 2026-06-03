@@ -4,7 +4,7 @@ import { getOrCreateLedger, appendEvent } from "@/lib/payments/ledger";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
+  apiVersion: "2026-05-27.dahlia",
 });
 
 // POST /api/payments/stripe — create PaymentIntent
@@ -76,9 +76,11 @@ export async function POST(request: NextRequest) {
       clientSecret: paymentIntent.client_secret,
       paymentId: ledger.id,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[POST /api/payments/stripe] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -90,8 +92,10 @@ export async function PUT(request: NextRequest) {
     });
 
     return NextResponse.json({ clientSecret: setupIntent.client_secret });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[PUT /api/payments/stripe] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

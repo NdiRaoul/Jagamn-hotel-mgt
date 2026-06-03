@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Fan-out notification to kitchen staff
-    const unitCode = activeBooking?.rooms?.unit_code || "Dining Hall";
+    const roomsRel = activeBooking?.rooms;
+    const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
+    const unitCode = room?.unit_code || "Dining Hall";
     const itemSummary = orderItems
       .map((i: any) => `${i.quantity}x ${i.item_name}`)
       .join(", ");

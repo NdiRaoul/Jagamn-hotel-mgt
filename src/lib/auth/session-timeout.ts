@@ -7,17 +7,18 @@ export const ACTIVITY_COOKIE_NAME = "staff_last_activity";
 export async function checkSessionActivity(): Promise<boolean> {
   const cookieStore = await cookies();
   const lastActivityStr = cookieStore.get(ACTIVITY_COOKIE_NAME)?.value;
-  
-  if (!lastActivityStr) return false;
-  
+
+  // If no cookie exists, treat as fresh session (allow it)
+  if (!lastActivityStr) return true;
+
   const lastActivity = parseInt(lastActivityStr, 10);
   const now = Date.now();
   const diffMinutes = (now - lastActivity) / (1000 * 60);
-  
+
   if (diffMinutes > IDLE_TIMEOUT_MINUTES) {
     return false; // Session expired
   }
-  
+
   return true; // Session active
 }
 

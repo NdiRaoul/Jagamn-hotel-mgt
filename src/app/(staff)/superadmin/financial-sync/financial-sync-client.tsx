@@ -39,7 +39,7 @@ interface PaymentTimelineEntry {
 
 interface RevenueMonthPoint {
   month: string;
-  revenue_minor: number;
+  revenue: number;
 }
 
 interface SyncStats {
@@ -96,7 +96,7 @@ export default function FinancialSyncClient({
       month: "short",
       year: "numeric",
     }),
-    revenue: point.revenue_minor / 100,
+    revenue: point.revenue,
   }));
 
   const timeSinceSync = () => {
@@ -167,7 +167,7 @@ export default function FinancialSyncClient({
               <YAxis
                 tick={{ fontSize: 11, fill: "#64748b" }}
                 axisLine={false}
-                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k FCFA`}
               />
               <Tooltip
                 contentStyle={{
@@ -175,8 +175,8 @@ export default function FinancialSyncClient({
                   border: "none",
                   boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
                 }}
-                formatter={(value: number) => [
-                  `$${value.toLocaleString()}`,
+                formatter={(value) => [
+                  `${Number(value).toLocaleString()} FCFA`,
                   "Revenue",
                 ]}
               />

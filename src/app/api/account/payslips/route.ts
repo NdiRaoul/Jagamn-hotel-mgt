@@ -11,9 +11,18 @@ export async function GET(_request: NextRequest) {
 
   try {
     const payslips = await getStaffPayslips(session.id);
-    return NextResponse.json({ payslips, staff: { id: session.id, full_name: session.full_name, email: session.email } });
-  } catch (error: any) {
+    return NextResponse.json({
+      payslips,
+      staff: {
+        id: session.id,
+        full_name: session.full_name,
+        email: session.email,
+      },
+    });
+  } catch (error: unknown) {
     console.error("[GET /api/account/payslips] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

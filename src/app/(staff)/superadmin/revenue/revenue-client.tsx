@@ -102,48 +102,45 @@ export default function RevenueClient({
     document.body.removeChild(link);
   };
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx: any) => {
-      // Search All Relevant Columns
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !searchQuery ||
-        (tx.guest_name && tx.guest_name.toLowerCase().includes(q)) ||
-        (tx.id && tx.id.toLowerCase().includes(q)) ||
-        (tx.payment_method && tx.payment_method.toLowerCase().includes(q)) ||
-        (tx.status && tx.status.toLowerCase().includes(q)) ||
-        (tx.amount && tx.amount.toString().includes(q));
+  // Filter transactions based on search, status, and date
+  const filteredTransactions = transactions.filter((tx: any) => {
+    // Search All Relevant Columns
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !searchQuery ||
+      (tx.guest_name && tx.guest_name.toLowerCase().includes(q)) ||
+      (tx.id && tx.id.toLowerCase().includes(q)) ||
+      (tx.payment_method && tx.payment_method.toLowerCase().includes(q)) ||
+      (tx.status && tx.status.toLowerCase().includes(q)) ||
+      (tx.amount && tx.amount.toString().includes(q));
 
-      // Status Filter
-      const matchesStatus =
-        statusFilter === "all" || tx.status === statusFilter;
+    // Status Filter
+    const matchesStatus = statusFilter === "all" || tx.status === statusFilter;
 
-      // Date Filter
-      const txDate = tx.created_at ? new Date(tx.created_at).getTime() : 0;
-      const from = dateFilter.from
-        ? new Date(dateFilter.from).getTime()
-        : -Infinity;
-      const to = dateFilter.to ? new Date(dateFilter.to).getTime() : Infinity;
-      const matchesDate =
-        txDate >= from && (dateFilter.to ? txDate <= to : true);
+    // Date Filter
+    const txDate = tx.created_at ? new Date(tx.created_at).getTime() : 0;
+    const from = dateFilter.from
+      ? new Date(dateFilter.from).getTime()
+      : -Infinity;
+    const to = dateFilter.to ? new Date(dateFilter.to).getTime() : Infinity;
+    const matchesDate = txDate >= from && (dateFilter.to ? txDate <= to : true);
 
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-  }, [transactions, searchQuery, statusFilter, dateFilter]);
+    return matchesSearch && matchesStatus && matchesDate;
+  });
 
   // Prepare department revenue data from revenueByRoomType
-  const departmentRevenue = useMemo(() => {
-    const colors = ["#334155", "#E8924A", "#1D61FF", "#64748B", "#10B981"];
-    return (revenueByRoomType || []).map((item: any, idx: number) => ({
+  const colors = ["#334155", "#E8924A", "#1D61FF", "#64748B", "#10B981"];
+  const departmentRevenue = (revenueByRoomType || []).map(
+    (item: any, idx: number) => ({
       name: item.room_type || "Unknown",
       value: item.revenue || 0,
       color: colors[idx % colors.length],
-    }));
-  }, [revenueByRoomType]);
+    }),
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
+      <div className=" mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
         {/* ── Page Header ────────────────────────────── */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">

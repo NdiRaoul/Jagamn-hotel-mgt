@@ -42,7 +42,9 @@ import type { TransactionRecord2 } from "@/lib/data/reception";
 import type { RevenuePoint, RoomTypeRevenue } from "@/lib/data/admin";
 
 // Fallback sparkline when no data yet
-const EMPTY_SPARKLINE = [{ name: "—", revenue: 0 }];
+const EMPTY_SPARKLINE: { day: string; revenue: number }[] = [
+  { day: "—", revenue: 0 },
+];
 
 interface Props {
   revenue: {
@@ -277,7 +279,7 @@ export default function RevenueClient({
                     stroke="#F1F5F9"
                   />
                   <XAxis
-                    dataKey="name"
+                    dataKey="day"
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#94A3B8", fontSize: 10, fontWeight: 700 }}

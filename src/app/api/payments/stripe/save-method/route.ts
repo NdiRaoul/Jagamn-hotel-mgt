@@ -6,7 +6,7 @@ import {
 } from "@/lib/supabase-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
+  apiVersion: "2026-05-27.dahlia",
 });
 
 export async function POST(request: NextRequest) {
@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[save-method] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

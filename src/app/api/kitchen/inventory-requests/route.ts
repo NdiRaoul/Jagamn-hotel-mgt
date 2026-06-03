@@ -48,8 +48,12 @@ export async function POST(req: NextRequest) {
         .eq("id", dining_order_id)
         .single();
 
-      if (order?.bookings?.rooms?.unit_code) {
-        roomInfo = `Room ${order.bookings.rooms.unit_code}`;
+      const bookingsRel = order?.bookings;
+      const booking = Array.isArray(bookingsRel) ? bookingsRel[0] : bookingsRel;
+      const roomsRel = booking?.rooms;
+      const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
+      if (room?.unit_code) {
+        roomInfo = `Room ${room.unit_code}`;
       }
     }
 

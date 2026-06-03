@@ -6,7 +6,7 @@ import Stripe from "stripe";
 const ALLOWED_ROLES = ["owner", "admin", "manager"];
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia" as Stripe.LatestApiVersion,
+  apiVersion: "2026-05-27.dahlia",
 });
 
 async function requireAuthorized() {
@@ -39,7 +39,12 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentDate = payment_date || new Date().toISOString();
-    const results: any[] = [];
+    const results: Array<{
+      itemId: string;
+      success: boolean;
+      error?: string;
+      paymentRef?: string;
+    }> = [];
 
     // Process each item
     for (const itemId of itemIds) {
@@ -115,12 +120,16 @@ export async function POST(request: NextRequest) {
 
             paymentStatus = "processing";
             paymentRef = transfer.id;
-          } catch (stripeError: any) {
+          } catch (stripeError: unknown) {
             console.error("[Stripe transfer error]", stripeError);
+            const errorMessage =
+              stripeError instanceof Error
+                ? stripeError.message
+                : "Stripe transfer failed";
             results.push({
               itemId,
               success: false,
-              error: stripeError.message,
+              error: errorMessage,
             });
             continue;
           }
@@ -180,9 +189,11 @@ export async function POST(request: NextRequest) {
         // await notify({ staffId: item.staff_id, type: 'payroll', title: `You've been paid ${formatMoneyMinor(item.net_minor)}` });
 
         results.push({ itemId, success: true, paymentRef });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[Pay item ${itemId}] error:`, error);
-        results.push({ itemId, success: false, error: error.message });
+        const errorMessage =
+          error instanceof Error ? error.message : "Payment processing failed";
+        results.push({ itemId, success: false, error: errorMessage });
       }
     }
 
@@ -194,8 +205,10 @@ export async function POST(request: NextRequest) {
       failed: results.length - successCount,
       results,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[POST /api/admin/payroll/pay] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

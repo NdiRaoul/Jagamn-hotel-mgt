@@ -970,23 +970,6 @@ create table if not exists positions (
   unique (title, department_id)
 );
 
--- ── staff_payout_accounts ────────────────────────────────────
-create table if not exists staff_payout_accounts (
-  id                  uuid        primary key default gen_random_uuid(),
-  staff_id            uuid        not null references staff(id) on delete cascade,
-  method              text        not null,  -- 'stripe' | 'mtn_momo' | 'orange_money' | 'bank'
-  provider            text,
-  account_number      text,
-  account_last4       text,
-  account_holder_name text,
-  stripe_account_id   text,
-  stripe_status       text,
-  is_verified         boolean     default false,
-  is_default          boolean     default false,
-  created_at          timestamptz default now(),
-  updated_at          timestamptz default now()
-);
-
 -- ── leave_types ──────────────────────────────────────────────
 create table if not exists leave_types (
   id          uuid        primary key default gen_random_uuid(),
@@ -1207,10 +1190,6 @@ create or replace function set_updated_at_generic()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
 $$;
-
-drop trigger if exists spa_updated_at on staff_payout_accounts;
-create trigger spa_updated_at before update on staff_payout_accounts
-  for each row execute function set_updated_at_generic();
 
 drop trigger if exists leave_requests_updated_at on leave_requests;
 create trigger leave_requests_updated_at before update on leave_requests
@@ -1442,7 +1421,6 @@ $$;
 
 alter table departments          enable row level security;
 alter table positions            enable row level security;
-alter table staff_payout_accounts enable row level security;
 alter table leave_types          enable row level security;
 alter table leave_requests       enable row level security;
 alter table leave_balances       enable row level security;
@@ -1470,13 +1448,6 @@ create policy "staff own leave_requests" on leave_requests
   );
 
 create policy "staff own leave_balances" on leave_balances
-  for all using (
-    staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
-    or staff_role() in ('owner','admin','manager')
-  );
-
--- Staff can read/write their own payout accounts
-create policy "staff own payout_accounts" on staff_payout_accounts
   for all using (
     staff_id = (select id from staff where auth_user_id = auth.uid() limit 1)
     or staff_role() in ('owner','admin','manager')
@@ -1902,3 +1873,123 @@ CREATE POLICY "admin_manage_help" ON help_articles
 -- Run this file, then proceed with:
 -- 1. npx tsx scripts/seed.ts
 -- 2. npx tsx scripts/04_seed_samples.ts
+
+
+-- ============================================================
+-- NEW TABLES FOR ADMIN FEATURES
+-- ============================================================
+
+-- ── staff_deductions ─────────────────────────────────────────
+create table if not exists staff_deductions (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references staff(id) on delete cascade,
+  type text not null, -- 'absence', 'damage', 'equipment', 'late', 'unexcused'
+  amount_minor integer not null, -- amount in minor currency units (e.g., cents)
+  reason text,
+  applied_date timestamptz default now(),
+  created_by uuid references staff(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index staff_deductions_staff_id_idx on staff_deductions(staff_id);
+create index staff_deductions_applied_date_idx on staff_deductions(applied_date);
+
+-- ── system_alerts ────────────────────────────────────────────
+create table if not exists system_alerts (
+  id uuid primary key default gen_random_uuid(),
+  alert_type text not null, -- 'urgent', 'guest_complaint', 'sync_failure', 'security', 'procurement'
+  priority text not null, -- 'critical', 'high', 'medium', 'low'
+  title text not null,
+  description text,
+  module text, -- 'payroll', 'procurement', 'security', 'guest_services', 'system'
+  status text default 'pending', -- 'pending', 'in_progress', 'resolved'
+  assigned_to uuid references staff(id),
+  resolved_by uuid references staff(id),
+  resolved_at timestamptz,
+  resolution_notes text,
+  metadata jsonb, -- additional data like room number, transaction ID, etc.
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index system_alerts_status_idx on system_alerts(status);
+create index system_alerts_priority_idx on system_alerts(priority);
+create index system_alerts_alert_type_idx on system_alerts(alert_type);
+create index system_alerts_created_at_idx on system_alerts(created_at desc);
+
+-- ── hotel_policies ───────────────────────────────────────────
+create table if not exists hotel_policies (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text not null, -- 'room_operations', 'guest_services', 'hr', 'financial', 'security'
+  description text,
+  icon text, -- icon identifier for UI
+  status text default 'draft', -- 'draft', 'active', 'under_review', 'archived'
+  created_by uuid references staff(id),
+  updated_by uuid references staff(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index hotel_policies_status_idx on hotel_policies(status);
+create index hotel_policies_category_idx on hotel_policies(category);
+
+-- ── system_config ────────────────────────────────────────────
+create table if not exists system_config (
+  id uuid primary key default gen_random_uuid(),
+  hotel_name text default 'Jagamn Palace',
+  hotel_address text,
+  hotel_phone text,
+  hotel_email text,
+  hotel_logo_url text,
+  default_currency text default 'XAF',
+  vat_percentage decimal(5,2) default 20.00,
+  service_charge_percentage decimal(5,2) default 12.50,
+  updated_by uuid references staff(id),
+  updated_at timestamptz default now()
+);
+
+-- Insert default config
+insert into system_config (hotel_name, hotel_address, hotel_phone, hotel_email)
+values ('Jagamn Palace', '12 Victoria Esplanade, London', '+44 20 7946 0122', 'ops@thepalaceherit age.com')
+on conflict (id) do nothing;
+
+-- ── Triggers for updated_at ──────────────────────────────────
+drop trigger if exists staff_deductions_updated_at on staff_deductions;
+create trigger staff_deductions_updated_at before update on staff_deductions
+  for each row execute function set_updated_at();
+
+drop trigger if exists system_alerts_updated_at on system_alerts;
+create trigger system_alerts_updated_at before update on system_alerts
+  for each row execute function set_updated_at();
+
+drop trigger if exists hotel_policies_updated_at on hotel_policies;
+create trigger hotel_policies_updated_at before update on hotel_policies
+  for each row execute function set_updated_at();
+
+drop trigger if exists system_config_updated_at on system_config;
+create trigger system_config_updated_at before update on system_config
+  for each row execute function set_updated_at();
+
+-- ── RLS Policies ─────────────────────────────────────────────
+alter table staff_deductions enable row level security;
+alter table system_alerts enable row level security;
+alter table hotel_policies enable row level security;
+alter table system_config enable row level security;
+
+-- Staff deductions: admin/manager/owner can manage
+create policy "admin manage deductions" on staff_deductions
+  for all using (staff_role() in ('owner','admin','manager'));
+
+-- System alerts: admin/manager/owner can manage
+create policy "admin manage alerts" on system_alerts
+  for all using (staff_role() in ('owner','admin','manager'));
+
+-- Hotel policies: owner only
+create policy "owner manage policies" on hotel_policies
+  for all using (staff_role() = 'owner');
+
+-- System config: owner only
+create policy "owner manage config" on system_config
+  for all using (staff_role() = 'owner');

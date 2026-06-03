@@ -1,7 +1,6 @@
-import { Package, AlertCircle, UserCircle } from "lucide-react";
+import { Package, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import { AccountButton } from "@/components/account/AccountPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +25,6 @@ export default async function StorekeeperPage() {
             Inventory management and stock fulfillment
           </p>
         </div>
-        <AccountButton isSidebarOpen={false} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-md text-[#00152A] hover:bg-gray-50 transition-colors shadow-sm font-medium text-sm" />
       </div>
 
       {/* Coming Soon Notice */}

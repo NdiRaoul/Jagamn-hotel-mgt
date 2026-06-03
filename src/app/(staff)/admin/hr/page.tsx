@@ -14,7 +14,7 @@ export default async function HRPage() {
   let leaveRequests: Awaited<ReturnType<typeof getLeaveRequests>> = [];
   let leaveTypes: Awaited<ReturnType<typeof getLeaveTypes>> = [];
   let deductions: Awaited<ReturnType<typeof getDeductions>> = [];
-  let leaveSummary: Awaited<ReturnType<typeof getHrLeaveSummary>> | null = null;
+  let leaveSummary: Awaited<ReturnType<typeof getHrLeaveSummary>> = [];
   let error: string | null = null;
 
   try {

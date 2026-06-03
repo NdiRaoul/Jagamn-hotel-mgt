@@ -5,86 +5,67 @@ import {
   ArrowLeft,
   Edit3,
   UserMinus,
+  Mail,
+  Clock,
+  Printer,
+  Download,
   Briefcase,
   Contact2,
-  Clock,
-  ChevronRight,
-  Printer,
-  Mail,
-  Download,
 } from "lucide-react";
-import { formatMoney } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { StaffEditModal } from "@/components/staff/staff-edit-modal";
 import type { Staff } from "@/types/database";
 
-function tenure(hireDate: string | null): string {
-  if (!hireDate) return "—";
-  const ms = Date.now() - new Date(hireDate).getTime();
-  const years = Math.floor(ms / (1000 * 60 * 60 * 24 * 365));
-  const months = Math.floor(
-    (ms % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30),
-  );
-  return `${years > 0 ? `${years} yr${years !== 1 ? "s" : ""}, ` : ""}${months} month${months !== 1 ? "s" : ""}`;
+interface StaffProfileClientProps {
+  staff: Staff;
 }
 
-export default function StaffProfileClient({ staff }: { staff: Staff }) {
-  const router = useRouter();
+export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const handleDeactivate = async () => {
-    if (
-      !confirm(
-        `Suspend ${staff.full_name}? They will lose portal access immediately.`,
-      )
-    )
-      return;
-    const res = await fetch(`/api/staff/${staff.id}/suspend`, {
-      method: "POST",
-    });
-    if (res.ok) router.refresh();
-    else alert("Failed to suspend — check console");
+  const formatSalary = (salary: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "XAF",
+      minimumFractionDigits: 0,
+    }).format(salary);
   };
 
-  const handleExportCSV = () => {
-    const rows = [
-      ["Attribute", "Value"],
-      ["Staff ID", staff.id],
-      ["Staff Code", staff.staff_code || ""],
-      ["Name", staff.full_name],
-      ["Email", staff.email],
-      ["Phone", staff.phone || ""],
-      ["Department", staff.department || ""],
-      ["Position", staff.position || ""],
-      ["Role", staff.role],
-      ["Status", staff.status],
-      ["Hire Date", staff.hire_date || ""],
-      ["Salary", staff.salary != null ? formatMoney(staff.salary) : ""],
-    ];
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute(
-      "download",
-      `Record_${staff.staff_code || staff.id}_${staff.full_name.replace(/\s/g, "_")}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
+
+  const calculateTenure = (hireDate: string | null) => {
+    if (!hireDate) return "N/A";
+    const start = new Date(hireDate);
+    const now = new Date();
+    const years = now.getFullYear() - start.getFullYear();
+    const months = now.getMonth() - start.getMonth();
+    const totalMonths = years * 12 + months;
+    const displayYears = Math.floor(totalMonths / 12);
+    const displayMonths = totalMonths % 12;
+    return `${displayYears} year${displayYears !== 1 ? "s" : ""}, ${displayMonths} month${displayMonths !== 1 ? "s" : ""}`;
+  };
+
+  const initials = staff.full_name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
       <div className="mx-auto pt-6 space-y-10 md:space-y-12">
-        {/* ── Breadcrumb ─────────────────────────────── */}
+        {/* Breadcrumb Navigation - Admin version */}
         <Link
           href="/admin/staff"
           className="flex items-center gap-3 text-jagamn-primary hover:text-jagamn-tertiary transition-colors group w-fit"
@@ -97,52 +78,46 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
           </span>
         </Link>
 
-        {/* ── Header ─────────────────────────────────── */}
+        {/* Header Profile Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
           <div className="flex flex-col md:flex-row items-center gap-8 md:gap-10">
             <div className="relative">
               <div className="w-40 h-40 md:w-52 md:h-52 rounded-full border-8 border-white shadow-2xl relative flex items-center justify-center bg-white p-1">
                 <Avatar className="w-full h-full rounded-full">
                   <AvatarImage
-                    src={staff.avatar_url ?? ""}
+                    src={staff.avatar_url || undefined}
                     className="object-cover"
                   />
                   <AvatarFallback className="bg-[#0D2137] text-white text-4xl md:text-5xl manrope-bold">
-                    {staff.full_name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
               </div>
               <div
-                className={cn(
-                  "absolute bottom-2 right-2 md:bottom-4 md:right-4 w-6 h-6 md:w-7 md:h-7 border-4 border-white rounded-full shadow-lg",
+                className={`absolute bottom-2 right-2 md:bottom-4 md:right-4 w-6 h-6 md:w-7 md:h-7 border-4 border-white rounded-full shadow-lg ${
                   staff.status === "active"
                     ? "bg-green-500"
                     : staff.status === "suspended"
-                      ? "bg-amber-500"
-                      : "bg-gray-400",
-                )}
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                }`}
               />
             </div>
 
             <div className="flex flex-col text-center md:text-left">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-3 md:mb-4">
-                STAFF ID: {staff.staff_code || staff.id.slice(0, 8)}
+                STAFF ID: {staff.staff_code || "N/A"}
               </p>
               <h1 className="manrope-bold text-4xl md:text-6xl text-jagamn-primary tracking-tight leading-none mb-6 md:mb-8">
                 {staff.full_name}
               </h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-6 md:gap-8">
-                {staff.department && (
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
-                    <span className="text-xs md:text-sm font-bold text-slate-500">
-                      {staff.department}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3">
+                  <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
+                  <span className="text-xs md:text-sm font-bold text-slate-500">
+                    {staff.department || "No Department"}
+                  </span>
+                </div>
                 <div className="flex items-center gap-3">
                   <Contact2 className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
                   <span className="text-xs md:text-sm font-bold text-slate-500">
@@ -163,21 +138,17 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
             </Button>
             <Button
               variant="ghost"
-              onClick={handleDeactivate}
-              disabled={staff.status !== "active"}
-              className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-40"
+              className="h-14 text-slate-400 font-bold hover:text-red-500 hover:bg-red-50 rounded-2xl flex items-center justify-center gap-3 transition-all"
             >
               <UserMinus className="w-5 h-5" />
-              {staff.status === "suspended"
-                ? "Already Suspended"
-                : "Suspend Account"}
+              Deactivate Account
             </Button>
           </div>
         </div>
 
-        {/* ── Main Content Grid ─────────────────────── */}
+        {/* Main Content Grid */}
         <div className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-stretch">
-          {/* Contact Information */}
+          {/* Column 1: Contact Information */}
           <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary flex flex-col">
             <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">
               Contact Information
@@ -191,16 +162,22 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                   {staff.email}
                 </p>
               </div>
-              {staff.phone && (
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
-                    Phone Number
-                  </p>
-                  <p className="manrope-bold text-lg md:text-xl text-jagamn-primary">
-                    {staff.phone}
-                  </p>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
+                  Phone Number
+                </p>
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary">
+                  {staff.phone || "Not provided"}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
+                  Role
+                </p>
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary capitalize">
+                  {staff.role}
+                </p>
+              </div>
             </div>
 
             <div className="pt-8 md:pt-10 mt-8 md:mt-10 border-t border-gray-50 space-y-4 md:space-y-6">
@@ -209,39 +186,32 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                   Account Status
                 </p>
                 <Badge
-                  className={cn(
-                    "border-0 text-[9px] font-black px-3 py-1 rounded-lg",
+                  className={`text-[9px] font-black px-3 py-1 rounded-lg ${
                     staff.status === "active"
-                      ? "bg-green-50 text-green-600"
+                      ? "bg-green-100 text-green-700"
                       : staff.status === "suspended"
-                        ? "bg-amber-50 text-amber-600"
-                        : "bg-red-50 text-red-600",
-                  )}
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                  }`}
                 >
                   {staff.status.toUpperCase()}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-[#43474D] uppercase tracking-widest">
-                  Must Reset Password
+                  Access Level
                 </p>
-                <Badge
-                  className={cn(
-                    "border-0 text-[9px] font-black px-3 py-1 rounded-lg",
-                    staff.must_reset_pw
-                      ? "bg-amber-50 text-amber-600"
-                      : "bg-gray-50 text-gray-500",
-                  )}
-                >
-                  {staff.must_reset_pw ? "YES" : "NO"}
+                <Badge className="bg-blue-50 text-blue-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">
+                  {staff.role === "owner" ? "FULL ACCESS" : "RESTRICTED"}
                 </Badge>
               </div>
             </div>
           </div>
 
-          {/* Performance & Compensation */}
+          {/* Column 2: Performance & Compensation Stack */}
           <div className="space-y-8 flex flex-col">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {/* Remuneration */}
               <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
                 <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">
                   Remuneration
@@ -249,22 +219,39 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                 <div className="space-y-8">
                   <div className="space-y-2">
                     <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
-                      Annual Salary
+                      Base Salary
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">
-                        {staff.salary != null ? formatMoney(staff.salary) : "—"}
+                        {formatSalary(staff.salary || 0)}
                       </span>
-                      {staff.salary != null && (
-                        <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">
-                          / yr
-                        </span>
-                      )}
+                      <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">
+                        / yr
+                      </span>
                     </div>
+                  </div>
+                  <div className="h-px bg-gray-50 w-full" />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-bold text-[#43474D] uppercase tracking-widest">
+                      Next Review
+                    </p>
+                    <p className="manrope-bold text-xs text-jagamn-primary">
+                      {staff.hire_date
+                        ? new Date(
+                            new Date(staff.hire_date).setFullYear(
+                              new Date(staff.hire_date).getFullYear() + 1,
+                            ),
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "TBD"}
+                    </p>
                   </div>
                 </div>
               </div>
 
+              {/* Employment Tenure */}
               <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary">
                 <h3 className="text-[10px] font-black text-[#43474D] uppercase tracking-[0.2em] mb-8 md:mb-10">
                   Employment Tenure
@@ -275,12 +262,7 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                       Hire Date
                     </p>
                     <p className="manrope-bold text-xl md:text-2xl text-jagamn-primary">
-                      {staff.hire_date
-                        ? new Date(staff.hire_date).toLocaleDateString(
-                            "en-US",
-                            { month: "long", day: "numeric", year: "numeric" },
-                          )
-                        : "—"}
+                      {formatDate(staff.hire_date)}
                     </p>
                   </div>
                   <div className="bg-[#F8F9FA] p-4 rounded-xl flex items-center gap-4 border border-gray-100">
@@ -292,7 +274,7 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
                         Total Service
                       </p>
                       <p className="manrope-bold text-xs md:text-sm text-jagamn-primary whitespace-nowrap">
-                        {tenure(staff.hire_date)}
+                        {calculateTenure(staff.hire_date)}
                       </p>
                     </div>
                   </div>
@@ -300,36 +282,44 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
               </div>
             </div>
 
-            {/* Role Banner */}
-            <div className="bg-[#0D2137] rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[180px]">
+            {/* Performance Banner */}
+            <div className="bg-[#0D2137] rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[220px]">
               <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    System Role
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                    Account Created
                   </p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                    <span className="manrope-bold text-3xl md:text-4xl text-white uppercase">
-                      {staff.role}
+                    <span className="manrope-bold text-2xl md:text-3xl text-white">
+                      {new Date(staff.created_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
                 <div className="w-full h-px md:w-px md:h-12 bg-white/10" />
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Staff Code
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                    Last Updated
                   </p>
-                  <span className="manrope-bold text-2xl text-white">
-                    {staff.staff_code || "—"}
-                  </span>
+                  <div className="flex items-baseline gap-2 justify-center md:justify-start">
+                    <span className="manrope-bold text-2xl md:text-3xl text-white">
+                      {new Date(staff.updated_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              <Button className="relative z-10 w-full md:w-auto h-14 px-8 bg-[#FFB067] hover:bg-[#FFB067]/90 text-jagamn-primary manrope-bold rounded-xl shadow-lg mt-8 md:mt-0 transition-all hover:scale-105">
+                View Full Report
+              </Button>
+
+              {/* Decorative Background */}
               <div className="absolute top-0 right-0 w-[200px] h-full bg-white/5 skew-x-[-20deg] translate-x-1/2" />
             </div>
           </div>
         </div>
 
-        {/* ── Footer Actions ─────────────────────────── */}
-        <div className="flex items-center justify-end gap-3 pb-10">
+        {/* Footer Actions */}
+        <div className="flex items-center justify-end gap-3">
           <Button
             onClick={() => (window.location.href = `mailto:${staff.email}`)}
             variant="outline"
@@ -347,7 +337,42 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
             <Printer className="w-5 h-5" />
           </Button>
           <Button
-            onClick={handleExportCSV}
+            onClick={() => {
+              const csvContent = [
+                ["Attribute", "Value"],
+                ["Staff ID", staff.staff_code || "N/A"],
+                ["Name", staff.full_name],
+                ["Email", staff.email],
+                ["Phone", staff.phone || "N/A"],
+                ["Department", staff.department || "N/A"],
+                ["Position", staff.position || staff.role],
+                ["Role", staff.role],
+                ["Status", staff.status],
+                ["Hire Date", formatDate(staff.hire_date)],
+                ["Salary", formatSalary(staff.salary || 0)],
+                ["Tenure", calculateTenure(staff.hire_date)],
+              ]
+                .map((row) =>
+                  row
+                    .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+                    .join(","),
+                )
+                .join("\n");
+
+              const blob = new Blob([csvContent], {
+                type: "text/csv;charset=utf-8;",
+              });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.setAttribute("href", url);
+              link.setAttribute(
+                "download",
+                `Staff_${staff.staff_code || staff.id}_${staff.full_name.replace(/\s/g, "_")}.csv`,
+              );
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
             variant="outline"
             size="icon"
             className="w-12 h-12 rounded-xl border-gray-100 bg-white text-[#0D2137] hover:bg-[#0D2137] hover:text-white shadow-sm transition-all"
@@ -357,12 +382,10 @@ export default function StaffProfileClient({ staff }: { staff: Staff }) {
         </div>
       </div>
 
+      {/* Edit Staff Modal */}
       <StaffEditModal
         open={isEditModalOpen}
-        onOpenChange={(open) => {
-          setIsEditModalOpen(open);
-          if (!open) router.refresh();
-        }}
+        onOpenChange={setIsEditModalOpen}
         staff={staff}
       />
     </div>

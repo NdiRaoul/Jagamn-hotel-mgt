@@ -14,14 +14,16 @@ export async function POST(request: NextRequest) {
     if (!booking_id || !amount_minor) {
       return NextResponse.json(
         { error: "booking_id and amount_minor are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // 1. Get booking
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
-      .select("id, booking_ref, status, total_amount, guest_email")
+      .select(
+        "id, booking_ref, status, total_amount, guest_email, payment_status",
+      )
       .eq("id", booking_id)
       .single();
 
@@ -31,28 +33,32 @@ export async function POST(request: NextRequest) {
 
     // 2. Insert into payment_ledger
     const paymentId = crypto.randomUUID();
-    const { error: ledgerError } = await supabaseAdmin.from("payment_ledger").insert({
-      id: paymentId,
-      booking_ref: booking.booking_ref,
-      provider: "cash",
-      amount_minor: amount_minor,
-      currency: "XAF",
-      status: "succeeded",
-      client_idempotency_key: crypto.randomUUID(),
-    });
+    const { error: ledgerError } = await supabaseAdmin
+      .from("payment_ledger")
+      .insert({
+        id: paymentId,
+        booking_ref: booking.booking_ref,
+        provider: "cash",
+        amount_minor: amount_minor,
+        currency: "XAF",
+        status: "succeeded",
+        client_idempotency_key: crypto.randomUUID(),
+      });
 
     if (ledgerError) throw ledgerError;
 
     // 3. Insert into folio_entries
-    const { error: folioError } = await supabaseAdmin.from("folio_entries").insert({
-      booking_id: booking.id,
-      entry_type: "payment",
-      category: "cash",
-      description: description || "Cash Payment",
-      amount_minor: amount_minor,
-      reference_id: paymentId,
-      created_by: session.auth_user_id,
-    });
+    const { error: folioError } = await supabaseAdmin
+      .from("folio_entries")
+      .insert({
+        booking_id: booking.id,
+        entry_type: "payment",
+        category: "cash",
+        description: description || "Cash Payment",
+        amount_minor: amount_minor,
+        reference_id: paymentId,
+        created_by: session.auth_user_id,
+      });
 
     if (folioError) throw folioError;
 
@@ -88,8 +94,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, paymentId });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[POST /api/reception/cash-payment]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

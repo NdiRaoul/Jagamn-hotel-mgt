@@ -1,18 +1,22 @@
-import { getStaffRoster } from "@/lib/data/admin";
+import { getStaffById } from "@/lib/data/staff";
 import { requireOwner } from "@/lib/auth/guard";
 import { notFound } from "next/navigation";
 import StaffProfileClient from "./staff-profile-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function StaffProfilePage({ params }: { params: { id: string } }) {
+export default async function StaffProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   await requireOwner();
-  const staff = await getStaffRoster();
-  const record = staff.find((item) => item.id === params.id);
+  const { id } = await params;
+  const staff = await getStaffById(id);
 
-  if (!record) {
+  if (!staff) {
     notFound();
   }
 
-  return <StaffProfileClient staff={record} />;
+  return <StaffProfileClient staff={staff} />;
 }

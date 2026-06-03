@@ -17,9 +17,10 @@ import { getStaffSession } from "@/lib/auth/staff-session";
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const session = await getStaffSession();
 
     // Permissive role check - allow storekeeper, manager, admin, owner
@@ -47,7 +48,7 @@ export async function PATCH(
       todo: true,
       message:
         "Storekeeper fulfillment endpoint is a stub. Full implementation pending.",
-      received: { id: params.id, action, notes },
+      received: { id, action, notes },
     });
   } catch (error) {
     console.error("Storekeeper fulfillment error:", error);

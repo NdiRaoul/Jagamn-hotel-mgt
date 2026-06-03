@@ -118,7 +118,7 @@ export default function PayrollClient({
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto pt-8 md:pt-12 space-y-8 md:space-y-12 px-4 md:px-0">
+      <div className="mx-auto pt-8 md:pt-12 space-y-8 md:space-y-12 px-4 md:px-0">
         {/* ── Header Section ─────────────────────────── */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">

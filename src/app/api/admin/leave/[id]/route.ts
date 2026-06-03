@@ -3,8 +3,9 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const supabase = createSupabaseRouteHandlerClient();
     const {
@@ -38,7 +39,7 @@ export async function PATCH(
 
     // Use the RPC function to handle leave decision
     const { error } = await supabase.rpc("decide_leave", {
-      p_id: params.id,
+      p_id: id,
       p_status: status,
       p_notes: manager_notes || null,
       p_actor: staff.id,

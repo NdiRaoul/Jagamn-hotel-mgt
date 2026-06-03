@@ -9,10 +9,7 @@ async function requireAuthorized(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (
-    session.status !== "active" ||
-    !ALLOWED_ROLES.includes(session.role)
-  ) {
+  if (session.status !== "active" || !ALLOWED_ROLES.includes(session.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return session;
@@ -22,10 +19,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireAuthorized(request);
-  if (!(session instanceof Object) || "status" in session === false) {
-    return session as NextResponse;
+  const sessionOrError = await requireAuthorized(request);
+  if (sessionOrError instanceof NextResponse) {
+    return sessionOrError;
   }
+  const session = sessionOrError;
 
   const p = await params;
   const bookingId = p.id;

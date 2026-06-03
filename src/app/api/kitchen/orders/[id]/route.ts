@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-server";
-import { createSupabaseServerClient } from "@/lib/supabase";
+import {
+  supabaseAdmin,
+  createSupabaseServerClient,
+} from "@/lib/supabase-server";
 
 /**
  * POST /api/kitchen/orders/[id]
@@ -9,9 +11,10 @@ import { createSupabaseServerClient } from "@/lib/supabase";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id: orderId } = await params;
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -37,7 +40,6 @@ export async function POST(
     }
 
     const { status } = await req.json();
-    const orderId = params.id;
 
     // Validate status transition
     const validStatuses = ["placed", "preparing", "ready", "delivered"];

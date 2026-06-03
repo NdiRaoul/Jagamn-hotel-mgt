@@ -15,9 +15,11 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
     return NextResponse.json({ profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[GET /api/account/profile] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -32,15 +34,17 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { phone, avatar_url } = body;
 
-    const updates: any = {};
+    const updates: { phone?: string; avatar_url?: string } = {};
     if (phone !== undefined) updates.phone = phone;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
 
     const profile = await updateStaffProfile(session.id, updates);
 
     return NextResponse.json({ profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[PATCH /api/account/profile] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

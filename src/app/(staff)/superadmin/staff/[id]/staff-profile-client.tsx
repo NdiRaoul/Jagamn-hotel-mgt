@@ -1,82 +1,71 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState } from "react";
 import {
   ArrowLeft,
-  Search,
-  Bell,
-  History,
   Edit3,
   UserMinus,
   Mail,
-  Phone,
-  User,
-  Banknote,
-  Calendar,
   Clock,
-  ChevronRight,
   Printer,
-  Share2,
-  MoreHorizontal,
+  Download,
   Briefcase,
   Contact2,
-  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { StaffEditModal } from "@/components/staff/staff-edit-modal";
+import type { Staff } from "@/types/database";
 
-export default function StaffProfilePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const resolvedParams = use(params);
+interface StaffProfileClientProps {
+  staff: Staff;
+}
+
+export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Mock data based on the image
-  const staff = {
-    id: resolvedParams.id || "RS-7429",
-    name: "Elena Rodriguez",
-    email: "e.rodriguez@regencysuite.com",
-    phone: "+1 (555) 248-9012",
-    emergencyContact: "Julian Rodriguez (+1 555-248-0000)",
-    dept: "Front Desk",
-    role: "Receptionist",
-    salary: "32 226 000 FCFA",
-    hireDate: "March 12, 2021",
-    tenure: "3 years, 4 Months",
-    performance: "98.2%",
-    pendingTasks: 12,
-    avatar: "/images/staff-elena.jpg",
+  const formatSalary = (salary: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "XAF",
+      minimumFractionDigits: 0,
+    }).format(salary);
   };
 
-  const staffRecord = {
-    id: staff.id,
-    auth_user_id: "",
-    full_name: staff.name,
-    email: staff.email,
-    role: "reception",
-    status: "active",
-    avatar_url: staff.avatar,
-    must_reset_pw: false,
-    staff_code: staff.id,
-    phone: staff.phone,
-    department: staff.dept,
-    position: staff.role,
-    salary: 52400,
-    hire_date: "2021-03-12",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
+
+  const calculateTenure = (hireDate: string | null) => {
+    if (!hireDate) return "N/A";
+    const start = new Date(hireDate);
+    const now = new Date();
+    const years = now.getFullYear() - start.getFullYear();
+    const months = now.getMonth() - start.getMonth();
+    const totalMonths = years * 12 + months;
+    const displayYears = Math.floor(totalMonths / 12);
+    const displayMonths = totalMonths % 12;
+    return `${displayYears} year${displayYears !== 1 ? "s" : ""}, ${displayMonths} month${displayMonths !== 1 ? "s" : ""}`;
+  };
+
+  const initials = staff.full_name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto pt-6 space-y-10 md:space-y-12">
-        {/* ── Breadcrumb Navigation ───────────────────── */}
+      <div className="mx-auto pt-6 space-y-10 md:space-y-12">
+        {/* Breadcrumb Navigation */}
         <Link
           href="/superadmin/staff"
           className="flex items-center gap-3 text-jagamn-primary hover:text-jagamn-tertiary transition-colors group w-fit"
@@ -88,42 +77,51 @@ export default function StaffProfilePage({
             Staff Management
           </span>
         </Link>
-        {/* ── Header Profile Section ──────────────────── */}
+
+        {/* Header Profile Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
           <div className="flex flex-col md:flex-row items-center gap-8 md:gap-10">
             <div className="relative">
               <div className="w-40 h-40 md:w-52 md:h-52 rounded-full border-8 border-white shadow-2xl relative flex items-center justify-center bg-white p-1">
                 <Avatar className="w-full h-full rounded-full">
-                  <AvatarImage src={staff.avatar} className="object-cover" />
+                  <AvatarImage
+                    src={staff.avatar_url || undefined}
+                    className="object-cover"
+                  />
                   <AvatarFallback className="bg-[#0D2137] text-white text-4xl md:text-5xl manrope-bold">
-                    {staff.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-6 h-6 md:w-7 md:h-7 bg-green-500 border-4 border-white rounded-full shadow-lg" />
+              <div
+                className={`absolute bottom-2 right-2 md:bottom-4 md:right-4 w-6 h-6 md:w-7 md:h-7 border-4 border-white rounded-full shadow-lg ${
+                  staff.status === "active"
+                    ? "bg-green-500"
+                    : staff.status === "suspended"
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                }`}
+              />
             </div>
 
             <div className="flex flex-col text-center md:text-left">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-3 md:mb-4">
-                STAFF ID: {staff.id}
+                STAFF ID: {staff.staff_code || "N/A"}
               </p>
               <h1 className="manrope-bold text-4xl md:text-6xl text-jagamn-primary tracking-tight leading-none mb-6 md:mb-8">
-                {staff.name}
+                {staff.full_name}
               </h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-6 md:gap-8">
                 <div className="flex items-center gap-3">
                   <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
                   <span className="text-xs md:text-sm font-bold text-slate-500">
-                    {staff.dept}
+                    {staff.department || "No Department"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Contact2 className="w-4 h-4 md:w-5 md:h-5 text-[#E8924A]" />
                   <span className="text-xs md:text-sm font-bold text-slate-500">
-                    {staff.role}
+                    {staff.position || staff.role}
                   </span>
                 </div>
               </div>
@@ -148,7 +146,7 @@ export default function StaffProfilePage({
           </div>
         </div>
 
-        {/* ── Main Content Grid ───────────────────────── */}
+        {/* Main Content Grid */}
         <div className="flex flex-col lg:grid lg:grid-cols-2 gap-8 items-stretch">
           {/* Column 1: Contact Information */}
           <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-jagamn-primary flex flex-col">
@@ -169,15 +167,15 @@ export default function StaffProfilePage({
                   Phone Number
                 </p>
                 <p className="manrope-bold text-lg md:text-xl text-jagamn-primary">
-                  {staff.phone}
+                  {staff.phone || "Not provided"}
                 </p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
-                  Emergency Contact
+                  Role
                 </p>
-                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary leading-relaxed">
-                  {staff.emergencyContact}
+                <p className="manrope-bold text-lg md:text-xl text-jagamn-primary capitalize">
+                  {staff.role}
                 </p>
               </div>
             </div>
@@ -185,18 +183,26 @@ export default function StaffProfilePage({
             <div className="pt-8 md:pt-10 mt-8 md:mt-10 border-t border-gray-50 space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-[#43474D] uppercase tracking-widest">
-                  Work Authorization
+                  Account Status
                 </p>
-                <Badge className="bg-blue-50 text-blue-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">
-                  VERIFIED
+                <Badge
+                  className={`text-[9px] font-black px-3 py-1 rounded-lg ${
+                    staff.status === "active"
+                      ? "bg-green-100 text-green-700"
+                      : staff.status === "suspended"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {staff.status.toUpperCase()}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-[#43474D] uppercase tracking-widest">
-                  Compliance Level
+                  Access Level
                 </p>
-                <Badge className="bg-green-50 text-green-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">
-                  L4 SECURE
+                <Badge className="bg-blue-50 text-blue-600 border-0 text-[9px] font-black px-3 py-1 rounded-lg">
+                  {staff.role === "owner" ? "FULL ACCESS" : "RESTRICTED"}
                 </Badge>
               </div>
             </div>
@@ -217,7 +223,7 @@ export default function StaffProfilePage({
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">
-                        {staff.salary}
+                        {formatSalary(staff.salary || 0)}
                       </span>
                       <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">
                         / yr
@@ -230,7 +236,16 @@ export default function StaffProfilePage({
                       Next Review
                     </p>
                     <p className="manrope-bold text-xs text-jagamn-primary">
-                      Oct 2024
+                      {staff.hire_date
+                        ? new Date(
+                            new Date(staff.hire_date).setFullYear(
+                              new Date(staff.hire_date).getFullYear() + 1,
+                            ),
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "TBD"}
                     </p>
                   </div>
                 </div>
@@ -247,7 +262,7 @@ export default function StaffProfilePage({
                       Hire Date
                     </p>
                     <p className="manrope-bold text-xl md:text-2xl text-jagamn-primary">
-                      {staff.hireDate}
+                      {formatDate(staff.hire_date)}
                     </p>
                   </div>
                   <div className="bg-[#F8F9FA] p-4 rounded-xl flex items-center gap-4 border border-gray-100">
@@ -259,7 +274,7 @@ export default function StaffProfilePage({
                         Total Service
                       </p>
                       <p className="manrope-bold text-xs md:text-sm text-jagamn-primary whitespace-nowrap">
-                        {staff.tenure}
+                        {calculateTenure(staff.hire_date)}
                       </p>
                     </div>
                   </div>
@@ -267,27 +282,27 @@ export default function StaffProfilePage({
               </div>
             </div>
 
-            {/* Performance Banner (Jumbotron) */}
+            {/* Performance Banner */}
             <div className="bg-[#0D2137] rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-2xl flex-1 min-h-[220px]">
               <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Shift Performance
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                    Account Created
                   </p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                    <span className="manrope-bold text-4xl md:text-5xl text-white">
-                      {staff.performance}
+                    <span className="manrope-bold text-2xl md:text-3xl text-white">
+                      {new Date(staff.created_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
                 <div className="w-full h-px md:w-px md:h-12 bg-white/10" />
                 <div className="space-y-2 text-center md:text-left">
-                  <p className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Active Tasks
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                    Last Updated
                   </p>
                   <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                    <span className="manrope-bold text-4xl md:text-5xl text-white">
-                      {staff.pendingTasks}
+                    <span className="manrope-bold text-2xl md:text-3xl text-white">
+                      {new Date(staff.updated_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -303,68 +318,7 @@ export default function StaffProfilePage({
           </div>
         </div>
 
-        {/* ── Logs & Activity ─────────────────────────── */}
-        <div className="space-y-6 pb-10">
-          <div className="flex items-center justify-between">
-            <h2 className="manrope-bold text-2xl text-jagamn-primary">
-              System Logs & Activity
-            </h2>
-            <Link
-              href="#"
-              className="text-[11px] font-black text-[#E8924A] uppercase tracking-widest hover:underline underline-offset-4"
-            >
-              View Audit Trail
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
-            {[
-              {
-                time: "TODAY, 09:12 AM",
-                event: "Clock-in Recorded",
-                desc: "Front Desk Terminal A (Physical Entry)",
-                status: "bg-green-500",
-              },
-              {
-                time: "YESTERDAY",
-                event: "Keycard Re-authorization",
-                desc: "Updated access for floors 4-7 for VIP hosting",
-                status: "bg-[#FFB067]",
-              },
-              {
-                time: "JUL 18, 2024",
-                event: "Profile Detail Update",
-                desc: "Base salary adjusted per annual review cycle (Admin: J. Sterling)",
-                status: "bg-gray-300",
-              },
-            ].map((log, i) => (
-              <div
-                key={i}
-                className="p-6 flex items-center justify-between group hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-10">
-                  <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest w-24 shrink-0">
-                    {log.time}
-                  </p>
-                  <div className="flex items-center gap-5">
-                    <div className={cn("w-2 h-2 rounded-full", log.status)} />
-                    <div>
-                      <h4 className="manrope-bold text-base text-jagamn-primary">
-                        {log.event}
-                      </h4>
-                      <p className="text-xs text-gray-400 font-medium">
-                        {log.desc}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-100 group-hover:text-jagamn-tertiary transition-all" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Footer Actions ─────────────────────────── */}
+        {/* Footer Actions */}
         <div className="flex items-center justify-end gap-3">
           <Button
             onClick={() => (window.location.href = `mailto:${staff.email}`)}
@@ -384,57 +338,27 @@ export default function StaffProfilePage({
           </Button>
           <Button
             onClick={() => {
-              const profileHeaders = ["Attribute", "Value"];
-              const profileRows = [
-                ["Staff ID", staff.id],
-                ["Name", staff.name],
+              const csvContent = [
+                ["Attribute", "Value"],
+                ["Staff ID", staff.staff_code || "N/A"],
+                ["Name", staff.full_name],
                 ["Email", staff.email],
-                ["Department", staff.dept],
+                ["Phone", staff.phone || "N/A"],
+                ["Department", staff.department || "N/A"],
+                ["Position", staff.position || staff.role],
                 ["Role", staff.role],
-                ["Hire Date", staff.hireDate],
-                ["Salary", staff.salary],
-                ["Performance", staff.performance],
-              ];
+                ["Status", staff.status],
+                ["Hire Date", formatDate(staff.hire_date)],
+                ["Salary", formatSalary(staff.salary || 0)],
+                ["Tenure", calculateTenure(staff.hire_date)],
+              ]
+                .map((row) =>
+                  row
+                    .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+                    .join(","),
+                )
+                .join("\n");
 
-              const activityHeaders = [
-                "Timestamp",
-                "Activity / Event",
-                "Details",
-              ];
-              const activityRows = [
-                [
-                  "TODAY, 09:12 AM",
-                  "Clock-in Recorded",
-                  "Front Desk Terminal A (Physical Entry)",
-                ],
-                [
-                  "YESTERDAY",
-                  "Keycard Re-authorization",
-                  "Updated access for VIP hosting",
-                ],
-                [
-                  "JUL 18, 2024",
-                  "Profile Detail Update",
-                  "Base salary adjusted per annual review cycle (Admin: J. Sterling)",
-                ],
-              ];
-
-              const profileSection = [
-                profileHeaders.join(","),
-                ...profileRows.map((r) =>
-                  r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-                ),
-              ].join("\n");
-              const activitySection = [
-                "",
-                "SYSTEM LOGS & ACTIVITY",
-                activityHeaders.join(","),
-                ...activityRows.map((r) =>
-                  r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-                ),
-              ].join("\n");
-
-              const csvContent = profileSection + "\n" + activitySection;
               const blob = new Blob([csvContent], {
                 type: "text/csv;charset=utf-8;",
               });
@@ -443,7 +367,7 @@ export default function StaffProfilePage({
               link.setAttribute("href", url);
               link.setAttribute(
                 "download",
-                `Record_${staff.id}_${staff.name.replace(/\s/g, "_")}.csv`,
+                `Staff_${staff.staff_code || staff.id}_${staff.full_name.replace(/\s/g, "_")}.csv`,
               );
               document.body.appendChild(link);
               link.click();
@@ -458,11 +382,11 @@ export default function StaffProfilePage({
         </div>
       </div>
 
-      {/* ── Edit Staff Modal ───────────────────────── */}
+      {/* Edit Staff Modal */}
       <StaffEditModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
-        staff={staffRecord}
+        staff={staff}
       />
     </div>
   );

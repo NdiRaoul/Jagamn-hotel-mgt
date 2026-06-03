@@ -50,22 +50,6 @@ export interface LeaveBalance {
   remaining: number;
 }
 
-export interface PayoutAccount {
-  id: string;
-  staff_id: string;
-  method: string;
-  provider: string | null;
-  account_number: string | null;
-  account_last4: string | null;
-  account_holder_name: string | null;
-  stripe_account_id: string | null;
-  stripe_status: string | null;
-  is_verified: boolean;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export async function getStaffProfile(
   staffId: string,
 ): Promise<StaffProfile | null> {
@@ -203,92 +187,6 @@ export async function cancelLeaveRequest(
     .from("leave_requests")
     .delete()
     .eq("id", requestId);
-
-  if (error) throw error;
-  return true;
-}
-
-export async function getPayoutAccounts(
-  staffId: string,
-): Promise<PayoutAccount[]> {
-  const { data, error } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .select("*")
-    .eq("staff_id", staffId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data || []) as PayoutAccount[];
-}
-
-export async function createPayoutAccount(
-  staffId: string,
-  method: string,
-  details: {
-    provider?: string;
-    account_number?: string;
-    account_holder_name?: string;
-  },
-): Promise<PayoutAccount> {
-  // Check if this is the first account - make it default
-  const { data: existing } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .select("id")
-    .eq("staff_id", staffId);
-
-  const isFirst = !existing || existing.length === 0;
-
-  const { data, error } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .insert({
-      staff_id: staffId,
-      method,
-      provider: details.provider || null,
-      account_number: details.account_number || null,
-      account_last4: details.account_number
-        ? details.account_number.slice(-4)
-        : null,
-      account_holder_name: details.account_holder_name || null,
-      is_verified: method !== "stripe", // Manual methods are auto-verified
-      is_default: isFirst,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as PayoutAccount;
-}
-
-export async function setDefaultPayoutAccount(
-  staffId: string,
-  accountId: string,
-): Promise<boolean> {
-  // Unset all defaults for this staff
-  await supabaseAdmin
-    .from("staff_payout_accounts")
-    .update({ is_default: false })
-    .eq("staff_id", staffId);
-
-  // Set new default
-  const { error } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .update({ is_default: true })
-    .eq("id", accountId)
-    .eq("staff_id", staffId);
-
-  if (error) throw error;
-  return true;
-}
-
-export async function deletePayoutAccount(
-  staffId: string,
-  accountId: string,
-): Promise<boolean> {
-  const { error } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .delete()
-    .eq("id", accountId)
-    .eq("staff_id", staffId);
 
   if (error) throw error;
   return true;

@@ -10,7 +10,7 @@ const ALLOWED_ROLES = ["owner", "admin", "manager", "kitchen"];
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getStaffSession();
   if (!session)
@@ -23,6 +23,7 @@ export async function PATCH(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const { is_available } = body;
 
@@ -36,7 +37,7 @@ export async function PATCH(
     const { data, error } = await supabaseAdmin
       .from("menu_items")
       .update({ is_available })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 

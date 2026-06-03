@@ -59,8 +59,54 @@ const MetricCard = ({
   );
 };
 
-export default function ExecutiveOverviewPage() {
+interface SuperadminOverviewClientProps {
+  kpis: any;
+  revenueSummary: any;
+  occupancyDaily: any[];
+  payrollMonthly: any[];
+  leaveSummary: any;
+  procurementKpis: any;
+  latestSync: string;
+}
+
+export default function SuperadminOverviewClient({
+  kpis,
+  revenueSummary,
+  latestSync,
+}: SuperadminOverviewClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "XAF",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  };
+
+  // Calculate metrics
+  const totalRevenue = revenueSummary?.total_revenue_minor
+    ? revenueSummary.total_revenue_minor / 100
+    : 0;
+  const avgOccupancy = kpis?.occupancy_rate || 0;
+  const totalBookings = kpis?.total_bookings || 0;
+  const confirmedBookings = kpis?.confirmed_bookings || 0;
 
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-700">
@@ -78,7 +124,9 @@ export default function ExecutiveOverviewPage() {
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
             Last Sync
           </p>
-          <p className="text-sm manrope-bold text-jagamn-primary">2 mins ago</p>
+          <p className="text-sm manrope-bold text-jagamn-primary">
+            {formatTimeAgo(latestSync)}
+          </p>
         </div>
       </div>
 
@@ -87,34 +135,40 @@ export default function ExecutiveOverviewPage() {
         <MetricCard
           icon={Banknote}
           title="Total Revenue"
-          value="2 583 M FCFA"
-          pillText="+12.5%"
-          pillType="positive"
-          subtext="vs last fiscal year"
+          value={formatCurrency(totalRevenue)}
+          pillText={
+            revenueSummary?.growth_percentage
+              ? `${revenueSummary.growth_percentage > 0 ? "+" : ""}${revenueSummary.growth_percentage.toFixed(1)}%`
+              : "N/A"
+          }
+          pillType={
+            revenueSummary?.growth_percentage > 0 ? "positive" : "negative"
+          }
+          subtext="Current period performance"
         />
         <MetricCard
           icon={TrendingUp}
-          title="Net Profit"
-          value="1 107 M FCFA"
-          pillText="+8.2%"
+          title="Confirmed Bookings"
+          value={confirmedBookings.toString()}
+          pillText={`${totalBookings} total`}
           pillType="positive"
-          subtext="consolidated margin 42%"
+          subtext={`${((confirmedBookings / Math.max(totalBookings, 1)) * 100).toFixed(1)}% confirmation rate`}
         />
         <MetricCard
           icon={BedDouble}
           title="Avg. Occupancy"
-          value="84%"
-          pillText="-2.1%"
-          pillType="negative"
-          subtext="peak seasonal variance"
+          value={`${avgOccupancy.toFixed(1)}%`}
+          pillText={avgOccupancy >= 75 ? "Strong" : "Moderate"}
+          pillType={avgOccupancy >= 75 ? "positive" : "negative"}
+          subtext="Current occupancy rate"
         />
         <MetricCard
           icon={Utensils}
-          title="F&B Revenue"
-          value="584 M FCFA"
-          pillText="+18.4%"
+          title="Active Staff"
+          value={kpis?.active_staff || 0}
+          pillText={`${kpis?.total_staff || 0} total`}
           pillType="positive"
-          subtext="driven by Heritage Bar"
+          subtext="Staff members on duty"
         />
       </div>
 

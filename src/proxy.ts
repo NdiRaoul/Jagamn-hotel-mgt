@@ -43,8 +43,19 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Protect admin and reception staff portals with role checks
-  if (pathname.startsWith("/admin") || pathname.startsWith("/reception")) {
+  // Protect staff portals with role checks
+  const staffPrefixes = [
+    "/admin",
+    "/reception",
+    "/kitchen",
+    "/storekeeper",
+    "/superadmin",
+  ];
+  const isStaffRoute = staffPrefixes.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+
+  if (isStaffRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/staff-login";
     redirectUrl.searchParams.set("redirect", pathname);
@@ -63,16 +74,43 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Check role-based access for each portal
+    if (pathname.startsWith("/superadmin") && staff.role !== "owner") {
+      return NextResponse.redirect(redirectUrl);
+    }
+
     if (
       pathname.startsWith("/admin") &&
-      !["admin", "manager"].includes(staff.role)
+      !pathname.startsWith("/admin/procurement") &&
+      !["admin", "manager", "owner"].includes(staff.role)
+    ) {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (
+      pathname.startsWith("/admin/procurement") &&
+      !["admin", "manager", "storekeeper", "owner"].includes(staff.role)
     ) {
       return NextResponse.redirect(redirectUrl);
     }
 
     if (
       pathname.startsWith("/reception") &&
-      !["admin", "manager", "receptionist", "front_desk"].includes(staff.role)
+      !["reception", "admin", "manager", "owner"].includes(staff.role)
+    ) {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (
+      pathname.startsWith("/kitchen") &&
+      !["kitchen", "admin", "manager", "owner"].includes(staff.role)
+    ) {
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (
+      pathname.startsWith("/storekeeper") &&
+      !["storekeeper", "admin", "manager", "owner"].includes(staff.role)
     ) {
       return NextResponse.redirect(redirectUrl);
     }
