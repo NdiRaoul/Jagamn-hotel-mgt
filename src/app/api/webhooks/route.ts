@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
           amount,
           currency: "XAF",
           paymentMethod: "mobile_money",
-          paymentId: ledger?.id,
         });
       }
     } else if (status === "FAILED" || status === "EXPIRED") {

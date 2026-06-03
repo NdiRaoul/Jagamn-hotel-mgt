@@ -13,7 +13,6 @@ import {
   Utensils,
   ShoppingCart,
   Menu,
-  Bell,
   Settings,
   LogOut,
   Search,
@@ -26,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { AccountButton } from "@/components/account/AccountPanel";
 import { SessionGuard } from "@/components/staff/session-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import {
   Tooltip,
   TooltipContent,
@@ -247,10 +247,7 @@ export default function AdminLayout({
 
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-3 pr-8 border-r border-gray-100">
-                <button className="p-2.5 text-jagamn-primary hover:bg-gray-50 rounded-xl transition-all relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-jagamn-tertiary border-2 border-white rounded-full" />
-                </button>
+                <NotificationBell audience="staff" />
                 <button className="p-2.5 text-jagamn-primary hover:bg-gray-50 rounded-xl transition-all">
                   <Settings className="w-5 h-5" />
                 </button>

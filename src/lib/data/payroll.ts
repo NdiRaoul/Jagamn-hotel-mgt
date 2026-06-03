@@ -101,9 +101,13 @@ export async function createPayrollRun(
 
   if (deductionsError) throw deductionsError;
 
+  // Define types for database results
+  type StaffRecord = { id: string; salary: number | null };
+  type DeductionRecord = { staff_id: string; amount_minor: number };
+
   // Group deductions by staff_id
   const deductionsByStaff = (deductions || []).reduce(
-    (acc: Record<string, number>, d: any) => {
+    (acc: Record<string, number>, d: DeductionRecord) => {
       acc[d.staff_id] = (acc[d.staff_id] || 0) + d.amount_minor;
       return acc;
     },
@@ -114,7 +118,7 @@ export async function createPayrollRun(
   let grossTotalMinor = 0;
   let netTotalMinor = 0;
 
-  const items = (staff || []).map((s: any) => {
+  const items = (staff || []).map((s: StaffRecord) => {
     const annualSalary = s.salary || 0;
     const monthlyGross = Math.round((annualSalary / 12) * 100); // Convert to minor units
     const staffDeductions = deductionsByStaff[s.id] || 0;
@@ -163,47 +167,4 @@ export async function createPayrollRun(
   if (itemsError) throw itemsError;
 
   return run as PayrollRun;
-}
-
-export interface PayoutReadiness {
-  staff_id: string;
-  full_name: string;
-  has_payout: boolean;
-  method: string | null;
-  is_verified: boolean;
-}
-
-export async function getPayoutReadiness(): Promise<PayoutReadiness[]> {
-  const { data: staff, error: staffError } = await supabaseAdmin
-    .from("staff")
-    .select("id,full_name")
-    .eq("status", "active");
-
-  if (staffError) throw staffError;
-
-  const { data: accounts, error: accountsError } = await supabaseAdmin
-    .from("staff_payout_accounts")
-    .select("staff_id,method,is_verified,is_default")
-    .eq("is_default", true);
-
-  if (accountsError) throw accountsError;
-
-  const accountsByStaff = (accounts || []).reduce(
-    (acc: Record<string, any>, a: any) => {
-      acc[a.staff_id] = a;
-      return acc;
-    },
-    {},
-  );
-
-  return (staff || []).map((s: any) => {
-    const account = accountsByStaff[s.id];
-    return {
-      staff_id: s.id,
-      full_name: s.full_name,
-      has_payout: !!account,
-      method: account?.method || null,
-      is_verified: account?.is_verified || false,
-    };
-  });
 }

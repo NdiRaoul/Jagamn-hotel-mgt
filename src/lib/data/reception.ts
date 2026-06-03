@@ -70,7 +70,9 @@ export async function getArrivals(
     throw error;
   }
 
-  return (data || []).map((booking: Booking & { room_types?: RoomType }) => ({
+  return (
+    (data || []) as unknown as (Booking & { room_types?: RoomType })[]
+  ).map((booking) => ({
     id: booking.id,
     bookingRef: booking.booking_ref,
     guestName: booking.guest_name,
@@ -101,9 +103,27 @@ export async function getDepartures(
     throw error;
   }
 
-  return (data || []).map((booking: any) => {
+  type DepartureBooking = {
+    id: string;
+    booking_ref: string;
+    guest_name: string;
+    room_slug: string;
+    check_out: string;
+    total_amount: number;
+    payment_status: string;
+    status: string;
+    booking_folio_balance?: Array<{
+      paid_minor: number;
+      balance_minor: number;
+    }>;
+  };
+
+  return (data || []).map((booking: DepartureBooking) => {
     // If view not found/joined, fallback to 0 balance (e.g. legacy bookings)
-    const folio = booking.booking_folio_balance?.[0] || { balance_minor: 0, paid_minor: booking.total_amount * 100 };
+    const folio = booking.booking_folio_balance?.[0] || {
+      balance_minor: 0,
+      paid_minor: booking.total_amount * 100,
+    };
     return {
       id: booking.id,
       bookingRef: booking.booking_ref,
@@ -151,16 +171,16 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
   if (!roomTypes) throw new Error("Failed to load room types");
 
   const roomTypeMap = new Map(
-    roomTypes.map((rt: RoomType) => [rt.id, rt.name]),
+    (roomTypes as unknown as RoomType[]).map((rt) => [rt.id, rt.name]),
   );
   const bookingMap = new Map<string, Booking & { booking_ref: string }>();
-  (activeBookings || []).forEach((booking: Booking) => {
+  ((activeBookings || []) as unknown as Booking[]).forEach((booking) => {
     if (booking.room_id) {
       bookingMap.set(booking.room_id, booking);
     }
   });
 
-  return (rooms || []).map((room: Room) => {
+  return ((rooms || []) as unknown as Room[]).map((room) => {
     const booking = bookingMap.get(room.id);
     const isActive = room.is_active;
     let status: RoomBoardRoom["status"] = "available";
@@ -211,7 +231,9 @@ export async function searchFrontDesk(query: string): Promise<ArrivalRecord[]> {
     throw error;
   }
 
-  return (data || []).map((booking: Booking & { room_types?: RoomType }) => ({
+  return (
+    (data || []) as unknown as (Booking & { room_types?: RoomType })[]
+  ).map((booking) => ({
     id: booking.id,
     bookingRef: booking.booking_ref,
     guestName: booking.guest_name,
@@ -239,25 +261,23 @@ export async function getRecentTransactions(): Promise<TransactionRecord[]> {
     throw error;
   }
 
-  return (data || []).map(
-    (
-      payment: Payment & {
-        bookings?: { guest_name: string; room_slug: string };
-      },
-    ) => ({
-      id: payment.id,
-      bookingRef: payment.booking_ref,
-      description: payment.bookings
-        ? `${payment.bookings.guest_name} • ${payment.bookings.room_slug}`
-        : `Payment ${payment.booking_ref || payment.id}`,
-      amount: payment.amount / 100,
-      currency: payment.currency,
-      paymentMethod: payment.payment_method,
-      provider: payment.provider,
-      status: payment.status,
-      createdAt: payment.created_at,
-    }),
-  );
+  return (
+    (data || []) as unknown as (Payment & {
+      bookings?: { guest_name: string; room_slug: string };
+    })[]
+  ).map((payment) => ({
+    id: payment.id,
+    bookingRef: payment.booking_ref,
+    description: payment.bookings
+      ? `${payment.bookings.guest_name} • ${payment.bookings.room_slug}`
+      : `Payment ${payment.booking_ref || payment.id}`,
+    amount: payment.amount / 100,
+    currency: payment.currency,
+    paymentMethod: payment.payment_method,
+    provider: payment.provider,
+    status: payment.status,
+    createdAt: payment.created_at,
+  }));
 }
 
 export interface ActiveReservation {
@@ -318,24 +338,50 @@ export async function getActiveReservations(filters?: {
   const { data, error } = await query.limit(100);
   if (error) throw error;
 
-  return (data || []).map((b: any) => ({
-    id: b.id,
-    bookingRef: b.booking_ref,
-    guestName: b.guest_name,
-    guestEmail: b.guest_email,
-    guestPhone: b.guest_phone,
-    roomSlug: b.room_slug,
-    roomTypeName: b.room_types?.name ?? b.room_slug,
-    roomUnitCode: b.rooms?.unit_code ?? null,
-    checkIn: b.check_in,
-    checkOut: b.check_out,
-    nights: b.nights,
-    guests: b.guests,
-    totalAmount: b.total_amount,
-    paymentStatus: b.payment_status,
-    status: b.status,
-    specialRequests: b.special_requests,
-  }));
+  type ActiveReservationData = {
+    id: string;
+    booking_ref: string;
+    guest_name: string;
+    guest_email: string;
+    guest_phone: string | null;
+    room_slug: string;
+    room_types: Array<{ name: string }> | { name: string } | null;
+    rooms: Array<{ unit_code: string }> | { unit_code: string } | null;
+    check_in: string;
+    check_out: string;
+    nights: number;
+    guests: number;
+    total_amount: number;
+    payment_status: string;
+    status: string;
+    special_requests: string | null;
+  };
+
+  return (data || []).map((b: ActiveReservationData) => {
+    const roomType = Array.isArray(b.room_types)
+      ? b.room_types[0]
+      : b.room_types;
+    const room = Array.isArray(b.rooms) ? b.rooms[0] : b.rooms;
+
+    return {
+      id: b.id,
+      bookingRef: b.booking_ref,
+      guestName: b.guest_name,
+      guestEmail: b.guest_email,
+      guestPhone: b.guest_phone,
+      roomSlug: b.room_slug,
+      roomTypeName: roomType?.name ?? b.room_slug,
+      roomUnitCode: room?.unit_code ?? null,
+      checkIn: b.check_in,
+      checkOut: b.check_out,
+      nights: b.nights,
+      guests: b.guests,
+      totalAmount: b.total_amount,
+      paymentStatus: b.payment_status,
+      status: b.status,
+      specialRequests: b.special_requests,
+    };
+  });
 }
 
 export async function getTransactions(filters?: {
@@ -370,7 +416,20 @@ export async function getTransactions(filters?: {
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  type TransactionTimelineRow = {
+    payment_id: string;
+    booking_ref: string | null;
+    guest_name: string | null;
+    guest_email: string | null;
+    provider: string | null;
+    amount_minor: number;
+    currency: string;
+    derived_status: string;
+    event_type: string;
+    event_at: string;
+  };
+
+  return (data || []).map((row: TransactionTimelineRow) => ({
     paymentId: row.payment_id,
     bookingRef: row.booking_ref,
     guestName: row.guest_name,

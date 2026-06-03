@@ -69,6 +69,7 @@ export function StaffEditModal({
   const [salary, setSalary] = useState(
     staff.salary != null ? String(staff.salary) : "",
   );
+  const [hireDate, setHireDate] = useState(staff.hire_date ?? "");
 
   const isSuspended = staff.status === "suspended";
   const [suspendToggle, setSuspendToggle] = useState(isSuspended);
@@ -132,6 +133,7 @@ export function StaffEditModal({
         position: position || null,
         role,
         salary: salary ? parseFloat(salary) : null,
+        hire_date: hireDate || null,
       });
 
       // Suspend / reactivate if toggle changed
@@ -443,16 +445,28 @@ export function StaffEditModal({
                   Base Annual Salary (FCFA)
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">
-                    $
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-semibold">
+                    FCFA
                   </span>
                   <Input
                     type="number"
                     value={salary}
                     onChange={(e) => setSalary(e.target.value)}
-                    className="h-12 bg-white border-gray-200 rounded-lg pl-8 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                    className="h-12 bg-white border-gray-200 rounded-lg pl-14 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
+                  Hire Date
+                </Label>
+                <Input
+                  type="date"
+                  value={hireDate}
+                  onChange={(e) => setHireDate(e.target.value)}
+                  className="h-12 bg-white border-gray-200 rounded-lg text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                />
               </div>
 
               <hr className="border-gray-100 my-4" />

@@ -670,6 +670,19 @@ export default function StaffClient({ staff, error }: Props) {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                        Hire Date
+                      </Label>
+                      <Input
+                        type="date"
+                        value={form.hire_date}
+                        onChange={(e) =>
+                          setForm({ ...form, hire_date: e.target.value })
+                        }
+                        className="h-12 bg-white border-gray-200 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                         Password (leave blank to auto-generate)
                       </Label>
                       <Input

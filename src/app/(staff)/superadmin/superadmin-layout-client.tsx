@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { AccountButton } from "@/components/account/AccountPanel";
 import { SessionGuard } from "@/components/staff/session-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import {
   Tooltip,
   TooltipContent,
@@ -290,7 +291,7 @@ export default function SuperAdminLayoutClient({
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Bell className="w-5 h-5 text-slate-400" />
+              <NotificationBell audience="staff" />
               <button className="rounded-2xl bg-jagamn-tertiary px-4 py-3 text-white text-[10px] font-black uppercase tracking-[0.25em]">
                 Owner Portal
               </button>

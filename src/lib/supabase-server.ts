@@ -35,9 +35,10 @@ export async function createSupabaseServerClient() {
   );
 }
 
-// Route handler client (synchronous version for API routes)
-export function createSupabaseRouteHandlerClient() {
-  const cookieStore = cookies();
+// Route handler client for API routes.
+// Next.js 16 made `cookies()` async, so this must be awaited by callers.
+export async function createSupabaseRouteHandlerClient() {
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

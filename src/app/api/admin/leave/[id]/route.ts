@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
+import {
+  createSupabaseRouteHandlerClient,
+  supabaseAdmin,
+} from "@/lib/supabase-server";
+import { notify } from "@/lib/data/notifications";
 
 export async function PATCH(
   req: NextRequest,
@@ -7,7 +11,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const supabase = createSupabaseRouteHandlerClient();
+    const supabase = await createSupabaseRouteHandlerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -46,6 +50,21 @@ export async function PATCH(
     });
 
     if (error) throw error;
+
+    // Notify the affected staff member of the decision (display-only).
+    const { data: leaveReq } = await supabaseAdmin
+      .from("leave_requests")
+      .select("staff_id")
+      .eq("id", id)
+      .single();
+    if (leaveReq?.staff_id) {
+      await notify({
+        staffId: leaveReq.staff_id,
+        type: "hr",
+        title: `Leave request ${status}`,
+        body: manager_notes ? `Note: ${manager_notes}` : undefined,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ACTIVITY_COOKIE_NAME,
+  isIdleExpired,
+  parseLastActivity,
+} from "@/lib/auth/session-constants";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -72,6 +77,19 @@ export async function proxy(request: NextRequest) {
 
     if (staffError || !staff || staff.status !== "active") {
       return NextResponse.redirect(redirectUrl);
+    }
+
+    // Reject idle-expired staff sessions (defence in depth alongside
+    // getStaffSession). An absent cookie = fresh login and is allowed.
+    const lastActivity = parseLastActivity(
+      request.cookies.get(ACTIVITY_COOKIE_NAME)?.value,
+    );
+    if (isIdleExpired(lastActivity)) {
+      const timeoutUrl = request.nextUrl.clone();
+      timeoutUrl.pathname = "/staff-login";
+      timeoutUrl.search = "";
+      timeoutUrl.searchParams.set("timeout", "1");
+      return NextResponse.redirect(timeoutUrl);
     }
 
     // Check role-based access for each portal

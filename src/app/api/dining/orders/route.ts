@@ -6,7 +6,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerClient();
+    const supabase = await createSupabaseRouteHandlerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -43,9 +43,18 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
 
+    // Define item type
+    type OrderItem = {
+      id?: string;
+      title?: string;
+      name?: string;
+      price?: number;
+      quantity?: number;
+    };
+
     // Calculate total (server-side, never trust client)
-    const subtotal = items.reduce(
-      (sum: number, item: any) =>
+    const subtotal = (items as OrderItem[]).reduce(
+      (sum: number, item: OrderItem) =>
         sum + (item.price || 0) * (item.quantity || 1),
       0,
     );
@@ -68,7 +77,7 @@ export async function POST(req: NextRequest) {
     if (orderError) throw orderError;
 
     // Insert order items (snapshot name + price from menu_items)
-    const orderItems = items.map((item: any) => ({
+    const orderItems = (items as OrderItem[]).map((item: OrderItem) => ({
       order_id: order.id,
       menu_item_id: item.id || null,
       item_name: item.title || item.name,
@@ -100,7 +109,7 @@ export async function POST(req: NextRequest) {
     const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
     const unitCode = room?.unit_code || "Dining Hall";
     const itemSummary = orderItems
-      .map((i: any) => `${i.quantity}x ${i.item_name}`)
+      .map((i) => `${i.quantity}x ${i.item_name}`)
       .join(", ");
 
     await supabaseAdmin.rpc("notify_role", {
@@ -111,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ order }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Dining order creation error:", error);
     return NextResponse.json(
       { error: "Failed to create dining order" },

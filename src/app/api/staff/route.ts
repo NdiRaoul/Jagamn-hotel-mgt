@@ -10,10 +10,7 @@ async function requireAdmin(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (
-    session.status !== "active" ||
-    !ADMIN_ROLES.includes(session.role)
-  ) {
+  if (session.status !== "active" || !ADMIN_ROLES.includes(session.role)) {
     return NextResponse.json(
       { error: "Forbidden — admin only" },
       { status: 403 },
@@ -129,6 +126,7 @@ export async function POST(request: NextRequest) {
       salary: typeof salary === "number" ? salary : 0,
       hire_date: typeof hire_date === "string" ? hire_date : null,
       status: "active",
+      is_owner: false,
       avatar_url: typeof avatar_url === "string" ? avatar_url : null,
       must_reset_pw: mustResetPw,
       staff_code: staffCode,

@@ -905,6 +905,19 @@ create policy "notifications_own"
   on notifications for select
   using (app_user_id in (select id from users where auth_user_id = auth.uid()));
 
+-- notifications: staff read their individual + role fan-out rows
+-- (needed for the staff notification bell's realtime subscription; the REST
+--  list/count path goes through the service role and is unaffected by this).
+create policy "notifications_staff_read"
+  on notifications for select
+  using (
+    staff_id in (select id from staff where auth_user_id = auth.uid())
+    or role in (
+      select role from staff
+      where auth_user_id = auth.uid() and status = 'active'
+    )
+  );
+
 -- audit_log, payment_ledger, payment_events, refunds, webhook_events,
 -- dining_order_items: service role only (no user-facing policies — service role bypasses RLS)
 

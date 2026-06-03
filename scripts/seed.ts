@@ -1224,14 +1224,6 @@ async function seed() {
       sort_order: 2,
     },
     {
-      role: "account",
-      slug: "payout-setup",
-      title: "Setting Up Payout",
-      body: "To receive salary payments:\n1. Go to My Account > Payout\n2. Choose method: Stripe, MTN MoMo, Orange Money, or Bank\n3. Enter account details\n4. For Stripe: complete onboarding flow\n5. For MoMo/Bank: verify details with admin\n6. Set as default payout method\n\nPayroll will use your default method for payments.",
-      category: "Payroll",
-      sort_order: 3,
-    },
-    {
       role: "storekeeper",
       slug: "fulfilling-requests",
       title: "Fulfilling Stock Requests",

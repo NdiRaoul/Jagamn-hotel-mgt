@@ -11,7 +11,6 @@ import {
   Plus,
   HelpCircle,
   Search,
-  Bell,
   Menu,
   LogOut,
   Zap,
@@ -23,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AccountButton } from "@/components/account/AccountPanel";
 import { SessionGuard } from "@/components/staff/session-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const KITCHEN_NAV = [
   { label: "Orders", icon: LayoutGrid, href: "/kitchen" },
@@ -251,10 +251,7 @@ export default function KitchenLayout({
               </button>
 
               {/* Icons */}
-              <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 relative">
-                <Bell className="w-4.5 h-4.5" />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-              </button>
+              <NotificationBell audience="staff" />
               <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50">
                 <HelpCircle className="w-4.5 h-4.5" />
               </button>

@@ -21,6 +21,15 @@ import { cn } from "@/lib/utils";
 
 // ── Components ──────────────────────────────────────
 
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  pillText: string;
+  pillType: "positive" | "negative";
+  subtext: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 const MetricCard = ({
   title,
   value,
@@ -28,7 +37,7 @@ const MetricCard = ({
   pillType,
   subtext,
   icon: Icon,
-}: any) => {
+}: MetricCardProps) => {
   const isPositive = pillType === "positive";
   const isNegative = pillType === "negative";
 
@@ -59,13 +68,26 @@ const MetricCard = ({
   );
 };
 
+interface KPIs {
+  occupancy_rate?: number;
+  total_bookings?: number;
+  confirmed_bookings?: number;
+  active_staff?: number;
+  total_staff?: number;
+}
+
+interface RevenueSummary {
+  total_revenue_minor?: number;
+  growth_percentage?: number;
+}
+
 interface SuperadminOverviewClientProps {
-  kpis: any;
-  revenueSummary: any;
-  occupancyDaily: any[];
-  payrollMonthly: any[];
-  leaveSummary: any;
-  procurementKpis: any;
+  kpis: KPIs;
+  revenueSummary: RevenueSummary;
+  occupancyDaily: unknown[];
+  payrollMonthly: unknown[];
+  leaveSummary: unknown;
+  procurementKpis: unknown;
   latestSync: string;
 }
 
@@ -137,12 +159,14 @@ export default function SuperadminOverviewClient({
           title="Total Revenue"
           value={formatCurrency(totalRevenue)}
           pillText={
-            revenueSummary?.growth_percentage
+            revenueSummary?.growth_percentage !== undefined
               ? `${revenueSummary.growth_percentage > 0 ? "+" : ""}${revenueSummary.growth_percentage.toFixed(1)}%`
               : "N/A"
           }
           pillType={
-            revenueSummary?.growth_percentage > 0 ? "positive" : "negative"
+            (revenueSummary?.growth_percentage ?? 0) > 0
+              ? "positive"
+              : "negative"
           }
           subtext="Current period performance"
         />
@@ -394,8 +418,7 @@ export default function SuperadminOverviewClient({
                       Financial Sync Failed
                     </h4>
                     <p className="text-xs text-slate-500 font-medium leading-relaxed mb-4">
-                      Stripe payout sync interrupted. Manual reconciliation
-                      required for batch #8291.
+                      A revenue reconciliation job needs review for batch #8291.
                     </p>
                     <button className="text-[10px] font-black uppercase tracking-widest text-[#A57850] hover:text-[#8a6341] flex items-center gap-1">
                       Retry Sync <RefreshCcw className="w-3 h-3 ml-1" />

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import Stripe from "stripe";
+import { notify } from "@/lib/data/notifications";
+import { formatMoneyMinor } from "@/lib/currency";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager"];
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-05-27.dahlia",
-});
+const ALLOWED_METHODS = ["cash", "bank", "mtn_momo", "orange_money", "manual"];
 
 async function requireAuthorized() {
   const session = await getStaffSession();
@@ -20,7 +18,11 @@ async function requireAuthorized() {
   return { session };
 }
 
-// POST /api/admin/payroll/pay - Pay one or more payroll items
+// POST /api/admin/payroll/pay — record payment for one or more payroll items.
+//
+// Payment is recorded manually (cash / bank / mobile money). The previous
+// Stripe Connect payout-account integration was removed; salaries are settled
+// outside the app and marked paid here with the method and date used.
 export async function POST(request: NextRequest) {
   const auth = await requireAuthorized();
   if ("error" in auth) {
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { itemIds, payment_date } = body;
+    const { itemIds, payment_date, payment_method, payment_ref } = body;
 
     if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
       return NextResponse.json(
@@ -38,7 +40,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const method =
+      typeof payment_method === "string" &&
+      ALLOWED_METHODS.includes(payment_method)
+        ? payment_method
+        : "manual";
     const paymentDate = payment_date || new Date().toISOString();
+
     const results: Array<{
       itemId: string;
       success: boolean;
@@ -46,18 +54,11 @@ export async function POST(request: NextRequest) {
       paymentRef?: string;
     }> = [];
 
-    // Process each item
     for (const itemId of itemIds) {
       try {
-        // Get item with staff and payout account
         const { data: item, error: itemError } = await supabaseAdmin
           .from("payroll_items")
-          .select(
-            `
-            *,
-            staff:staff_id(id, full_name, email)
-          `,
-          )
+          .select(`*, staff:staff_id(id, full_name, email)`)
           .eq("id", itemId)
           .single();
 
@@ -66,110 +67,28 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if already paid
         if (item.payment_status === "paid") {
           results.push({ itemId, success: false, error: "Already paid" });
           continue;
         }
 
-        // Get default payout account
-        const { data: accounts, error: accountError } = await supabaseAdmin
-          .from("staff_payout_accounts")
-          .select("*")
-          .eq("staff_id", item.staff_id)
-          .eq("is_default", true)
-          .limit(1);
+        const paymentRef =
+          (typeof payment_ref === "string" && payment_ref.trim()) ||
+          `${method}_${Date.now()}`;
 
-        if (accountError || !accounts || accounts.length === 0) {
-          results.push({
-            itemId,
-            success: false,
-            error: "No default payout account",
-          });
-          continue;
-        }
-
-        const account = accounts[0];
-        let paymentStatus = "paid";
-        let paymentMethod = account.method;
-        let paymentRef = null;
-
-        // Process payment based on method
-        if (account.method === "stripe" && account.stripe_account_id) {
-          // Stripe Connect transfer
-          try {
-            // XAF is zero-decimal in Stripe - send whole franc amount
-            const amountXaf = Math.round(item.net_minor / 100);
-
-            const transfer = await stripe.transfers.create(
-              {
-                amount: amountXaf,
-                currency: "xaf",
-                destination: account.stripe_account_id,
-                description: `Payroll payment for ${item.staff.full_name}`,
-                metadata: {
-                  payroll_item_id: itemId,
-                  staff_id: item.staff_id,
-                  idempotency_key: item.idempotency_key || itemId,
-                },
-              },
-              {
-                idempotencyKey: item.idempotency_key || itemId,
-              },
-            );
-
-            paymentStatus = "processing";
-            paymentRef = transfer.id;
-          } catch (stripeError: unknown) {
-            console.error("[Stripe transfer error]", stripeError);
-            const errorMessage =
-              stripeError instanceof Error
-                ? stripeError.message
-                : "Stripe transfer failed";
-            results.push({
-              itemId,
-              success: false,
-              error: errorMessage,
-            });
-            continue;
-          }
-        } else if (
-          account.method === "mtn_momo" ||
-          account.method === "orange_money"
-        ) {
-          // MoMo/Orange Money - mark as paid (manual or via Fapshi API if available)
-          paymentStatus = "paid";
-          paymentMethod = account.method;
-          paymentRef = `${account.method}_${Date.now()}`;
-        } else if (account.method === "bank") {
-          // Bank transfer - mark as paid (manual)
-          paymentStatus = "paid";
-          paymentMethod = "bank";
-          paymentRef = `bank_${Date.now()}`;
-        } else {
-          results.push({
-            itemId,
-            success: false,
-            error: "Unsupported payment method",
-          });
-          continue;
-        }
-
-        // Update payroll item
         const { error: updateError } = await supabaseAdmin
           .from("payroll_items")
           .update({
-            payment_status: paymentStatus,
-            payment_method: paymentMethod,
+            payment_status: "paid",
+            payment_method: method,
             payment_ref: paymentRef,
-            paid_at: paymentStatus === "paid" ? paymentDate : null,
+            paid_at: paymentDate,
             updated_at: new Date().toISOString(),
           })
           .eq("id", itemId);
 
         if (updateError) throw updateError;
 
-        // Audit log
         await supabaseAdmin.from("audit_log").insert({
           actor_id: auth.session.auth_user_id,
           actor_role: auth.session.role,
@@ -179,14 +98,18 @@ export async function POST(request: NextRequest) {
           payload: {
             staff_id: item.staff_id,
             amount_minor: item.net_minor,
-            payment_method: paymentMethod,
+            payment_method: method,
             payment_ref: paymentRef,
           },
           ip: request.headers.get("x-forwarded-for") || "unknown",
         });
 
-        // TODO: Send notification to staff (Prompt I)
-        // await notify({ staffId: item.staff_id, type: 'payroll', title: `You've been paid ${formatMoneyMinor(item.net_minor)}` });
+        await notify({
+          staffId: item.staff_id,
+          type: "payroll",
+          title: "You've been paid",
+          body: `${formatMoneyMinor(item.net_minor)} paid via ${method.replace(/_/g, " ")}.`,
+        });
 
         results.push({ itemId, success: true, paymentRef });
       } catch (error: unknown) {

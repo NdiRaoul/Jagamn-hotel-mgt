@@ -12,7 +12,6 @@ import {
   Grid3X3,
   Receipt,
   Plus,
-  Bell,
   Settings,
   HelpCircle,
   Search,
@@ -26,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AccountButton } from "@/components/account/AccountPanel";
 import { SessionGuard } from "@/components/staff/session-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import {
   Dialog,
   DialogTrigger,
@@ -291,10 +291,7 @@ export default function ReceptionLayout({
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3 pr-6 border-r border-gray-100">
-                <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-                </button>
+                <NotificationBell audience="staff" />
                 <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all">
                   <Settings className="w-5 h-5" />
                 </button>

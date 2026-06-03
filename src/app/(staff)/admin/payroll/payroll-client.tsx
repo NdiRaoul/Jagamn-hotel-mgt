@@ -35,23 +35,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { formatMoneyMinor } from "@/lib/currency";
-import type {
-  PayrollRun,
-  PayrollItem,
-  PayoutReadiness,
-} from "@/lib/data/payroll";
+import type { PayrollRun, PayrollItem } from "@/lib/data/payroll";
 
 interface Props {
   runs: PayrollRun[];
   items: PayrollItem[];
-  payoutReadiness: PayoutReadiness[];
   error: string | null;
 }
 
 export default function PayrollClient({
   runs,
   items: initialItems,
-  payoutReadiness,
   error,
 }: Props) {
   const router = useRouter();
@@ -71,16 +65,7 @@ export default function PayrollClient({
 
   const selectedRun = runs.find((r) => r.id === selectedRunId);
 
-  // Payout readiness map
-  const payoutMap = useMemo(() => {
-    const map: Record<string, PayoutReadiness> = {};
-    payoutReadiness.forEach((p) => {
-      map[p.staff_id] = p;
-    });
-    return map;
-  }, [payoutReadiness]);
-
-  const configuredCount = payoutReadiness.filter((p) => p.has_payout).length;
+  const paidCount = items.filter((i) => i.payment_status === "paid").length;
 
   const filteredItems = useMemo(
     () =>
@@ -366,10 +351,10 @@ export default function PayrollClient({
           </div>
           <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-green-500">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-              Payout Accounts
+              Paid
             </p>
             <h3 className="manrope-bold text-2xl text-[#0D2137] tracking-tight">
-              {configuredCount} / {payoutReadiness.length}
+              {paidCount} / {items.length}
             </h3>
           </div>
           <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-slate-400">
@@ -438,16 +423,12 @@ export default function PayrollClient({
                     Status
                   </th>
                   <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
-                    Payout
-                  </th>
-                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredItems.map((item) => {
-                  const payout = payoutMap[item.staff_id];
                   return (
                     <tr
                       key={item.id}
@@ -499,17 +480,6 @@ export default function PayrollClient({
                       </td>
                       <td className="px-6 md:px-8 py-5 text-center">
                         {getPaymentStatusBadge(item.payment_status)}
-                      </td>
-                      <td className="px-6 md:px-8 py-5 text-center">
-                        {payout?.has_payout ? (
-                          <Badge className="bg-green-100 text-green-700 text-[9px]">
-                            {payout.method} ✓
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-red-100 text-red-700 text-[9px]">
-                            Not set
-                          </Badge>
-                        )}
                       </td>
                       <td className="px-6 md:px-8 py-5 text-center">
                         <Button
