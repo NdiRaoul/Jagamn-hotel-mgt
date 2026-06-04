@@ -96,8 +96,8 @@ export async function createPayrollRun(
   const { data: deductions, error: deductionsError } = await supabaseAdmin
     .from("staff_deductions")
     .select("staff_id,amount_minor")
-    .gte("applied_on", periodStart)
-    .lte("applied_on", periodEnd);
+    .gte("applied_date", periodStart)
+    .lte("applied_date", periodEnd);
 
   if (deductionsError) throw deductionsError;
 

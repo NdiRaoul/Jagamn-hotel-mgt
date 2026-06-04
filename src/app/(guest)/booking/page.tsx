@@ -411,21 +411,21 @@ function BookingContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 flex flex-col lg:flex-row gap-12 mt-20">
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-12 flex flex-col lg:flex-row gap-6 md:gap-12 mt-20">
       {/* ── Left Column: Forms ── */}
-      <div className="flex-1 space-y-12">
+      <div className="flex-1 space-y-6 md:space-y-12">
         {/* Step 1: Guest Details */}
         <section>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-8 h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold">
+          <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-8">
+            <div className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold text-sm md:text-base">
               1
             </div>
-            <h2 className="manrope-bold text-2xl text-[#00152A]">
+            <h2 className="manrope-bold text-xl md:text-2xl text-[#00152A]">
               Guest Details
             </h2>
           </div>
 
-          <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-6">
+          <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-4 md:p-8 space-y-4 md:space-y-6">
             {/* Logged-in notice */}
             {isLoggedIn && (
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3">
@@ -608,16 +608,16 @@ function BookingContent() {
 
         {/* Step 2: Payment Information */}
         <section>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-8 h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold">
+          <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-8">
+            <div className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-[#00152A] text-white flex items-center justify-center font-bold text-sm md:text-base">
               2
             </div>
-            <h2 className="manrope-bold text-2xl text-[#00152A]">
+            <h2 className="manrope-bold text-xl md:text-2xl text-[#00152A]">
               Payment Information
             </h2>
           </div>
 
-          <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-8 space-y-8">
+          <div className="bg-white rounded-md border-l-4 border-[#00152A] shadow-sm p-4 md:p-8 space-y-6 md:space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { key: "card", icon: CreditCard, label: "Mastercard / Visa" },

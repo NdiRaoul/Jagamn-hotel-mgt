@@ -167,90 +167,94 @@ export default function HrClient({ leaveSummary, staff }: HrClientProps) {
       </div>
 
       {/* ── Staff Table ────────────────────────────── */}
-      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[900px]">
-          <thead className="bg-[#F8FAFC]">
-            <tr>
-              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Staff Name
-              </th>
-              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Email
-              </th>
-              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Role
-              </th>
-              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Department
-              </th>
-              <th className="px-10 py-6 text-center text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filteredStaff.map((s: any) => (
-              <tr
-                key={s.id}
-                className="group hover:bg-gray-50 transition-colors"
-              >
-                <td className="px-10 py-6">
-                  <span className="manrope-bold text-sm text-[#0D2137]">
-                    {s.name || "N/A"}
-                  </span>
-                </td>
-                <td className="px-10 py-6">
-                  <span className="text-xs text-slate-400">
-                    {s.email || "N/A"}
-                  </span>
-                </td>
-                <td className="px-10 py-6">
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
-                  >
-                    {s.role || "N/A"}
-                  </Badge>
-                </td>
-                <td className="px-10 py-6">
-                  <span className="text-xs text-slate-400">
-                    {s.department || "N/A"}
-                  </span>
-                </td>
-                <td className="px-10 py-6 text-center">
-                  <div
-                    className={cn(
-                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-                      s.status === "active"
-                        ? "bg-green-50 text-green-600"
-                        : "bg-gray-50 text-gray-600",
-                    )}
-                  >
+      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full md:min-w-[900px]">
+            <thead className="bg-[#F8FAFC]">
+              <tr>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Staff Name
+                </th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Email
+                </th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Role
+                </th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Department
+                </th>
+                <th className="px-10 py-6 text-center text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredStaff.map((s: any) => (
+                <tr
+                  key={s.id}
+                  className="group hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-10 py-6">
+                    <span className="manrope-bold text-sm text-[#0D2137]">
+                      {s.name || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-10 py-6">
+                    <span className="text-xs text-slate-400">
+                      {s.email || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-10 py-6">
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
+                    >
+                      {s.role || "N/A"}
+                    </Badge>
+                  </td>
+                  <td className="px-10 py-6">
+                    <span className="text-xs text-slate-400">
+                      {s.department || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-10 py-6 text-center">
                     <div
                       className={cn(
-                        "w-1.5 h-1.5 rounded-full",
-                        s.status === "active" ? "bg-green-500" : "bg-gray-500",
+                        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
+                        s.status === "active"
+                          ? "bg-green-50 text-green-600"
+                          : "bg-gray-50 text-gray-600",
                       )}
-                    />
-                    <span className="text-[9px] font-black uppercase tracking-widest">
-                      {s.status || "Unknown"}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredStaff.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
-                >
-                  No staff records found matching your current parameters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    >
+                      <div
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          s.status === "active"
+                            ? "bg-green-500"
+                            : "bg-gray-500",
+                        )}
+                      />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {s.status || "Unknown"}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredStaff.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
+                  >
+                    No staff records found matching your current parameters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

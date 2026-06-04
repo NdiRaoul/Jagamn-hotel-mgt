@@ -524,80 +524,88 @@ function LeaveView({
 
 function DeductionsView({ requests }: { requests: Deduction[] }) {
   return (
-    <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
-      <table className="w-full" style={{ minWidth: 900 }}>
-        <thead className="bg-[#F8FAFC]">
-          <tr>
-            <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-              Staff Member
-            </th>
-            <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-              Category
-            </th>
-            <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-              Amount
-            </th>
-            <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-              Date
-            </th>
-            <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-              Action
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {requests.map((d) => {
-            const staffName = d.staff?.full_name ?? "—";
-            const staffCode = d.staff?.staff_code ?? d.staff_id;
-            return (
-            <tr key={d.id} className="group hover:bg-gray-50 transition-colors">
-              <td className="px-10 py-6 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-black">
-                  {staffName.charAt(0)}
-                </div>
-                <div>
-                  <p className="manrope-bold text-sm text-[#0D2137]">
-                    {staffName}
-                  </p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">
-                    {staffCode}
-                  </p>
-                </div>
-              </td>
-              <td className="px-10 py-6">
-                <Badge
-                  variant="outline"
-                  className="text-[9px] font-black uppercase tracking-widest"
-                >
-                  {d.category}
-                </Badge>
-              </td>
-              <td className="px-10 py-6 text-red-500 manrope-bold text-base">
-                -{formatMoneyMinor(d.amount_minor)}
-              </td>
-              <td className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {d.applied_on}
-              </td>
-              <td className="px-10 py-6 text-right">
-                <Button variant="ghost" className="h-10 w-10 p-0 rounded-xl">
-                  <Info className="w-4 h-4 text-slate-300" />
-                </Button>
-              </td>
-            </tr>
-            );
-          })}
-          {requests.length === 0 && (
+    <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full md:min-w-[900px]">
+          <thead className="bg-[#F8FAFC]">
             <tr>
-              <td
-                colSpan={5}
-                className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
-              >
-                No deduction records found.
-              </td>
+              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Staff Member
+              </th>
+              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Category
+              </th>
+              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Amount
+              </th>
+              <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Date
+              </th>
+              <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                Action
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {requests.map((d) => {
+              const staffName = d.staff?.full_name ?? "—";
+              const staffCode = d.staff?.staff_code ?? d.staff_id;
+              return (
+                <tr
+                  key={d.id}
+                  className="group hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-10 py-6 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-black">
+                      {staffName.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="manrope-bold text-sm text-[#0D2137]">
+                        {staffName}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">
+                        {staffCode}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-10 py-6">
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      {d.category}
+                    </Badge>
+                  </td>
+                  <td className="px-10 py-6 text-red-500 manrope-bold text-base">
+                    -{formatMoneyMinor(d.amount_minor)}
+                  </td>
+                  <td className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {d.applied_on}
+                  </td>
+                  <td className="px-10 py-6 text-right">
+                    <Button
+                      variant="ghost"
+                      className="h-10 w-10 p-0 rounded-xl"
+                    >
+                      <Info className="w-4 h-4 text-slate-300" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+            {requests.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
+                >
+                  No deduction records found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -13,7 +13,6 @@
 | Manager      | manager@jagamnpalace.com   | Manager123   | /admin       |
 | Receptionist | reception@jagamnpalace.com | Reception123 | /reception   |
 | Kitchen      | kitchen@jagamnpalace.com   | Kitchen123   | /kitchen     |
-| Storekeeper  | store@jagamnpalace.com     | Store123     | /storekeeper |
 
 ---
 

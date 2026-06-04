@@ -13,16 +13,32 @@ create extension if not exists "btree_gist";
 drop view     if exists room_availability_summary;
 drop view     if exists payment_timeline;
 drop view     if exists dashboard_booking_summary;
+drop view     if exists revenue_daily;
+drop view     if exists revenue_monthly;
+drop view     if exists revenue_by_room_type;
+drop view     if exists occupancy_daily;
+drop view     if exists hr_leave_summary;
+drop view     if exists payroll_monthly;
+drop view     if exists procurement_status_summary;
+drop view     if exists dining_order_status_summary;
+drop view     if exists dining_daily;
+drop view     if exists dining_top_items;
+drop view     if exists inventory_low_stock;
+drop view     if exists booking_folio_balance;
 drop function if exists generate_booking_ref() cascade;
 drop function if exists generate_staff_code() cascade;
+drop function if exists generate_po_number() cascade;
 drop function if exists derive_payment_status(uuid) cascade;
 drop function if exists set_updated_at() cascade;
+drop function if exists set_updated_at_generic() cascade;
 drop function if exists is_staff() cascade;
 drop function if exists staff_role() cascade;
 drop function if exists current_user_role() cascade;
 drop function if exists assign_room_and_book(text,uuid,date,date,text,text,text,text,text,text,integer,integer,integer,integer,integer,integer,text,text,uuid,uuid) cascade;
 drop function if exists expire_stale_bookings() cascade;
 drop function if exists sweep_old_webhook_events() cascade;
+drop function if exists decide_leave(uuid,text,text,uuid) cascade;
+drop function if exists notify_role(text,text,text,text) cascade;
 
 -- ── Drop existing tables (dependency order) ──────────────────
 drop table if exists webhook_events              cascade;
@@ -47,6 +63,27 @@ drop table if exists rooms                       cascade;
 drop table if exists room_amenities              cascade;
 drop table if exists hotel_amenities             cascade;
 drop table if exists room_types                  cascade;
+-- Admin-feature tables (added later; dropped here so create table if not exists
+-- picks up schema changes on a full reset)
+drop table if exists staff_deductions            cascade;
+drop table if exists system_alerts               cascade;
+drop table if exists hotel_policies              cascade;
+drop table if exists system_config               cascade;
+drop table if exists help_articles               cascade;
+drop table if exists folio_entries               cascade;
+drop table if exists inventory_requests          cascade;
+drop table if exists inventory_items             cascade;
+drop table if exists procurement_budgets         cascade;
+drop table if exists purchase_order_items        cascade;
+drop table if exists purchase_orders             cascade;
+drop table if exists suppliers                   cascade;
+drop table if exists payroll_items               cascade;
+drop table if exists payroll_runs                cascade;
+drop table if exists leave_balances              cascade;
+drop table if exists leave_requests              cascade;
+drop table if exists leave_types                 cascade;
+drop table if exists positions                   cascade;
+drop table if exists departments                 cascade;
 
 -- ── Drop existing enum types ─────────────────────────────────
 drop type if exists staff_role   cascade;
@@ -145,6 +182,14 @@ create unique index users_email_idx        on users (email);
 create unique index users_auth_user_id_idx on users (auth_user_id)
   where auth_user_id is not null;
 
+-- Guard: users.role must be 'guest' or 'member'.
+-- Staff roles (owner/admin/manager/reception/kitchen/storekeeper) live in staff.role.
+-- Before adding this constraint on an existing DB, verify:
+--   select distinct role from users;
+-- If any value outside ('guest','member') is found, investigate before applying.
+alter table users
+  add constraint users_role_chk check (role in ('member','guest'));
+
 -- ── staff ────────────────────────────────────────────────────
 create table staff (
   id              uuid          primary key default gen_random_uuid(),
@@ -226,7 +271,7 @@ create table payments (
   user_id                  uuid        references auth.users(id),
   app_user_id              uuid        references users(id) on delete set null,
   amount                   integer     not null,
-  currency                 text        default 'USD',
+  currency                 text        default 'XAF',
   payment_method           text,
   provider                 text,
   provider_tx_id           text,
@@ -268,7 +313,7 @@ create table payment_ledger (
   booking_ref             text        not null references bookings(booking_ref),
   provider                text        not null,   -- 'stripe' | 'fapshi'
   amount_minor            bigint      not null,   -- amount in smallest currency unit
-  currency                text        not null default 'USD',
+  currency                text        not null default 'XAF',
   processor_ref           text,                   -- PaymentIntent id / Fapshi transId
   client_idempotency_key  text        unique not null,
   status                  text        not null default 'pending',
@@ -309,7 +354,7 @@ create table refunds (
   payment_id              uuid        not null references payment_ledger(id),
   booking_ref             text        not null,
   amount_minor            bigint      not null,
-  currency                text        not null default 'USD',
+  currency                text        not null default 'XAF',
   status                  text        not null default 'requested',
   -- 'requested' | 'succeeded' | 'failed'
   processor_refund_id     text,
@@ -393,6 +438,8 @@ create table stay_preferences (
 create table notifications (
   id          uuid    primary key default gen_random_uuid(),
   app_user_id uuid    references users(id) on delete cascade,
+  staff_id    uuid    references staff(id) on delete cascade,
+  role        text,
   type        text    not null,  -- booking | payment | dining | system
   title       text    not null,
   body        text,
@@ -424,6 +471,8 @@ create index dining_orders_status_idx on dining_orders (status);
 
 -- Notifications
 create index notifications_user_idx on notifications (app_user_id, is_read);
+create index notifications_staff_idx on notifications (staff_id, is_read) where staff_id is not null;
+create index notifications_role_idx on notifications (role, is_read) where role is not null;
 
 -- ============================================================
 -- EXCLUSION CONSTRAINT — prevent double-booking at DB level
@@ -600,7 +649,7 @@ create or replace function current_user_role()
 returns text language sql stable as $$
   select role from users where auth_user_id = auth.uid() limit 1;
 -- Returns the role of the calling user from the users table.
--- Allowed values: guest | member | owner | admin | manager | reception | kitchen | storekeeper
+-- Allowed values: guest | member  (staff roles live in staff.role, not here)
 $$;
 
 -- ============================================================
@@ -913,7 +962,7 @@ create policy "notifications_staff_read"
   using (
     staff_id in (select id from staff where auth_user_id = auth.uid())
     or role in (
-      select role from staff
+      select role::text from staff
       where auth_user_id = auth.uid() and status = 'active'
     )
   );
@@ -1060,19 +1109,6 @@ create table if not exists payroll_items (
   unique (run_id, staff_id)
 );
 
--- ── staff_deductions ─────────────────────────────────────────
-create table if not exists staff_deductions (
-  id              uuid        primary key default gen_random_uuid(),
-  staff_id        uuid        not null references staff(id) on delete cascade,
-  category        text        not null,  -- 'absence' | 'penalty' | 'loan' | 'tax' | 'other'
-  reason_type     text,
-  amount_minor    bigint      not null,
-  reason          text,
-  applied_on      date        not null default current_date,
-  created_by      uuid        references staff(id) on delete set null,
-  created_at      timestamptz default now()
-);
-
 -- ── suppliers ────────────────────────────────────────────────
 create table if not exists suppliers (
   id          uuid        primary key default gen_random_uuid(),
@@ -1093,7 +1129,7 @@ create table if not exists purchase_orders (
   supplier_id     uuid        references suppliers(id) on delete set null,
   description     text        not null,
   total_minor     bigint      not null default 0,
-  currency        text        default 'USD',
+  currency        text        default 'XAF',
   status          text        not null default 'pending_approval',
   -- pending_approval | approved | ordered | in_transit | delivered | cancelled
   priority        text        default 'medium',  -- low | medium | high | urgent
@@ -1439,7 +1475,7 @@ alter table leave_requests       enable row level security;
 alter table leave_balances       enable row level security;
 alter table payroll_runs         enable row level security;
 alter table payroll_items        enable row level security;
-alter table staff_deductions     enable row level security;
+-- staff_deductions RLS is enabled after the table is created (end of file)
 alter table suppliers            enable row level security;
 alter table purchase_orders      enable row level security;
 alter table purchase_order_items enable row level security;
@@ -1476,8 +1512,7 @@ create policy "admin payroll_items" on payroll_items
     or staff_role() in ('owner','admin','manager')
   );
 
-create policy "admin staff_deductions" on staff_deductions
-  for all using (staff_role() in ('owner','admin','manager'));
+-- staff_deductions policy is created after the table (end of file)
 
 -- Procurement: admin/manager/owner/storekeeper
 create policy "procurement read suppliers" on suppliers
@@ -1624,20 +1659,15 @@ ALTER TABLE inventory_requests
 CREATE INDEX IF NOT EXISTS inventory_requests_dining_order_idx 
   ON inventory_requests(dining_order_id);
 
--- Add staff_id to notifications (for individual staff notifications)
-ALTER TABLE notifications 
-  ADD COLUMN IF NOT EXISTS staff_id UUID REFERENCES staff(id) ON DELETE CASCADE;
+-- staff_id and role columns are now part of the initial notifications table definition above
+-- (no longer need to add them here)
 
--- Add role to notifications (for role-based fan-out)
-ALTER TABLE notifications 
-  ADD COLUMN IF NOT EXISTS role TEXT;
+-- Update notifications indexes (already created above in the INDEXES section)
+-- CREATE INDEX IF NOT EXISTS notifications_staff_idx 
+--   ON notifications(staff_id, is_read) WHERE staff_id IS NOT NULL;
 
--- Update notifications indexes
-CREATE INDEX IF NOT EXISTS notifications_staff_idx 
-  ON notifications(staff_id, is_read) WHERE staff_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS notifications_role_idx 
-  ON notifications(role, is_read) WHERE role IS NOT NULL;
+-- CREATE INDEX IF NOT EXISTS notifications_role_idx 
+--   ON notifications(role, is_read) WHERE role IS NOT NULL;
 
 -- Create notify_role function for role-based fan-out
 CREATE OR REPLACE FUNCTION notify_role(
@@ -1768,24 +1798,19 @@ COMMENT ON COLUMN bookings.total_amount IS 'Whole XAF (base currency)';
 COMMENT ON COLUMN staff.salary IS 'Whole XAF monthly (base currency)';
 
 -- ============================================================
--- SECTION 7 — Optional: Charged Currency Tracking
+-- SECTION 7 — Drop dead multi-currency columns
 -- ============================================================
+-- charged_currency, charged_amount, exchange_rate_used had zero code
+-- references and contradict the XAF-only policy. Drop them.
+ALTER TABLE bookings
+  DROP COLUMN IF EXISTS charged_currency,
+  DROP COLUMN IF EXISTS charged_amount,
+  DROP COLUMN IF EXISTS exchange_rate_used;
 
--- Optional columns to track what currency was actually charged
--- (for reporting when guests pay in their display currency)
-ALTER TABLE bookings 
-  ADD COLUMN IF NOT EXISTS charged_currency TEXT,
-  ADD COLUMN IF NOT EXISTS charged_amount INTEGER,
-  ADD COLUMN IF NOT EXISTS exchange_rate_used NUMERIC(10,4);
-
-ALTER TABLE dining_orders 
-  ADD COLUMN IF NOT EXISTS charged_currency TEXT,
-  ADD COLUMN IF NOT EXISTS charged_amount INTEGER,
-  ADD COLUMN IF NOT EXISTS exchange_rate_used NUMERIC(10,4);
-
-COMMENT ON COLUMN bookings.charged_currency IS 'Currency actually charged (USD/GBP/XAF) - optional for reporting';
-COMMENT ON COLUMN bookings.charged_amount IS 'Amount charged in charged_currency - optional for reporting';
-COMMENT ON COLUMN bookings.exchange_rate_used IS 'XAF per unit of charged_currency - optional for reporting';
+ALTER TABLE dining_orders
+  DROP COLUMN IF EXISTS charged_currency,
+  DROP COLUMN IF EXISTS charged_amount,
+  DROP COLUMN IF EXISTS exchange_rate_used;
 
 -- ============================================================
 -- SECTION 8 — Partitioning Templates (Commented)
@@ -1905,8 +1930,8 @@ create table if not exists staff_deductions (
   updated_at timestamptz default now()
 );
 
-create index staff_deductions_staff_id_idx on staff_deductions(staff_id);
-create index staff_deductions_applied_date_idx on staff_deductions(applied_date);
+create index if not exists staff_deductions_staff_id_idx on staff_deductions(staff_id);
+create index if not exists staff_deductions_applied_date_idx on staff_deductions(applied_date);
 
 -- ── system_alerts ────────────────────────────────────────────
 create table if not exists system_alerts (
@@ -1965,7 +1990,7 @@ create table if not exists system_config (
 
 -- Insert default config
 insert into system_config (hotel_name, hotel_address, hotel_phone, hotel_email)
-values ('Jagamn Palace', '12 Victoria Esplanade, London', '+44 20 7946 0122', 'ops@thepalaceherit age.com')
+values ('Jagamn Palace', '12 Victoria Esplanade, London', '+44 20 7946 0122', 'ops@thepalaceheritage.com')
 on conflict (id) do nothing;
 
 -- ── Triggers for updated_at ──────────────────────────────────

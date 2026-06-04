@@ -124,7 +124,8 @@ export default async function RoomDetailPage({ params }: Props) {
           from: ud.from_date,
           to: ud.to_date,
           alternateRooms: ud.alternate_room_slugs || [],
-          alternateDates: (ud.alternate_dates as any) || [],
+          alternateDates:
+            (ud.alternate_dates as { from: string; to: string }[]) || [],
         }),
       ),
     };
@@ -154,7 +155,7 @@ export default async function RoomDetailPage({ params }: Props) {
   const dbSimilar = await getSimilarRooms(slug);
   const similarRooms =
     dbSimilar.length > 0
-      ? dbSimilar.map((r: any) => ({
+      ? dbSimilar.map((r) => ({
           slug: r.slug,
           name: r.name,
           collectionLabel: r.collection_label,
@@ -194,12 +195,12 @@ export default async function RoomDetailPage({ params }: Props) {
           className="grid grid-cols-2 gap-2 mb-10"
           style={{ height: "420px" }}
         >
-          <div className="relative rounded-md overflow-hidden h-full">
+          <div className="relative rounded-md overflow-hidden h-full min-h-[300px] md:min-h-0">
             <Image
               src={mainImage}
               alt={name}
               fill
-              sizes="50vw"
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
               priority
             />
@@ -212,14 +213,17 @@ export default async function RoomDetailPage({ params }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 grid-rows-2 gap-2 h-full">
+          <div className="grid grid-cols-2 grid-rows-2 gap-2 h-[300px] md:h-[420px]">
             {galleryImages.slice(0, 3).map((img, i) => (
-              <div key={i} className="relative rounded-md overflow-hidden">
+              <div
+                key={i}
+                className="relative rounded-md overflow-hidden min-h-[150px]"
+              >
                 <Image
                   src={img}
                   alt={`${name} photo ${i + 2}`}
                   fill
-                  sizes="25vw"
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover"
                 />
               </div>
@@ -230,7 +234,7 @@ export default async function RoomDetailPage({ params }: Props) {
                   src={galleryImages[3]}
                   alt={`${name} more`}
                   fill
-                  sizes="25vw"
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover"
                 />
               )}

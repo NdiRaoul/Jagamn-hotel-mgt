@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import {
-  Bell,
-  Settings,
-  Search,
   Banknote,
   TrendingUp,
   BedDouble,
@@ -16,7 +13,17 @@ import {
   ExternalLink,
   ShieldCheck,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { cn } from "@/lib/utils";
 
 // ── Components ──────────────────────────────────────
@@ -77,13 +84,19 @@ interface KPIs {
 }
 
 interface RevenueSummary {
-  total_revenue_minor?: number;
+  total_revenue?: number;
   growth_percentage?: number;
+}
+
+interface RevenueMonthPoint {
+  month: string;
+  revenue: number;
 }
 
 interface SuperadminOverviewClientProps {
   kpis: KPIs;
   revenueSummary: RevenueSummary;
+  revenueMonthly: RevenueMonthPoint[];
   occupancyDaily: unknown[];
   payrollMonthly: unknown[];
   leaveSummary: unknown;
@@ -94,9 +107,19 @@ interface SuperadminOverviewClientProps {
 export default function SuperadminOverviewClient({
   kpis,
   revenueSummary,
+  revenueMonthly,
   latestSync,
 }: SuperadminOverviewClientProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [router]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -123,12 +146,20 @@ export default function SuperadminOverviewClient({
   };
 
   // Calculate metrics
-  const totalRevenue = revenueSummary?.total_revenue_minor
-    ? revenueSummary.total_revenue_minor / 100
-    : 0;
+  const totalRevenue = revenueSummary?.total_revenue || 0;
   const avgOccupancy = kpis?.occupancy_rate || 0;
   const totalBookings = kpis?.total_bookings || 0;
   const confirmedBookings = kpis?.confirmed_bookings || 0;
+
+  // Format month labels (e.g., "2024-01" -> "Jan")
+  const chartData = revenueMonthly.map((item) => {
+    const date = new Date(item.month + "-01");
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
+    return {
+      month: monthName,
+      revenue: item.revenue,
+    };
+  });
 
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-700">
@@ -208,7 +239,7 @@ export default function SuperadminOverviewClient({
                   Financial Performance
                 </h2>
                 <p className="text-sm text-slate-500 font-medium">
-                  12-month revenue vs net profit trend analysis
+                  12-month revenue trend analysis
                 </p>
               </div>
               <div className="flex items-center gap-6">
@@ -218,93 +249,90 @@ export default function SuperadminOverviewClient({
                     Revenue
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#F4A261]"></div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                    Profit
-                  </span>
-                </div>
               </div>
             </div>
 
-            {/* Custom SVG Chart Area */}
-            <div className="relative w-full h-[320px] overflow-visible">
-              {/* Tooltip (Static for presentation) */}
-              <div className="absolute top-1/2 left-[60%] -translate-x-1/2 -translate-y-[120%] bg-white p-4 rounded-xl shadow-2xl border border-gray-100 z-10 w-48">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                  Sept Performance
-                </p>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-semibold">
-                      Revenue
-                    </span>
-                    <span className="manrope-bold text-[#0D2137]">
-                      271 830 K FCFA
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-semibold">
-                      Net Profit
-                    </span>
-                    <span className="manrope-bold text-[#F4A261]">
-                      121 770 K FCFA
-                    </span>
-                  </div>
+            {/* Real Revenue Chart */}
+            <div className="relative w-full h-64 md:h-80 lg:h-[320px]">
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="colorRevenue"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#0D2137"
+                          stopOpacity={0.15}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#0D2137"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#e2e8f0"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 10, fill: "#94a3b8" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "#e2e8f0" }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "#94a3b8" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "#e2e8f0" }}
+                      tickFormatter={(value) => formatCurrency(value)}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                      }}
+                      labelStyle={{
+                        fontSize: "10px",
+                        fontWeight: "800",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "#94a3b8",
+                        marginBottom: "8px",
+                      }}
+                      formatter={(value: unknown) => {
+                        const numValue = typeof value === "number" ? value : 0;
+                        return [formatCurrency(numValue), "Revenue"];
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#0D2137"
+                      strokeWidth={3}
+                      fill="url(#colorRevenue)"
+                      strokeLinecap="round"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                  No revenue data available
                 </div>
-                {/* Pointer arrow */}
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-gray-100 transform rotate-45"></div>
-              </div>
-
-              {/* Grid Lines */}
-              <div className="absolute inset-0 flex flex-col justify-between">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="w-full h-px bg-slate-100"></div>
-                ))}
-              </div>
-
-              {/* Chart SVG */}
-              <svg
-                className="absolute inset-0 w-full h-full"
-                preserveAspectRatio="none"
-                viewBox="0 0 1000 300"
-              >
-                {/* Profit Line (Orange, dashed or solid with less stroke) */}
-                <path
-                  d="M 0 250 C 100 250, 150 200, 200 220 C 300 260, 350 150, 400 200 C 500 300, 550 200, 600 220 C 700 260, 750 100, 800 120 C 850 140, 900 200, 1000 150"
-                  fill="none"
-                  stroke="#F4A261"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Revenue Line (Dark Blue, thick) */}
-                <path
-                  d="M 0 200 C 100 200, 150 150, 200 180 C 300 220, 350 50, 400 100 C 500 200, 550 150, 600 180 C 650 200, 700 -50, 800 20 C 850 60, 900 150, 1000 100"
-                  fill="none"
-                  stroke="#0D2137"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-
-              {/* X-Axis Labels */}
-              <div className="absolute -bottom-8 left-0 right-0 flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
-                <span>Jan</span>
-                <span>Feb</span>
-                <span>Mar</span>
-                <span>Apr</span>
-                <span>May</span>
-                <span>Jun</span>
-                <span>Jul</span>
-                <span>Aug</span>
-                <span>Sep</span>
-                <span>Oct</span>
-                <span>Nov</span>
-                <span>Dec</span>
-              </div>
+              )}
             </div>
           </div>
 
@@ -312,10 +340,11 @@ export default function SuperadminOverviewClient({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Image Card */}
             <div className="relative rounded-3xl overflow-hidden h-64 group shadow-lg">
-              <img
+              <Image
                 src="/images/lobby.png"
                 alt="Heritage Suite"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
                 onError={(e) => {
                   e.currentTarget.src =
                     "https://images.unsplash.com/photo-1542314831-c6a4d14d8c85?q=80&w=2070&auto=format&fit=crop";

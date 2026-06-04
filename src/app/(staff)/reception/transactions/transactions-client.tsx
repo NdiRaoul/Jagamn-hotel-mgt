@@ -132,10 +132,10 @@ export default function TransactionsClient({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm overflow-hidden border border-gray-100">
+      {/* Table - Desktop/Tablet */}
+      <div className="hidden md:block bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm overflow-hidden border border-gray-100">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse md:min-w-[900px]">
             <thead>
               <tr className="bg-gray-50/50">
                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -227,6 +227,87 @@ export default function TransactionsClient({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Cards - Mobile */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-12 flex flex-col items-center gap-3 text-gray-400">
+            <Inbox className="w-10 h-10" />
+            <p className="font-medium">No transactions found</p>
+          </div>
+        ) : (
+          filtered.map((tx, idx) => (
+            <div
+              key={`${tx.paymentId}-${idx}-card`}
+              className="bg-white rounded-lg border-l-4 border-l-[#00152A] shadow-sm border border-gray-100 p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#00152A] truncate">
+                    {tx.guestName ?? "—"}
+                  </p>
+                  <p className="text-[10px] text-gray-400 font-mono">
+                    {tx.bookingRef ?? tx.paymentId.slice(0, 8) + "…"}
+                  </p>
+                </div>
+                <Badge
+                  className={cn(
+                    "border-0 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 shrink-0",
+                    STATUS_COLORS[tx.derivedStatus] ??
+                      "bg-gray-50 text-gray-400",
+                  )}
+                >
+                  {tx.derivedStatus}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-[9px] text-gray-400 uppercase tracking-wide font-bold mb-1">
+                    Provider
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {tx.provider === "stripe" ? (
+                      <CreditCard className="w-4 h-4 text-blue-500" />
+                    ) : (
+                      <Smartphone className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className="font-medium text-gray-600 capitalize">
+                      {tx.provider ?? "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[9px] text-gray-400 uppercase tracking-wide font-bold mb-1">
+                    Amount
+                  </p>
+                  <span className="text-sm font-bold text-[#00152A]">
+                    {tx.currency}{" "}
+                    {(tx.amountMinor / 100).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span className="text-gray-500">
+                  {EVENT_LABELS[tx.eventType] ?? tx.eventType}
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium">
+                  {new Date(tx.eventAt).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

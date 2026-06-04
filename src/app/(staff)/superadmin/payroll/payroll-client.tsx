@@ -248,7 +248,7 @@ export default function PayrollClient({
           </div>
 
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full min-w-[800px] text-left">
+            <table className="w-full md:min-w-[800px] text-left">
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-50">
                   <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest">

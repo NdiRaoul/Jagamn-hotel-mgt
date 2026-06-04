@@ -59,20 +59,35 @@ export default function RoomsCollectionPage() {
 
         if (json.source === "supabase" && json.rooms) {
           setRooms(
-            json.rooms.map((rt: any) => ({
-              slug: rt.slug,
-              name: rt.name,
-              collection: rt.collection,
-              collectionLabel: rt.collection_label,
-              badge: rt.badge,
-              price: rt.price_per_night,
-              description: rt.description || "",
-              sqft: rt.sqft || 0,
-              bedType: rt.bed_type || "",
-              maxGuests: rt.max_guests || 1,
-              mainImage: rt.main_image || "/images/classic-heritage.png",
-              availableCount: rt.available_count ?? null,
-            })),
+            json.rooms.map(
+              (rt: {
+                slug: string;
+                name: string;
+                collection: string;
+                collection_label: string;
+                badge: string | null;
+                price_per_night: number;
+                description: string | null;
+                sqft: number | null;
+                bed_type: string | null;
+                max_guests: number | null;
+                main_image: string | null;
+                available_count: number | null;
+              }) => ({
+                slug: rt.slug,
+                name: rt.name,
+                collection: rt.collection,
+                collectionLabel: rt.collection_label,
+                badge: rt.badge,
+                price: rt.price_per_night,
+                description: rt.description || "",
+                sqft: rt.sqft || 0,
+                bedType: rt.bed_type || "",
+                maxGuests: rt.max_guests || 1,
+                mainImage: rt.main_image || "/images/classic-heritage.png",
+                availableCount: rt.available_count ?? null,
+              }),
+            ),
           );
         } else {
           // Static fallback

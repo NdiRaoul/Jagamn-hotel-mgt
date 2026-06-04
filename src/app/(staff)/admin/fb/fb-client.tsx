@@ -375,7 +375,7 @@ function AddMenuModal({ onAdd }: { onAdd: (item: LocalMenuItem) => void }) {
   };
 
   return (
-    <DialogContent className="sm:max-w-[700px] p-0 border-0 overflow-hidden bg-white rounded-3xl flex flex-col max-h-[90vh]">
+    <DialogContent className="w-[95vw] sm:max-w-[700px] p-0 border-0 overflow-hidden bg-white rounded-3xl flex flex-col max-h-[90vh]">
       <div className="p-8 md:p-12 space-y-10 flex-1 overflow-y-auto custom-scrollbar">
         <div className="space-y-1">
           <p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.3em]">

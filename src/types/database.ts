@@ -36,6 +36,7 @@ export interface Room {
   unit_code: string;
   floor: number | null;
   is_active: boolean;
+  housekeeping_status: string; // 'clean' | 'dirty' | 'out_of_order'
   created_at: string;
 }
 
@@ -62,6 +63,7 @@ export interface User {
   loyalty_tier: string;
   special_requests: string | null;
   avatar_url: string | null;
+  stripe_customer_id: string | null; // references users.stripe_customer_id — null until Stripe customer created
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +88,7 @@ export interface GuestProfile {
 export interface PaymentMethod {
   id: string;
   user_id: string;
+  app_user_id: string | null; // references users(id)
   method_type: string; // 'card' | 'mobile_money' | 'orange_money' | 'google_pay' | 'apple_pay'
   label: string | null;
   card_last4: string | null;
@@ -121,6 +124,7 @@ export interface Booking {
   payment_method: string | null;
   payment_status: string; // 'pending' | 'paid' | 'failed' | 'cancelled'
   status: string; // 'confirmed' | 'cancelled' | 'completed'
+  receipt_sent_at: string | null; // ISO timestamp; null until confirmation email sent (idempotency guard)
   special_requests: string | null;
   app_user_id: string | null;
   cancelled_at: string | null;
@@ -136,6 +140,7 @@ export interface Payment {
   booking_id: string | null;
   booking_ref: string | null;
   user_id: string | null;
+  app_user_id: string | null; // references users(id)
   amount: number;
   currency: string;
   payment_method: string | null;

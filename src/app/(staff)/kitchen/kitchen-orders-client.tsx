@@ -566,7 +566,7 @@ function OrderDetailModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-[900px] w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-none ring-0 focus:ring-0 focus-visible:ring-0"
+        className="sm:max-w-full md:max-w-[900px] w-[95vw] max-h-[90vh] p-0 overflow-hidden border-0 bg-transparent shadow-none ring-0 focus:ring-0 focus-visible:ring-0"
       >
         <button
           onClick={onClose}
@@ -574,9 +574,9 @@ function OrderDetailModal({
         >
           <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
         </button>
-        <div className="flex h-full max-h-[600px] min-h-[500px] w-full">
+        <div className="flex flex-col md:flex-row h-full max-h-[600px] min-h-[300px] md:min-h-[500px] w-full">
           {/* Left Side: Order Info */}
-          <div className="flex-1 bg-white p-10 flex flex-col relative">
+          <div className="flex-1 bg-white p-6 md:p-10 flex flex-col relative">
             <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
               <div className="flex items-center gap-3">
                 <span className="bg-[#FFF4E8] text-[#EA580C] text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase">
@@ -757,7 +757,7 @@ function OrderDetailModal({
           </div>
 
           {/* Right Side: Image */}
-          <div className="w-[380px] relative hidden md:block">
+          <div className="w-full md:w-[380px] h-[200px] md:h-auto relative hidden sm:block">
             <Image
               src="/images/food1.png"
               alt={order.dish}

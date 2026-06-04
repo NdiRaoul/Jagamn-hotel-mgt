@@ -404,106 +404,109 @@ export default function RevenueClient({
             </div>
           </div>
 
-          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead className="bg-[#F8FAFC]">
-                <tr>
-                  <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Transaction ID
-                  </th>
-                  <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Guest
-                  </th>
-                  <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Method
-                  </th>
-                  <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Amount
-                  </th>
-                  <th className="px-10 py-6 text-center text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Status
-                  </th>
-                  <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filteredTransactions.map((tx: any) => (
-                  <tr
-                    key={tx.id}
-                    className="group hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-10 py-6">
-                      <span className="manrope-bold text-xs text-[#0D2137]">
-                        {tx.id}
-                      </span>
-                    </td>
-                    <td className="px-10 py-6">
-                      <p className="manrope-bold text-sm text-[#0D2137]">
-                        {tx.guest_name || "N/A"}
-                      </p>
-                    </td>
-                    <td className="px-10 py-6">
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
-                      >
-                        {tx.payment_method || "N/A"}
-                      </Badge>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                      <span className="manrope-bold text-base text-[#0D2137]">
-                        ${tx.amount?.toLocaleString() || "0"}
-                      </span>
-                    </td>
-                    <td className="px-10 py-6 text-center">
-                      <div
-                        className={cn(
-                          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-                          tx.status === "completed"
-                            ? "bg-green-50 text-green-600"
-                            : tx.status === "pending"
-                              ? "bg-amber-50 text-amber-600"
-                              : "bg-red-50 text-red-600",
-                        )}
-                      >
+          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full md:min-w-[900px]">
+                <thead className="bg-[#F8FAFC]">
+                  <tr>
+                    <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Transaction ID
+                    </th>
+                    <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Guest
+                    </th>
+                    <th className="px-10 py-6 text-left text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Method
+                    </th>
+                    <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Amount
+                    </th>
+                    <th className="px-10 py-6 text-center text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Status
+                    </th>
+                    <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredTransactions.map((tx: any) => (
+                    <tr
+                      key={tx.id}
+                      className="group hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-10 py-6">
+                        <span className="manrope-bold text-xs text-[#0D2137]">
+                          {tx.id}
+                        </span>
+                      </td>
+                      <td className="px-10 py-6">
+                        <p className="manrope-bold text-sm text-[#0D2137]">
+                          {tx.guest_name || "N/A"}
+                        </p>
+                      </td>
+                      <td className="px-10 py-6">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
+                        >
+                          {tx.payment_method || "N/A"}
+                        </Badge>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <span className="manrope-bold text-base text-[#0D2137]">
+                          ${tx.amount?.toLocaleString() || "0"}
+                        </span>
+                      </td>
+                      <td className="px-10 py-6 text-center">
                         <div
                           className={cn(
-                            "w-1.5 h-1.5 rounded-full",
+                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
                             tx.status === "completed"
-                              ? "bg-green-500"
+                              ? "bg-green-50 text-green-600"
                               : tx.status === "pending"
-                                ? "bg-amber-500"
-                                : "bg-red-500",
+                                ? "bg-amber-50 text-amber-600"
+                                : "bg-red-50 text-red-600",
                           )}
-                        />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {tx.status || "Unknown"}
+                        >
+                          <div
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              tx.status === "completed"
+                                ? "bg-green-500"
+                                : tx.status === "pending"
+                                  ? "bg-amber-500"
+                                  : "bg-red-500",
+                            )}
+                          />
+                          <span className="text-[9px] font-black uppercase tracking-widest">
+                            {tx.status || "Unknown"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          {tx.created_at
+                            ? new Date(tx.created_at).toLocaleDateString()
+                            : "N/A"}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        {tx.created_at
-                          ? new Date(tx.created_at).toLocaleDateString()
-                          : "N/A"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {filteredTransactions.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
-                    >
-                      No fiscal records found matching your current parameters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredTransactions.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
+                      >
+                        No fiscal records found matching your current
+                        parameters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

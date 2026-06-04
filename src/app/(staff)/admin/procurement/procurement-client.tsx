@@ -239,7 +239,7 @@ export default function ProcurementClient({
                 <Plus className="w-5 h-5" /> Create Purchase Order
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] p-0 border-0 overflow-hidden bg-white rounded-3xl">
+            <DialogContent className="w-[95vw] sm:max-w-[700px] p-0 border-0 overflow-hidden bg-white rounded-3xl max-h-[90vh] overflow-y-auto">
               <form onSubmit={handleCreatePO} className="p-8 md:p-12 space-y-8">
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-[#E8924A] uppercase tracking-[0.3em]">
