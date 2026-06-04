@@ -17,6 +17,7 @@ import { getRoomBySlug } from "@/lib/data/rooms";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Booking, RoomType } from "@/types/database";
 import { DownloadReceiptButton } from "./print-actions";
+import { formatMoney } from "@/lib/currency";
 
 type Props = {
   searchParams: Promise<{
@@ -240,12 +241,14 @@ async function ConfirmedContent({
                     {roomName} × {nights} night{nights !== 1 ? "s" : ""}
                   </span>
                   <span className="text-gray-300">
-                    ${roomTotal.toLocaleString()}
+                    {formatMoney(roomTotal)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Taxes (10%)</span>
-                  <span className="text-gray-300">${taxAmount}</span>
+                  <span className="text-gray-300">
+                    {formatMoney(taxAmount)}
+                  </span>
                 </div>
               </div>
               <div className="pt-4 border-t border-white/5 flex items-end justify-between">
@@ -254,7 +257,7 @@ async function ConfirmedContent({
                     Total Paid
                   </p>
                   <p className="text-2xl manrope-bold">
-                    ${totalAmount.toLocaleString()}
+                    {formatMoney(totalAmount)}
                   </p>
                 </div>
                 <p className="text-[9px] text-gray-600 italic">

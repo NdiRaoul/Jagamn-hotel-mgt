@@ -5,9 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
 import { ROOMS } from "@/lib/data/rooms";
-import { Badge } from "@/components/ui/badge";
 import { SearchBar } from "@/components/guest/search-bar";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { formatMoney } from "@/lib/currency";
 
 type RoomDisplay = {
   slug: string;
@@ -43,7 +43,7 @@ export default function RoomsCollectionPage() {
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(9999);
+  const [maxPrice, setMaxPrice] = useState(9999999);
   const [minGuests, setMinGuests] = useState(1);
 
   useEffect(() => {
@@ -330,7 +330,7 @@ export default function RoomsCollectionPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="manrope-bold text-2xl text-jagamn-primary">
-                          {room.price.toLocaleString()}XAF
+                          {formatMoney(room.price)}
                         </p>
                         <p className="text-xs text-jagamn-secondary">/night</p>
                       </div>
@@ -369,7 +369,7 @@ export default function RoomsCollectionPage() {
                       setSearch("");
                       setCollection("all");
                       setMinPrice(0);
-                      setMaxPrice(9999);
+                      setMaxPrice(9999999);
                       setMinGuests(1);
                     }}
                     className="mt-4 text-sm text-jagamn-tertiary underline"

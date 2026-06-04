@@ -26,10 +26,8 @@ import {
 import { getRoomBySlug, ROOMS } from "@/lib/data/rooms";
 import { RoomBookingWidget } from "@/components/guest/room-booking-widget";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import type {
-  RoomTypeWithDetails,
-  RoomAvailabilitySummary,
-} from "@/types/database";
+import { formatMoney } from "@/lib/currency";
+import type { RoomTypeWithDetails } from "@/types/database";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Wifi,
@@ -370,7 +368,7 @@ export default async function RoomDetailPage({ params }: Props) {
                     </div>
                   )}
                   <div className="absolute top-2 right-2 bg-white/90 text-jagamn-primary text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
-                    From ${similar.price}
+                    From {formatMoney(similar.price)}
                   </div>
                 </div>
                 <p className="text-xs text-jagamn-tertiary font-semibold uppercase tracking-wider mb-0.5">

@@ -4,6 +4,7 @@ import { ArrowRight, Waves, BookOpen } from "lucide-react";
 import { SearchBar } from "@/components/guest/search-bar";
 import { ROOMS } from "@/lib/data/rooms";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { formatMoney } from "@/lib/currency";
 import type { RoomType, RoomAvailabilitySummary } from "@/types/database";
 
 const AMENITY_IMAGES = {
@@ -191,7 +192,7 @@ export default async function GuestLandingPage() {
                       {room.name}
                     </h3>
                     <p className="text-xs text-jagamn-secondary mt-1">
-                      Starting from ${room.price} / Night
+                      Starting from {formatMoney(room.price)} / Night
                     </p>
                   </div>
                   <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-jagamn-tertiary group-hover:bg-jagamn-tertiary group-hover:text-white transition-colors">
@@ -240,7 +241,7 @@ export default async function GuestLandingPage() {
                       {room.name}
                     </h3>
                     <p className="text-xs text-jagamn-secondary mt-1">
-                      Starting from ${room.price} / Night
+                      Starting from {formatMoney(room.price)} / Night
                     </p>
                   </div>
                   <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-jagamn-tertiary group-hover:bg-jagamn-tertiary group-hover:text-white transition-colors">

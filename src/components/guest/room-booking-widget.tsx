@@ -46,6 +46,7 @@ import {
 } from "@/lib/data/rooms";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { formatMoney } from "@/lib/currency";
 
 // MON–SUN column headers matching the design
 const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -182,7 +183,7 @@ export function RoomBookingWidget({ room }: Props) {
         {/* ── Price ─────────────────────────────────── */}
         <div className="flex items-end gap-2 border-b border-gray-100 pb-5">
           <p className="manrope-extrabold text-3xl text-jagamn-primary">
-            {room.price.toLocaleString()}XAF
+            {formatMoney(room.price)}
           </p>
           <p className="text-sm text-jagamn-secondary mb-1">/night</p>
         </div>
@@ -435,7 +436,7 @@ export function RoomBookingWidget({ room }: Props) {
                       {alt.name}
                     </p>
                     <p className="text-[10px]" style={{ color: "#43474D" }}>
-                      ${alt.price} / night
+                      {formatMoney(alt.price)} / night
                     </p>
                   </div>
                   <ArrowRight

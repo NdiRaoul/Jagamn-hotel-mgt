@@ -45,7 +45,7 @@ export const ROOMS: Room[] = [
     slug: "classic-heritage",
     name: "Classic Heritage",
     collectionLabel: "Heritage Collection",
-    price: 299,
+    price: 184000, // XAF per night
     description:
       "Inspired by the regal heritage of the 17th-century Rajasthani architecture, the Classic Heritage offers an expansive sanctuary of peace and prestige.",
     longDescription:
@@ -99,7 +99,7 @@ export const ROOMS: Room[] = [
     name: "Palace Deluxe",
     collectionLabel: "Signature Collection",
     badge: "Most Popular",
-    price: 450,
+    price: 277000, // XAF per night
     description:
       "Experience palace suite living featuring award-winning quarters, panoramic garden views, and dedicated 24-hour in-suite dining.",
     longDescription:
@@ -143,7 +143,7 @@ export const ROOMS: Room[] = [
     slug: "royal-grand-suite",
     name: "Royal Grand Suite",
     collectionLabel: "Royal Collection",
-    price: 899,
+    price: 553000, // XAF per night
     description:
       "The ultimate expression of palace luxury and privacy. Reserved for royalty, heads of state, and those who demand nothing less.",
     longDescription:
