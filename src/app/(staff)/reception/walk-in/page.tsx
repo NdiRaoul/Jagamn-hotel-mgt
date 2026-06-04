@@ -366,7 +366,7 @@ export default function WalkInBookingPage() {
                         </span>
                         <p className="text-[#00152A]">
                           <span className="manrope-bold text-xl">
-                            ${room.price}
+                            {room.price}XAF
                           </span>
                           <span className="text-xs text-gray-400"> /night</span>
                         </p>

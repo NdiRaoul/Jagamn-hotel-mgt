@@ -330,7 +330,7 @@ export default function RoomsCollectionPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="manrope-bold text-2xl text-jagamn-primary">
-                          ${room.price.toLocaleString()}
+                          {room.price.toLocaleString()}XAF
                         </p>
                         <p className="text-xs text-jagamn-secondary">/night</p>
                       </div>

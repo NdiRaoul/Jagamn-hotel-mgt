@@ -182,7 +182,7 @@ export function RoomBookingWidget({ room }: Props) {
         {/* ── Price ─────────────────────────────────── */}
         <div className="flex items-end gap-2 border-b border-gray-100 pb-5">
           <p className="manrope-extrabold text-3xl text-jagamn-primary">
-            ${room.price.toLocaleString()}
+            {room.price.toLocaleString()}XAF
           </p>
           <p className="text-sm text-jagamn-secondary mb-1">/night</p>
         </div>
