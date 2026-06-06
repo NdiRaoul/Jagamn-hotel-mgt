@@ -12,6 +12,7 @@ import {
   subMonths,
   isSameDay,
   isWithinInterval,
+  differenceInDays,
 } from "date-fns";
 import {
   CalendarIcon,
@@ -142,6 +143,13 @@ export function RoomBookingWidget({ room }: Props) {
     const prefixBlanks = Array(firstDow).fill(null);
     return [...prefixBlanks, ...days];
   }, [calMonth]);
+
+  // Price for the selected stay: number of nights × the room's nightly rate.
+  const nights =
+    checkIn && checkOut ? Math.max(0, differenceInDays(checkOut, checkIn)) : 0;
+  const roomTotal = room.price * nights;
+  const tax = Math.round(roomTotal * 0.1);
+  const stayTotal = roomTotal + tax;
 
   function isDayInRange(d: Date) {
     if (!checkIn || !checkOut) return checkIn ? isSameDay(d, checkIn) : false;
@@ -398,6 +406,35 @@ export function RoomBookingWidget({ room }: Props) {
             </div>
           </div>
         </div>
+
+        {/* ── Price Breakdown (calculated from selected nights) ── */}
+        {nights > 0 && (
+          <div className="space-y-2 border-t border-gray-100 pt-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-jagamn-secondary">
+                {formatMoney(room.price)} × {nights} night
+                {nights !== 1 ? "s" : ""}
+              </span>
+              <span className="font-semibold text-jagamn-primary">
+                {formatMoney(roomTotal)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-jagamn-secondary">Taxes (10%)</span>
+              <span className="font-semibold text-jagamn-primary">
+                {formatMoney(tax)}
+              </span>
+            </div>
+            <div className="flex justify-between items-end border-t border-gray-100 pt-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-jagamn-secondary">
+                Total
+              </span>
+              <span className="manrope-bold text-xl text-jagamn-primary">
+                {formatMoney(stayTotal)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ── Book Button ───────────────────────────── */}
         <Button

@@ -368,11 +368,11 @@ export default function AdminOverviewClient({ kpis, revenue, roster }: Props) {
               className="text-xs font-black uppercase tracking-widest text-gray-400 gap-2"
             >
               <Download className="w-4 h-4" />
-              Export Rota
+              Export Data
             </Button>
             <Link href="/admin/staff">
               <Button className="bg-jagamn-primary text-white text-xs font-black uppercase tracking-widest px-6 rounded-lg">
-                Manage Rota
+                Manage Data
               </Button>
             </Link>
           </div>

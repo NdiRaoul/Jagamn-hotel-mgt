@@ -303,38 +303,12 @@ export async function POST(request: NextRequest) {
         .eq("id", booking.id);
     }
 
-    // ── Send receipt email ───────────────────────────────────────────────────
-    try {
-      const { resend } = await import("@/lib/resend");
-      const { buildReceiptEmailHtml } =
-        await import("@/lib/emails/booking-receipt");
-
-      const cachedRoom = getCache<{ id: string; name: string }>(
-        `room_type:${room_slug}`,
-      );
-      const roomName = cachedRoom?.name || room_slug;
-
-      await resend.emails.send({
-        from: "Jagamn Palace <reservations@jagamnpalace.com>",
-        to: [guest_email],
-        subject: `Booking Confirmed — ${booking.booking_ref} | Jagamn Palace`,
-        html: buildReceiptEmailHtml({
-          bookingRef: booking.booking_ref,
-          guestName: guest_name,
-          roomName,
-          checkIn: check_in,
-          checkOut: check_out,
-          nights: nights || 1,
-          guests: guests || 1,
-          pricePerNight: room_price_per_night,
-          taxAmount: tax_amount || 0,
-          totalAmount: total_amount,
-          paymentMethod: payment_method || "Online Payment",
-        }),
-      });
-    } catch (emailErr) {
-      console.error("[bookings] receipt email failed:", emailErr);
-    }
+    // ── Receipt email ─────────────────────────────────────────────────────────
+    // The "Booking Confirmed" receipt is sent ONLY after payment succeeds —
+    // via confirmBookingFromPayment() → sendConfirmationEmail() (Stripe webhook,
+    // Fapshi webhook / status poll). It is idempotent (guarded by
+    // receipt_sent_at), so sending here at creation time would both fire before
+    // payment completes and cause a duplicate email. Intentionally not sent here.
 
     return NextResponse.json({
       bookingRef: booking.booking_ref,

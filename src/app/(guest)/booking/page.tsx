@@ -52,7 +52,27 @@ function BookingContent() {
   const checkOutStr = searchParams.get("checkOut");
   const guestsStr = searchParams.get("guests") || "2a1c";
 
-  const room = roomSlug ? getRoomBySlug(roomSlug) : null;
+  // Resolve the selected room. Static data covers the 3 legacy rooms; for all
+  // other (DB-only) room types — e.g. Garden Terrace, Maharaja — we fetch the
+  // live price/name/image so pricing works for every room.
+  const staticRoom = roomSlug ? getRoomBySlug(roomSlug) : null;
+  const [room, setRoom] = useState<{
+    slug: string;
+    name: string;
+    price: number;
+    image: string;
+  } | null>(
+    staticRoom
+      ? {
+          slug: staticRoom.slug,
+          name: staticRoom.name,
+          price: staticRoom.price,
+          image: staticRoom.images.main,
+        }
+      : null,
+  );
+  const [roomLoading, setRoomLoading] = useState(!staticRoom && !!roomSlug);
+
   const checkIn = checkInStr ? new Date(checkInStr) : null;
   const checkOut = checkOutStr ? new Date(checkOutStr) : null;
 
@@ -87,6 +107,37 @@ function BookingContent() {
   const roomTotal = room ? room.price * nights : 0;
   const tax = Math.round(roomTotal * 0.1);
   const totalPrice = roomTotal + tax;
+
+  // Load live room data (price/name/image) for DB-only room types.
+  useEffect(() => {
+    if (!roomSlug) return;
+    let active = true;
+    async function loadRoom() {
+      try {
+        const res = await fetch("/api/rooms");
+        const json = await res.json();
+        const rt = (json.rooms || []).find(
+          (r: { slug: string }) => r.slug === roomSlug,
+        );
+        if (active && rt) {
+          setRoom({
+            slug: rt.slug,
+            name: rt.name,
+            price: rt.price_per_night ?? rt.price ?? 0,
+            image: rt.main_image || rt.images?.main || "/images/palace-deluxe.png",
+          });
+        }
+      } catch {
+        // keep static fallback if any
+      } finally {
+        if (active) setRoomLoading(false);
+      }
+    }
+    loadRoom();
+    return () => {
+      active = false;
+    };
+  }, [roomSlug]);
 
   // Pre-fill from session
   useEffect(() => {
@@ -156,6 +207,14 @@ function BookingContent() {
 
     return () => clearInterval(interval);
   }, [fapshiTransId, fapshiPolling]);
+
+  if (roomLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-jagamn-tertiary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!room || !checkIn || !checkOut) {
     return (
@@ -820,7 +879,7 @@ function BookingContent() {
         <div className="bg-[#00152A] rounded-md overflow-hidden text-white shadow-xl">
           <div className="relative h-48">
             <Image
-              src={room.images.main}
+              src={room.image}
               alt={room.name}
               fill
               sizes="400px"

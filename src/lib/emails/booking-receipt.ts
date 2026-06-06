@@ -1,3 +1,5 @@
+import { formatMoney } from "@/lib/currency";
+
 export function buildReceiptEmailHtml(data: {
   bookingRef: string;
   guestName: string;
@@ -11,6 +13,7 @@ export function buildReceiptEmailHtml(data: {
   totalAmount: number;
   paymentMethod: string;
 }): string {
+  const roomTotal = data.pricePerNight * data.nights;
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/></head>
@@ -40,16 +43,16 @@ export function buildReceiptEmailHtml(data: {
           <td style="text-align:right;font-weight:bold;color:#00152A;">${data.checkOut}</td>
         </tr>
         <tr>
-          <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Nights × Rate</td>
-          <td style="text-align:right;color:#00152A;">$${data.pricePerNight} × ${data.nights} = $${data.pricePerNight * data.nights}</td>
+          <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">${formatMoney(data.pricePerNight)} × ${data.nights} night${data.nights !== 1 ? "s" : ""}</td>
+          <td style="text-align:right;color:#00152A;">${formatMoney(roomTotal)}</td>
         </tr>
         <tr>
           <td style="padding:10px 0;color:#6b7280;border-bottom:1px solid #f3f4f6;">Taxes (10%)</td>
-          <td style="text-align:right;color:#00152A;">$${data.taxAmount}</td>
+          <td style="text-align:right;color:#00152A;">${formatMoney(data.taxAmount)}</td>
         </tr>
         <tr>
           <td style="padding:14px 0;color:#00152A;font-weight:bold;font-size:16px;">Total Paid</td>
-          <td style="text-align:right;font-weight:bold;font-size:16px;color:#00152A;">$${data.totalAmount}</td>
+          <td style="text-align:right;font-weight:bold;font-size:16px;color:#00152A;">${formatMoney(data.totalAmount)}</td>
         </tr>
       </table>
     </div>
