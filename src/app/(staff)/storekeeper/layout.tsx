@@ -1,247 +1,191 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
+  LayoutGrid,
+  UtensilsCrossed,
+  PackageSearch,
   BarChart2,
+  Plus,
+  HelpCircle,
+  Search,
+  Bell,
   Menu,
-  Settings,
-  LogOut,
-  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AccountButton } from "@/components/account/AccountPanel";
-import { SessionGuard } from "@/components/staff/session-guard";
-import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const STOREKEEPER_NAV = [
-  { label: "Overview", icon: LayoutDashboard, href: "/storekeeper" },
-  { label: "Inventory", icon: Package, href: "/storekeeper/inventory" },
-  { label: "Requests", icon: ShoppingCart, href: "/storekeeper/requests" },
+  { label: "Dashboard", icon: LayoutGrid, href: "/storekeeper" },
+  { label: "Inventory", icon: UtensilsCrossed, href: "/storekeeper/inventory" },
+  { label: "Purchase Orders", icon: PackageSearch, href: "/storekeeper/purchase-orders" },
   { label: "Reports", icon: BarChart2, href: "/storekeeper/reports" },
 ];
 
-export default function StorekeeperLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function StorekeperLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [staff, setStaff] = useState<{
-    full_name: string;
-    email: string;
-    role: string;
-    avatar_url: string | null;
-  } | null>(null);
-
-  useEffect(() => {
-    async function loadStaff() {
-      const res = await fetch("/api/staff/me");
-      if (!res.ok) {
-        router.push(`/staff-login?redirect=${encodeURIComponent(pathname)}`);
-        return;
-      }
-      const data = await res.json();
-      setStaff(data.staff);
-    }
-
-    loadStaff();
-  }, [pathname, router]);
 
   return (
-    <SessionGuard>
-      <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">
-        {/* Mobile Backdrop */}
-        {isSidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+    <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">
+      {/* ── Mobile Overlay ────────────────────────────── */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ───────────────────────────────────── */}
+      <aside
+        className={cn(
+          "bg-[#00152A] text-white flex flex-col transition-all duration-300 z-50 fixed inset-y-0 left-0 md:relative md:h-full",
+          isSidebarOpen
+            ? "w-60 translate-x-0"
+            : "w-60 -translate-x-full md:w-20 md:translate-x-0"
         )}
-
-        {/* Sidebar */}
-        <aside
-          className={cn(
-            "bg-[#00152A] text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
-            isSidebarOpen
-              ? "translate-x-0 w-[280px]"
-              : "-translate-x-full md:translate-x-0 md:w-[90px]",
+      >
+        {/* Logo */}
+        <div className="p-6 pb-4 shrink-0">
+          {isSidebarOpen ? (
+            <div>
+              <h2 className="text-[#BA722E] font-extrabold text-lg leading-tight">
+                The Palace
+              </h2>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                Storekeeper Services
+              </p>
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-[#BA722E] flex items-center justify-center font-bold text-white text-sm">
+              P
+            </div>
           )}
-        >
-          {/* Logo Section */}
-          <div
-            className={cn(
-              "p-8 flex items-center gap-3 transition-all duration-500",
-              !isSidebarOpen && "md:px-6 md:justify-center",
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
-                <Package className="w-6 h-6 text-white" />
-              </div>
-              {isSidebarOpen && (
-                <div className="animate-in fade-in duration-500 overflow-hidden whitespace-nowrap">
-                  <h2 className="manrope-bold text-lg leading-tight">
-                    The Palace
-                  </h2>
-                  <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
-                    Storekeeper Portal
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Close button for mobile */}
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <LogOut className="w-5 h-5 rotate-180" />
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar overflow-x-hidden">
-            {STOREKEEPER_NAV.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/storekeeper" &&
-                  pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-4 py-4 transition-all group relative",
-                    isSidebarOpen ? "px-8" : "px-0 md:justify-center",
-                    isActive
-                      ? "bg-white/10 text-white border-l-[3px] border-l-jagamn-tertiary"
-                      : "text-gray-400 hover:text-white hover:bg-white/5 border-l-[3px] border-l-transparent",
-                  )}
-                  onClick={() => {
-                    if (
-                      typeof window !== "undefined" &&
-                      window.innerWidth < 768
-                    )
-                      setIsSidebarOpen(false);
-                  }}
-                >
-                  <item.icon
-                    className={cn(
-                      "w-5 h-5 shrink-0",
-                      isActive
-                        ? "text-white"
-                        : "text-gray-500 group-hover:text-white",
-                    )}
-                  />
-                  {isSidebarOpen && (
-                    <span className="text-[11px] font-black tracking-[0.15em] uppercase animate-in fade-in slide-in-from-left-2 duration-300 overflow-hidden whitespace-nowrap">
-                      {item.label}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Bottom Section */}
-          <div className="p-4 border-t border-white/5 space-y-2">
-            <AccountButton
-              isSidebarOpen={isSidebarOpen}
-              className={cn(
-                "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
-                isSidebarOpen ? "px-4" : "md:justify-center",
-              )}
-            />
-            <button
-              onClick={async () => {
-                const supabase = (
-                  await import("@/lib/supabase")
-                ).createSupabaseBrowserClient();
-                await supabase.auth.signOut();
-                router.push("/staff-login");
-              }}
-              className={cn(
-                "flex items-center gap-4 py-3 text-gray-400 hover:text-white transition-colors w-full group",
-                isSidebarOpen ? "px-4" : "md:justify-center",
-              )}
-            >
-              <LogOut className="w-5 h-5 shrink-0 group-hover:text-jagamn-tertiary" />
-              {isSidebarOpen && (
-                <span className="text-[11px] font-black uppercase tracking-widest animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
-                  Logout
-                </span>
-              )}
-            </button>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Header Bar */}
-          <header className="h-[90px] bg-white px-8 flex items-center justify-between shrink-0 border-b border-gray-100">
-            <div className="flex items-center gap-12 flex-1">
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 text-gray-400 hover:text-jagamn-tertiary transition-colors"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3 pr-8 border-r border-gray-100">
-                <NotificationBell audience="staff" />
-                <button className="p-2.5 text-jagamn-primary hover:bg-gray-50 rounded-xl transition-all">
-                  <Settings className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4 pl-2">
-                <div className="text-right hidden sm:block">
-                  <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">
-                    {staff?.full_name ?? "Storekeeper"}
-                  </p>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                    {staff?.email ?? "storekeeper@palace.com"}
-                  </p>
-                </div>
-                <Avatar className="w-11 h-11 border-[2.5px] border-jagamn-tertiary p-0.5 shadow-sm">
-                  {staff?.avatar_url ? (
-                    <AvatarImage
-                      src={staff.avatar_url}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">
-                      {staff?.full_name
-                        ? staff.full_name
-                            .split(" ")
-                            .map((part) => part[0])
-                            .join("")
-                            .slice(0, 2)
-                        : ""}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-              </div>
-            </div>
-          </header>
-
-          <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 md:p-8 custom-scrollbar">
-            {children}
-          </main>
         </div>
+
+        {/* New Order CTA */}
+        <div className="px-4 mb-6 shrink-0">
+          <Button className="w-full bg-[#1A2E42] hover:bg-[#253D55] border-0 h-11 rounded-md flex items-center justify-center gap-2 text-gray-300 hover:text-white overflow-hidden transition-all">
+            <Plus className="w-4 h-4 text-[#BA722E] shrink-0" />
+            {isSidebarOpen && <span className="text-sm font-bold whitespace-nowrap">New Purchase Order</span>}
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {STOREKEEPER_NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-4 px-3 py-3 rounded-md transition-all group",
+                pathname === item.href
+                  ? "bg-[#1A2E42] text-white border-l-2 border-l-[#BA722E]"
+                  : "text-gray-500 hover:text-white hover:bg-white/5"
+              )}
+              onClick={() => {
+                if (window.innerWidth < 768) setIsSidebarOpen(false);
+              }}
+            >
+              <item.icon
+                className={cn(
+                  "w-5 h-5 shrink-0",
+                  pathname === item.href ? "text-[#BA722E]" : "text-gray-500 group-hover:text-white"
+                )}
+              />
+              {isSidebarOpen && (
+                <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Bottom Help */}
+        <div className="p-3 border-t border-white/5 space-y-1 shrink-0">
+          <Link
+            href="/kitchen/help"
+            className="flex items-center gap-4 px-3 py-3 rounded-md text-gray-500 hover:text-white hover:bg-white/5 transition-all"
+          >
+            <HelpCircle className="w-5 h-5 shrink-0" />
+            {isSidebarOpen && <span className="text-sm font-medium whitespace-nowrap">Help</span>}
+          </Link>
+
+          {/* Chef Profile */}
+          <div className="flex items-center gap-3 px-3 py-3 mt-2">
+            <Avatar className="w-9 h-9 border-2 border-[#BA722E]/30 shrink-0">
+              <AvatarImage src="/images/avatar-staff.png" />
+              <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">CA</AvatarFallback>
+            </Avatar>
+            {isSidebarOpen && (
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">Mr. Atabong Joe</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold truncate">
+                  Chief Storekeeper
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main Content ─────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="h-18 bg-white border-b border-gray-100 px-8 flex items-center justify-between gap-6 shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden text-gray-500"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="manrope-bold text-lg text-[#00152A] whitespace-nowrap">
+              Store Management
+            </h2>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search orders, ingredients..."
+              className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200"
+            />
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
+
+            {/* Icons */}
+            <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 relative">
+              <Bell className="w-4.5 h-4.5" />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
+            </button>
+            <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50">
+              <HelpCircle className="w-4.5 h-4.5" />
+            </button>
+
+            {/* Avatar */}
+            <div className="flex items-center gap-2 pl-3 border-l border-gray-100">
+              <Avatar className="w-9 h-9 border-2 border-gray-100">
+                <AvatarImage src="/images/avatar-staff.png" />
+                <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">AJ</AvatarFallback>
+              </Avatar>
+              <div className="hidden sm:block text-right">
+                <p className="text-xs font-bold text-[#00152A]">Mr. Atabong Joe</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Chief Storekeeper</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
-    </SessionGuard>
+    </div>
   );
 }
