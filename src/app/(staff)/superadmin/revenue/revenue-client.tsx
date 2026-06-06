@@ -455,7 +455,7 @@ export default function RevenueClient({
                       </td>
                       <td className="px-10 py-6 text-right">
                         <span className="manrope-bold text-base text-[#0D2137]">
-                          ${tx.amount?.toLocaleString() || "0"}
+                          ${tx.amount?.toLocaleString("en-US") || "0"}
                         </span>
                       </td>
                       <td className="px-10 py-6 text-center">

@@ -263,7 +263,7 @@ export default function PaymentsPage() {
                   </div>
                   <div className="text-right">
                     <p className="manrope-bold text-lg text-jagamn-primary mb-1">
-                      ${(tx.amount / 100).toLocaleString()}
+                      ${(tx.amount / 100).toLocaleString("en-US")}
                     </p>
                     <Badge className={cn(
                       "border-0 text-[8px] font-bold uppercase tracking-wider px-2 h-5",

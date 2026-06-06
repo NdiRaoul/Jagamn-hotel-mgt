@@ -312,7 +312,7 @@ export default function MenuManagementPage() {
                   </div>
                   <div className="flex items-center gap-3 pt-2">
                     <span className="manrope-bold text-lg text-[#00152A]">
-                      {item.currency} {item.price.toLocaleString()}
+                      {item.currency} {item.price.toLocaleString("en-US")}
                     </span>
                     {item.is_special && (
                       <span className="bg-[#BA722E]/10 text-[#BA722E] text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
@@ -341,7 +341,7 @@ export default function MenuManagementPage() {
                 {mostRequested.description}
               </p>
               <p className="manrope-bold text-xl text-[#BA722E]">
-                {mostRequested.currency} {mostRequested.price.toLocaleString()}
+                {mostRequested.currency} {mostRequested.price.toLocaleString("en-US")}
               </p>
               <div className="pt-2">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">

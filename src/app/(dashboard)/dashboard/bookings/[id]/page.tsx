@@ -228,7 +228,7 @@ export default function BookingDetailsPage() {
                   {booking.room_price_per_night}
                 </span>
                 <span className="font-bold text-jagamn-primary">
-                  ${roomTotal.toLocaleString()}
+                  ${roomTotal.toLocaleString("en-US")}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
@@ -243,7 +243,7 @@ export default function BookingDetailsPage() {
                 Total
               </span>
               <span className="manrope-bold text-3xl text-jagamn-primary">
-                ${booking.total_amount.toLocaleString()}
+                ${booking.total_amount.toLocaleString("en-US")}
               </span>
             </div>
             <div className="bg-jagamn-neutral rounded-md p-4 flex items-center gap-3">

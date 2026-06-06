@@ -306,7 +306,7 @@ export default function PayrollClient({
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
                         $
-                        {(staff.gross_salary || 0).toLocaleString(undefined, {
+                        {(staff.gross_salary || 0).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </span>
@@ -314,7 +314,7 @@ export default function PayrollClient({
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-red-500">
                         ($
-                        {(staff.deductions || 0).toLocaleString(undefined, {
+                        {(staff.deductions || 0).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                         )
@@ -323,7 +323,7 @@ export default function PayrollClient({
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
                         $
-                        {(staff.net_salary || 0).toLocaleString(undefined, {
+                        {(staff.net_salary || 0).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </span>

@@ -284,7 +284,7 @@ export default function ReportingClient({
                   </h4>
                   <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
                     {status.order_count} orders • XAF{" "}
-                    {status.total_amount.toLocaleString()}
+                    {status.total_amount.toLocaleString("en-US")}
                   </p>
                 </div>
               </div>

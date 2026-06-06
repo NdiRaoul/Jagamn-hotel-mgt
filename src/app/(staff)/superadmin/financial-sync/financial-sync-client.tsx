@@ -176,7 +176,7 @@ export default function FinancialSyncClient({
                   boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
                 }}
                 formatter={(value) => [
-                  `${Number(value).toLocaleString()} FCFA`,
+                  `${Number(value).toLocaleString("en-US")} FCFA`,
                   "Revenue",
                 ]}
               />
@@ -269,7 +269,7 @@ export default function FinancialSyncClient({
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-jagamn-primary">
                         {entry.currency}{" "}
-                        {(entry.amount_minor / 100).toLocaleString()}
+                        {(entry.amount_minor / 100).toLocaleString("en-US")}
                       </span>
                     </td>
                     <td className="px-6 py-4">

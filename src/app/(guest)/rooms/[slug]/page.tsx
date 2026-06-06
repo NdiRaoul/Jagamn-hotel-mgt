@@ -112,20 +112,49 @@ export default async function RoomDetailPage({ params }: Props) {
 
   if (!dbRoom && !widgetRoom) notFound();
 
+  // Normalize unavailable dates coming from the DB once.
+  const dbUnavailableDates = (dbRoom?.room_type_unavailable_dates || []).map(
+    (ud) => ({
+      from: ud.from_date,
+      to: ud.to_date,
+      alternateRooms: ud.alternate_room_slugs || [],
+      alternateDates:
+        (ud.alternate_dates as { from: string; to: string }[]) || [],
+    }),
+  );
+
   // Merge DB data into widget room if available
   if (dbRoom && widgetRoom) {
     // Patch unavailable dates from DB
     widgetRoom = {
       ...widgetRoom,
-      unavailableDates: (dbRoom.room_type_unavailable_dates || []).map(
-        (ud) => ({
-          from: ud.from_date,
-          to: ud.to_date,
-          alternateRooms: ud.alternate_room_slugs || [],
-          alternateDates:
-            (ud.alternate_dates as { from: string; to: string }[]) || [],
-        }),
-      ),
+      unavailableDates: dbUnavailableDates,
+    };
+  } else if (dbRoom && !widgetRoom) {
+    // DB-only room type (no static entry, e.g. Garden Terrace / Maharaja).
+    // Build a widget room from DB data so the booking widget — and its
+    // "Book This Room" button — still renders.
+    widgetRoom = {
+      slug: dbRoom.slug,
+      name: dbRoom.name,
+      collectionLabel: dbRoom.collection_label || "",
+      badge: dbRoom.badge || undefined,
+      price: dbRoom.price_per_night,
+      description: dbRoom.description || "",
+      longDescription: dbRoom.long_description || "",
+      sqft: dbRoom.sqft || 0,
+      bedType: dbRoom.bed_type || "",
+      maxGuests: dbRoom.max_guests || 1,
+      images: {
+        main: dbRoom.main_image || "/images/classic-heritage.png",
+        gallery: dbRoom.gallery_images || [],
+      },
+      amenities: (dbRoom.room_amenities || []).map((a) => ({
+        icon: a.icon,
+        label: a.label,
+      })),
+      cancellationPolicy: dbRoom.cancellation_policy || "",
+      unavailableDates: dbUnavailableDates,
     };
   }
 

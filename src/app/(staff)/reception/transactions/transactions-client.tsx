@@ -199,7 +199,7 @@ export default function TransactionsClient({
                     <td className="px-6 py-5">
                       <span className="text-sm font-bold text-[#00152A]">
                         {tx.currency}{" "}
-                        {(tx.amountMinor / 100).toLocaleString(undefined, {
+                        {(tx.amountMinor / 100).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </span>
@@ -285,7 +285,7 @@ export default function TransactionsClient({
                   </p>
                   <span className="text-sm font-bold text-[#00152A]">
                     {tx.currency}{" "}
-                    {(tx.amountMinor / 100).toLocaleString(undefined, {
+                    {(tx.amountMinor / 100).toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                     })}
                   </span>
@@ -297,7 +297,7 @@ export default function TransactionsClient({
                   {EVENT_LABELS[tx.eventType] ?? tx.eventType}
                 </span>
                 <span className="text-[10px] text-gray-400 font-medium">
-                  {new Date(tx.eventAt).toLocaleString(undefined, {
+                  {new Date(tx.eventAt).toLocaleString("en-US", {
                     month: "short",
                     day: "numeric",
                     hour: "2-digit",

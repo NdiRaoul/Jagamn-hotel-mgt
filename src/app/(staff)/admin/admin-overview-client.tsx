@@ -131,7 +131,7 @@ export default function AdminOverviewClient({ kpis, revenue, roster }: Props) {
               <div className="flex items-end justify-between">
                 <div>
                   <h2 className="manrope-bold text-5xl mb-3">
-                    ${revenue.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ${revenue.revenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                   </h2>
                   <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold">
                     <TrendingUp className="w-4 h-4" />

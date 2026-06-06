@@ -22,13 +22,14 @@ export function formatMoney(
   amountXaf: number,
   options?: Intl.NumberFormatOptions,
 ): string {
-  return new Intl.NumberFormat("fr-CM", {
-    style: "currency",
-    currency: "XAF",
+  // Use en-US grouping so thousands are separated by commas (e.g. "122,000 FCFA")
+  // instead of the spaces produced by the fr-CM locale.
+  const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
     ...options,
   }).format(amountXaf);
+  return `${formatted} FCFA`;
 }
 
 /**

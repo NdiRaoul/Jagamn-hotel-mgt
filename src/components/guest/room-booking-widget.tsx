@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   format,
+  parseISO,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -47,6 +48,7 @@ import {
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatMoney } from "@/lib/currency";
+import { resolveBookingSearch } from "@/lib/booking-search";
 
 // MON–SUN column headers matching the design
 const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -72,6 +74,36 @@ export function RoomBookingWidget({ room }: Props) {
 
   // The month displayed in the inline availability calendar
   const [calMonth, setCalMonth] = useState<Date>(new Date());
+
+  // Pre-fill check-in / check-out / guests from the selection the guest
+  // made earlier (via URL params or the stored search), so it carries
+  // over when they open any room.
+  useEffect(() => {
+    function hydrateFromSearch() {
+      const resolved = resolveBookingSearch(
+        new URLSearchParams(window.location.search),
+      );
+      if (resolved.checkIn) {
+        try {
+          const d = parseISO(resolved.checkIn);
+          setCheckIn(d);
+          setCalMonth(d);
+        } catch {
+          /* ignore bad date */
+        }
+      }
+      if (resolved.checkOut) {
+        try {
+          setCheckOut(parseISO(resolved.checkOut));
+        } catch {
+          /* ignore bad date */
+        }
+      }
+      if (resolved.guests) setGuests(resolved.guests);
+    }
+    hydrateFromSearch();
+    // Run once on mount.
+  }, []);
 
   // Load auth state
   useEffect(() => {

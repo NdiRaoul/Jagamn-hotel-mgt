@@ -379,7 +379,7 @@ export default function ProcurementClient({
             },
             {
               label: "Total Spend",
-              value: `$${(kpis.totalSpendMinor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              value: `$${(kpis.totalSpendMinor / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
               icon: <ShoppingCart className="w-5 h-5" />,
               alert: false,
             },
@@ -545,7 +545,7 @@ export default function ProcurementClient({
                       <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
                           <p className="manrope-bold text-lg text-[#0D2137]">
-                            ${(po.total_minor / 100).toLocaleString()}
+                            ${(po.total_minor / 100).toLocaleString("en-US")}
                           </p>
                           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
                             {new Date(po.created_at).toLocaleDateString()}

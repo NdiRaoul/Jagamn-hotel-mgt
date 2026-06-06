@@ -231,7 +231,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                             </p>
                           </div>
                           <span className="text-jagamn-tertiary manrope-bold">
-                            {item.price.toLocaleString()} XAF
+                            {item.price.toLocaleString("en-US")} XAF
                           </span>
                         </div>
                         <div className="flex items-center justify-between pt-4">
@@ -283,7 +283,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                               {item.name}
                             </h4>
                             <span className="text-gray-400 manrope-bold text-sm">
-                              {item.price.toLocaleString()}
+                              {item.price.toLocaleString("en-US")}
                             </span>
                           </div>
                           <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2">
@@ -345,7 +345,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                             {item.title}
                           </h5>
                           <span className="text-[11px] font-bold text-jagamn-primary">
-                            {(item.price * item.quantity).toLocaleString()}
+                            {(item.price * item.quantity).toLocaleString("en-US")}
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">
@@ -407,7 +407,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-400">Subtotal</span>
                   <span className="font-bold text-jagamn-primary">
-                    {subtotal.toLocaleString()} XAF
+                    {subtotal.toLocaleString("en-US")} XAF
                   </span>
                 </div>
                 <div className="flex justify-between pt-4">
@@ -415,7 +415,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                     Total
                   </span>
                   <span className="manrope-bold text-xl text-jagamn-tertiary">
-                    {subtotal.toLocaleString()} XAF
+                    {subtotal.toLocaleString("en-US")} XAF
                   </span>
                 </div>
               </div>
@@ -511,7 +511,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                   return orderDate === today;
                 })
                 .reduce((sum, o) => sum + o.total_amount, 0)
-                .toLocaleString()}{" "}
+                .toLocaleString("en-US")}{" "}
               <span className="text-2xl">XAF</span>
             </h3>
           </div>
@@ -578,7 +578,7 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                 </div>
                 <div className="flex flex-col items-end gap-3 w-full md:w-auto">
                   <p className="manrope-bold text-xl text-jagamn-primary">
-                    {order.total_amount.toLocaleString()} XAF
+                    {order.total_amount.toLocaleString("en-US")} XAF
                   </p>
                   <Badge
                     className={cn(

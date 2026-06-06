@@ -8,6 +8,7 @@ import { ROOMS } from "@/lib/data/rooms";
 import { SearchBar } from "@/components/guest/search-bar";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatMoney } from "@/lib/currency";
+import { bookingSearchParams, loadBookingSearch } from "@/lib/booking-search";
 
 type RoomDisplay = {
   slug: string;
@@ -38,6 +39,25 @@ export default function RoomsCollectionPage() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const supabase = createSupabaseBrowserClient();
+
+  // Carry the guest's check-in / check-out / guests selection into each
+  // room link so it stays filled in on the detail page. Resolved on the
+  // client from the URL (shareable links) or the stored selection.
+  const [linkSuffix, setLinkSuffix] = useState("");
+  useEffect(() => {
+    function resolveLinkSuffix() {
+      const params = new URLSearchParams(window.location.search);
+      const stored = loadBookingSearch();
+      setLinkSuffix(
+        bookingSearchParams({
+          checkIn: params.get("checkIn") || stored.checkIn,
+          checkOut: params.get("checkOut") || stored.checkOut,
+          guests: params.get("guests") || stored.guests,
+        }),
+      );
+    }
+    resolveLinkSuffix();
+  }, []);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -349,7 +369,7 @@ export default function RoomsCollectionPage() {
                     </div>
 
                     <Link
-                      href={`/rooms/${room.slug}`}
+                      href={`/rooms/${room.slug}${linkSuffix}`}
                       className="w-full flex items-center justify-center gap-2 bg-jagamn-primary hover:bg-jagamn-primary/90 text-white py-3 rounded-md text-sm font-semibold transition-colors"
                     >
                       {isLoggedIn ? "Book Now" : "View & Reserve"}

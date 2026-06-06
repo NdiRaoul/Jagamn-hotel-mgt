@@ -27,7 +27,7 @@ export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const formatSalary = (salary: number) => {
-    return new Intl.NumberFormat("fr-FR", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "XAF",
       minimumFractionDigits: 0,

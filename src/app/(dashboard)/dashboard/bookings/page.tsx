@@ -227,7 +227,7 @@ export default function MyBookingsPage() {
                 </div>
                 <div className="text-right">
                   <p className="manrope-bold text-xl text-jagamn-tertiary">
-                    ${currentStay.total_amount.toLocaleString()}
+                    ${currentStay.total_amount.toLocaleString("en-US")}
                   </p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                     {currentStay.payment_status === "paid"

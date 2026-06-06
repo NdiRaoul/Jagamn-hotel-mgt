@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { format } from "date-fns";
+import { useState, useEffect } from "react";
+import { format, parseISO } from "date-fns";
 import { CalendarIcon, Users, Building, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,6 +25,10 @@ import {
   type UnavailableDateRange,
 } from "@/lib/data/rooms";
 import { useRouter } from "next/navigation";
+import {
+  resolveBookingSearch,
+  saveBookingSearch,
+} from "@/lib/booking-search";
 
 type RoomTypeOption = { slug: string; name: string };
 
@@ -38,6 +42,44 @@ export function SearchBar({ roomTypes }: Props) {
   const [checkOut, setCheckOut] = useState<Date>();
   const [roomType, setRoomType] = useState<string>("all");
   const [guests, setGuests] = useState<string>("2a1c");
+
+  // Hydrate the bar from the URL (shareable links) or the guest's
+  // previously stored selection, so it stays in sync everywhere.
+  useEffect(() => {
+    function hydrateFromSearch() {
+      const resolved = resolveBookingSearch(
+        new URLSearchParams(window.location.search),
+      );
+      if (resolved.checkIn) {
+        try {
+          setCheckIn(parseISO(resolved.checkIn));
+        } catch {
+          /* ignore bad date */
+        }
+      }
+      if (resolved.checkOut) {
+        try {
+          setCheckOut(parseISO(resolved.checkOut));
+        } catch {
+          /* ignore bad date */
+        }
+      }
+      if (resolved.guests) setGuests(resolved.guests);
+      if (resolved.roomType) setRoomType(resolved.roomType);
+    }
+    hydrateFromSearch();
+    // Run once on mount.
+  }, []);
+
+  // Persist the selection so it follows the guest across pages.
+  useEffect(() => {
+    saveBookingSearch({
+      checkIn: checkIn ? format(checkIn, "yyyy-MM-dd") : undefined,
+      checkOut: checkOut ? format(checkOut, "yyyy-MM-dd") : undefined,
+      guests,
+      roomType,
+    });
+  }, [checkIn, checkOut, guests, roomType]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<{

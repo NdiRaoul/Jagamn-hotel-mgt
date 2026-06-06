@@ -481,7 +481,7 @@ export default function RevenueClient({
                     <td className="px-10 py-6 text-right">
                       <span className="manrope-bold text-base text-[#0D2137]">
                         $
-                        {(tx.amountMinor / 100).toLocaleString(undefined, {
+                        {(tx.amountMinor / 100).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </span>

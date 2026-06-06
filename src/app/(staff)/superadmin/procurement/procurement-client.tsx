@@ -269,7 +269,7 @@ export default function ProcurementClient({
                   <div className="flex items-center gap-10 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-right">
                       <p className="manrope-bold text-lg text-[#0D2137]">
-                        ${(po.total_amount || 0).toLocaleString()}
+                        ${(po.total_amount || 0).toLocaleString("en-US")}
                       </p>
                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
                         {po.created_at
