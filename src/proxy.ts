@@ -92,45 +92,36 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(timeoutUrl);
     }
 
-    // Check role-based access for each portal
-    if (pathname.startsWith("/superadmin") && staff.role !== "owner") {
-      return NextResponse.redirect(redirectUrl);
-    }
+    // Role-based access per portal. The owner can access everything;
+    // each other role is confined to its own portal (admins/managers also
+    // oversee reception, kitchen and store). Order matters — most specific
+    // prefix first.
+    const portalFor = (role: string) =>
+      role === "owner"
+        ? "/superadmin"
+        : role === "admin" || role === "manager"
+          ? "/admin"
+          : role === "kitchen"
+            ? "/kitchen"
+            : role === "storekeeper"
+              ? "/storekeeper"
+              : "/reception";
 
-    if (
-      pathname.startsWith("/admin") &&
-      !pathname.startsWith("/admin/procurement") &&
-      !["admin", "manager", "owner"].includes(staff.role)
-    ) {
-      return NextResponse.redirect(redirectUrl);
-    }
+    const ACCESS: { prefix: string; roles: string[] }[] = [
+      { prefix: "/superadmin", roles: ["owner"] },
+      { prefix: "/storekeeper", roles: ["storekeeper", "admin", "manager", "owner"] },
+      { prefix: "/admin", roles: ["admin", "manager", "owner"] },
+      { prefix: "/kitchen", roles: ["kitchen", "admin", "manager", "owner"] },
+      { prefix: "/reception", roles: ["reception", "admin", "manager", "owner"] },
+    ];
 
-    if (
-      pathname.startsWith("/admin/procurement") &&
-      !["admin", "manager", "storekeeper", "owner"].includes(staff.role)
-    ) {
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    if (
-      pathname.startsWith("/reception") &&
-      !["reception", "admin", "manager", "owner"].includes(staff.role)
-    ) {
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    if (
-      pathname.startsWith("/kitchen") &&
-      !["kitchen", "admin", "manager", "owner"].includes(staff.role)
-    ) {
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    if (
-      pathname.startsWith("/storekeeper") &&
-      !["storekeeper", "admin", "manager", "owner"].includes(staff.role)
-    ) {
-      return NextResponse.redirect(redirectUrl);
+    const rule = ACCESS.find((r) => pathname.startsWith(r.prefix));
+    if (rule && !rule.roles.includes(staff.role)) {
+      // Bounce a mismatched role to their own portal instead of the login page.
+      const portalUrl = request.nextUrl.clone();
+      portalUrl.search = "";
+      portalUrl.pathname = portalFor(staff.role);
+      return NextResponse.redirect(portalUrl);
     }
   }
 

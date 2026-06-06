@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { formatMoney } from "@/lib/currency";
 import {
   TrendingUp,
   TrendingDown,
@@ -187,7 +188,7 @@ export default function RevenueClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           <KPICard
             label="Total Revenue"
-            value={`$${revenue?.total_revenue ? (revenue.total_revenue / 1000).toFixed(1) : "0"}k`}
+            value={formatMoney(Math.round(revenue?.total_revenue ?? 0))}
             change={
               revenue?.growth_rate
                 ? `${revenue.growth_rate > 0 ? "+" : ""}${revenue.growth_rate.toFixed(1)}%`
@@ -198,14 +199,14 @@ export default function RevenueClient({
           />
           <KPICard
             label="Avg. Daily Rate (ADR)"
-            value={`$${revenue?.adr ? revenue.adr.toFixed(2) : "0.00"}`}
+            value={formatMoney(Math.round(revenue?.adr ?? 0))}
             change="+3.2%"
             isPositive={true}
             icon={<Building className="w-5 h-5" />}
           />
           <KPICard
             label="RevPAR"
-            value={`$${revenue?.revpar ? revenue.revpar.toFixed(2) : "0.00"}`}
+            value={formatMoney(Math.round(revenue?.revpar ?? 0))}
             change="-1.8%"
             isPositive={false}
             icon={<Target className="w-5 h-5" />}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { SUPPLIERS, AVAILABLE_ITEMS } from "./purchaseData";
+import { formatMoney } from "@/lib/currency";
 
 interface LineItem {
   id: string;
@@ -99,7 +100,7 @@ export function NewPurchaseOrderDrawer({ onClose, onSaveDraft, onSubmit }: NewPu
       <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="w-130 bg-white h-full flex flex-col shadow-2xl">
+      <div className="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 shrink-0">
           <div className="flex items-center justify-between">
@@ -220,32 +221,27 @@ export function NewPurchaseOrderDrawer({ onClose, onSaveDraft, onSubmit }: NewPu
                     />
                   </div>
 
-                  {/* Est Unit Price */}
+                  {/* Est Unit Price (FCFA) */}
                   <div className="col-span-3">
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={li.estUnitPrice}
-                        onChange={(e) =>
-                          updateLineItem(
-                            li.id,
-                            "estUnitPrice",
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        className="w-full border border-gray-200 rounded pl-5 pr-2 py-1 text-xs text-center font-semibold text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={li.estUnitPrice}
+                      onChange={(e) =>
+                        updateLineItem(
+                          li.id,
+                          "estUnitPrice",
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
+                      className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-center font-semibold text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    />
                   </div>
 
                   {/* Subtotal */}
                   <div className="col-span-2 text-right text-xs font-bold text-gray-900">
-                    ${(li.qty * li.estUnitPrice).toFixed(2)}
+                    {formatMoney(Math.round(li.qty * li.estUnitPrice))}
                   </div>
 
                   {/* Remove */}
@@ -278,7 +274,7 @@ export function NewPurchaseOrderDrawer({ onClose, onSaveDraft, onSubmit }: NewPu
                 Estimated Total
               </p>
               <p className="text-xl font-bold text-gray-900">
-                ${estimatedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                {formatMoney(Math.round(estimatedTotal))}
               </p>
             </div>
           </div>

@@ -100,7 +100,7 @@ export function ReceiveGoodsDrawer({ po, onClose, onConfirm }: ReceiveGoodsDrawe
       <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="w-125 bg-white h-full flex flex-col shadow-2xl">
+      <div className="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between shrink-0">
           <div>

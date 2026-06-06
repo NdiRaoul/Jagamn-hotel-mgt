@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Download, Filter, Search } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -139,7 +140,7 @@ export default function PayrollClient({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <StatCard
             title="Total Gross Payroll"
-            value={`$${payrollSummary?.total_gross ? (payrollSummary.total_gross / 1000).toFixed(1) : "0"}k`}
+            value={formatMoney(payrollSummary?.total_gross ?? 0)}
             accentColor="border-l-[#0D2137]"
           />
           <StatCard
@@ -305,27 +306,17 @@ export default function PayrollClient({
                     </td>
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        $
-                        {(staff.gross_salary || 0).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {formatMoney(staff.gross_salary || 0)}
                       </span>
                     </td>
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-red-500">
-                        ($
-                        {(staff.deductions || 0).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                        )
+                        ({formatMoney(staff.deductions || 0)})
                       </span>
                     </td>
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        $
-                        {(staff.net_salary || 0).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {formatMoney(staff.net_salary || 0)}
                       </span>
                     </td>
                   </tr>

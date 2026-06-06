@@ -12,9 +12,13 @@ import {
   ChevronRight,
   ExternalLink,
   ShieldCheck,
+  ShoppingCart,
+  Package,
+  Truck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { formatMoney } from "@/lib/currency";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -100,7 +104,13 @@ interface SuperadminOverviewClientProps {
   occupancyDaily: unknown[];
   payrollMonthly: unknown[];
   leaveSummary: unknown;
-  procurementKpis: unknown;
+  procurementKpis: {
+    pendingApproval: number;
+    inTransit: number;
+    deliveredThisMonth: number;
+    totalSpendMinor: number;
+  };
+  procurementAlerts?: { item: string; priority: string; status: string }[];
   latestSync: string;
 }
 
@@ -108,6 +118,8 @@ export default function SuperadminOverviewClient({
   kpis,
   revenueSummary,
   revenueMonthly,
+  procurementKpis,
+  procurementAlerts = [],
   latestSync,
 }: SuperadminOverviewClientProps) {
   const router = useRouter();
@@ -225,6 +237,92 @@ export default function SuperadminOverviewClient({
           pillType="positive"
           subtext="Staff members on duty"
         />
+      </div>
+
+      {/* ── Procurement & Low-Stock ───────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Procurement KPIs */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100">
+          <div className="flex items-center gap-2 mb-5">
+            <ShoppingCart className="w-5 h-5 text-jagamn-primary" />
+            <h2 className="manrope-bold text-lg text-[#0D2137]">Procurement</h2>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-slate-500">
+                <Package className="w-4 h-4" /> Pending approval
+              </span>
+              <span className="manrope-bold text-[#0D2137]">
+                {procurementKpis?.pendingApproval ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-slate-500">
+                <Truck className="w-4 h-4" /> In transit
+              </span>
+              <span className="manrope-bold text-[#0D2137]">
+                {procurementKpis?.inTransit ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Delivered this month</span>
+              <span className="manrope-bold text-[#0D2137]">
+                {procurementKpis?.deliveredThisMonth ?? 0}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+              Total spend
+            </p>
+            <p className="manrope-bold text-2xl text-[#0D2137]">
+              {formatMoney(Math.round((procurementKpis?.totalSpendMinor ?? 0) / 100))}
+            </p>
+          </div>
+        </div>
+
+        {/* Low-stock alerts */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-jagamn-tertiary" />
+              <h2 className="manrope-bold text-lg text-[#0D2137]">
+                Low-Stock Alerts
+              </h2>
+            </div>
+            <a
+              href="/superadmin/procurement"
+              className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#0D2137]"
+            >
+              View all
+            </a>
+          </div>
+          {procurementAlerts.length === 0 ? (
+            <p className="text-sm text-slate-400 py-6 text-center">
+              No low-stock alerts — inventory healthy.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {procurementAlerts.slice(0, 6).map((a, i) => (
+                <li key={i} className="flex items-center justify-between py-3">
+                  <span className="text-sm font-medium text-[#0D2137]">
+                    {a.item}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full",
+                      a.priority === "high"
+                        ? "bg-red-50 text-red-600"
+                        : "bg-amber-50 text-amber-600",
+                    )}
+                  >
+                    {a.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* ── Main Layout (Charts & Critical Actions) ───── */}

@@ -68,7 +68,8 @@ export function PurchaseOrdersTable({ orders, onReceiveGoods, onEdit }: Purchase
       </div>
 
       {/* Table */}
-      <table className="w-full mt-3">
+      <div className="overflow-x-auto">
+      <table className="w-full mt-3 min-w-[640px]">
         <thead>
           <tr className="bg-gray-900 text-white text-xs uppercase tracking-widest">
             <th className="text-left px-5 py-3 font-semibold w-[12%]">PO Number</th>
@@ -127,6 +128,7 @@ export function PurchaseOrdersTable({ orders, onReceiveGoods, onEdit }: Purchase
           )}
         </tbody>
       </table>
+      </div>
 
       {/* Pagination */}
       <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">

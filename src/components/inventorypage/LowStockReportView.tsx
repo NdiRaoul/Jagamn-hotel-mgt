@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { lowStockItems, LowStockReportItem } from "./reportsdata";
+import { lowStockItems as mockLowStockItems, LowStockReportItem } from "./reportsdata";
 
 const levelStyles: Record<string, { badge: string; dot: string }> = {
   CRITICAL: { badge: "bg-red-50 text-red-600 border border-red-200", dot: "bg-red-500" },
@@ -16,7 +16,9 @@ const categoryColors: Record<string, string> = {
   Kitchen: "bg-green-50 text-green-700 border border-green-200",
 };
 
-export function LowStockReportView() {
+export function LowStockReportView({
+  items: lowStockItems = mockLowStockItems,
+}: { items?: LowStockReportItem[] } = {}) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-6">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">

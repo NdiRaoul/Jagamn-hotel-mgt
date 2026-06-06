@@ -1,3 +1,5 @@
+import { formatMoney } from "@/lib/currency";
+
 export type ReportTab =
   | "Inventory Valuation"
   | "Stock Movement"
@@ -6,7 +8,7 @@ export type ReportTab =
   | "Consumption Trends";
 
 // ─── Header Stats ─────────────────────────────────────────────────────────────
-export const mockTotalInventoryValue = "$1,284,500.00";
+export const mockTotalInventoryValue = formatMoney(1284500);
 export const mockInventoryChange = "+4.2% from last month";
 export const mockStockTurnoverRate = "8.4x";
 export const mockTurnoverNote = "Optimal Efficiency Range";
@@ -74,11 +76,11 @@ export interface POHistoryItem {
 }
 
 export const poHistoryItems: POHistoryItem[] = [
-  { id: "1", poNumber: "#8750", supplier: "Royal Gourmet Imports", items: 8, value: "$3,400.00", status: "RECEIVED", date: "Oct 20, 2025" },
-  { id: "2", poNumber: "#8742", supplier: "Maritime & Slate Co.", items: 22, value: "$12,450.00", status: "RECONCILED", date: "Oct 18, 2025" },
-  { id: "3", poNumber: "#8731", supplier: "Silverware Specialists", items: 150, value: "$2,115.00", status: "RECONCILED", date: "Oct 15, 2025" },
-  { id: "4", poNumber: "#8720", supplier: "CleanPro Supplies", items: 5, value: "$890.00", status: "RECEIVED", date: "Oct 12, 2025" },
-  { id: "5", poNumber: "#8711", supplier: "Aromatics & Spa", items: 4, value: "$1,950.00", status: "SUBMITTED", date: "Oct 10, 2025" },
+  { id: "1", poNumber: "#8750", supplier: "Royal Gourmet Imports", items: 8, value: formatMoney(3400), status: "RECEIVED", date: "Oct 20, 2025" },
+  { id: "2", poNumber: "#8742", supplier: "Maritime & Slate Co.", items: 22, value: formatMoney(12450), status: "RECONCILED", date: "Oct 18, 2025" },
+  { id: "3", poNumber: "#8731", supplier: "Silverware Specialists", items: 150, value: formatMoney(2115), status: "RECONCILED", date: "Oct 15, 2025" },
+  { id: "4", poNumber: "#8720", supplier: "CleanPro Supplies", items: 5, value: formatMoney(890), status: "RECEIVED", date: "Oct 12, 2025" },
+  { id: "5", poNumber: "#8711", supplier: "Aromatics & Spa", items: 4, value: formatMoney(1950), status: "SUBMITTED", date: "Oct 10, 2025" },
 ];
 
 // ─── Consumption Trends Data ──────────────────────────────────────────────────
@@ -91,7 +93,7 @@ export const consumptionTrendsData = [
 ];
 
 export const consumptionSummary = {
-  purchased: "$48,200",
-  consumed: "$39,100",
+  purchased: formatMoney(48200),
+  consumed: formatMoney(39100),
   note: "Consumption running 18% below procurement — healthy buffer",
 };

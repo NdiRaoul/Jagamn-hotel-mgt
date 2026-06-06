@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Search, Utensils } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -201,7 +202,7 @@ export default function FBClient({ menu }: FBClientProps) {
                     {item.category_name || "Uncategorized"}
                   </Badge>
                   <span className="manrope-bold text-2xl text-[#0D2137]">
-                    ${(item.price || 0).toFixed(2)}
+                    {formatMoney(item.price || 0)}
                   </span>
                 </div>
                 <div>

@@ -4,6 +4,7 @@ import {
   getOccupancyDaily,
   getPayrollMonthly,
   getHrLeaveSummary,
+  getProcurementAlerts,
 } from "@/lib/data/admin";
 import { getProcurementKpis } from "@/lib/data/procurement";
 import { supabaseAdmin } from "@/lib/supabase-server";
@@ -23,6 +24,7 @@ export default async function SuperadminPage() {
     payrollMonthly,
     leaveSummary,
     procurementKpis,
+    procurementAlerts,
     bookingsRes,
     confirmedCount,
     staffRes,
@@ -35,6 +37,7 @@ export default async function SuperadminPage() {
     getPayrollMonthly(),
     getHrLeaveSummary(),
     getProcurementKpis(),
+    getProcurementAlerts(),
     // Booking counts
     supabaseAdmin
       .from("bookings")
@@ -132,6 +135,7 @@ export default async function SuperadminPage() {
       payrollMonthly={payrollMonthly}
       leaveSummary={leaveSummary}
       procurementKpis={procurementKpis}
+      procurementAlerts={procurementAlerts}
       latestSync={latestSync}
     />
   );

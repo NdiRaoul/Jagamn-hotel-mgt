@@ -34,23 +34,22 @@ function StaffLoginForm() {
         : role === "kitchen"
           ? "/kitchen"
           : role === "storekeeper"
-            ? "/admin/procurement"
+            ? "/storekeeper"
             : "/reception"; // reception
 
-  const canVisit = (role: string, path: string) =>
-    role === "owner"
-      ? true
-      : path.startsWith("/superadmin")
-        ? false
-        : path.startsWith("/admin/procurement")
-          ? ["admin", "manager", "storekeeper"].includes(role)
-          : path.startsWith("/admin")
-            ? ["admin", "manager"].includes(role)
-            : path.startsWith("/kitchen")
-              ? role === "kitchen"
-              : path.startsWith("/reception")
-                ? ["admin", "manager", "reception"].includes(role)
-                : false;
+  // Mirror the role rules enforced in src/proxy.ts. Owner can go anywhere.
+  const canVisit = (role: string, path: string) => {
+    if (role === "owner") return true;
+    if (path.startsWith("/superadmin")) return false;
+    if (path.startsWith("/storekeeper"))
+      return ["storekeeper", "admin", "manager"].includes(role);
+    if (path.startsWith("/admin")) return ["admin", "manager"].includes(role);
+    if (path.startsWith("/kitchen"))
+      return ["kitchen", "admin", "manager"].includes(role);
+    if (path.startsWith("/reception"))
+      return ["reception", "admin", "manager"].includes(role);
+    return false;
+  };
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

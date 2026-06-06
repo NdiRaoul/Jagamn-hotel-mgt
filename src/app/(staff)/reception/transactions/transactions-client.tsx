@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { formatMoney } from "@/lib/currency";
 import {
   Search,
   AlertCircle,
@@ -198,10 +199,7 @@ export default function TransactionsClient({
                     </td>
                     <td className="px-6 py-5">
                       <span className="text-sm font-bold text-[#00152A]">
-                        {tx.currency}{" "}
-                        {(tx.amountMinor / 100).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {formatMoney(Math.round(tx.amountMinor / 100))}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -284,10 +282,7 @@ export default function TransactionsClient({
                     Amount
                   </p>
                   <span className="text-sm font-bold text-[#00152A]">
-                    {tx.currency}{" "}
-                    {(tx.amountMinor / 100).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {formatMoney(Math.round(tx.amountMinor / 100))}
                   </span>
                 </div>
               </div>

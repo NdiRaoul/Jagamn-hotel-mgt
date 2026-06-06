@@ -223,3 +223,86 @@ export interface PaymentEvent {
   payload: unknown;
   created_at: string;
 }
+
+// ── Procurement / Inventory (storekeeper) ───────────────────────────────────
+// Money columns (*_minor) store francs × 100; divide by 100 in the data layer.
+
+export interface Supplier {
+  id: string;
+  name: string;
+  category: string | null;
+  contact: string | null;
+  email: string | null;
+  phone: string | null;
+  rating: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_id: string | null;
+  description: string;
+  total_minor: number; // francs × 100
+  currency: string;
+  status: string; // pending_approval | approved | ordered | in_transit | delivered | cancelled
+  priority: string; // low | medium | high | urgent
+  department: string | null;
+  ordered_at: string | null;
+  delivered_at: string | null;
+  created_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  order_id: string;
+  description: string;
+  quantity: number;
+  unit_price_minor: number; // francs × 100
+  total_minor: number; // generated: quantity * unit_price_minor
+}
+
+export interface ProcurementBudget {
+  id: string;
+  department: string;
+  year: number;
+  month: number | null;
+  budget_minor: number; // francs × 100
+  created_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: string | null;
+  unit: string;
+  on_hand: number;
+  reorder_level: number;
+  max_stock: number | null;
+  image_url: string | null;
+  last_counted_at: string | null;
+  supplier_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryRequest {
+  id: string;
+  item_id: string | null;
+  item_name: string;
+  quantity: number;
+  requested_by: string | null;
+  status: "requested" | "approved" | "fulfilled" | "rejected";
+  notes: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  fulfilled_at: string | null;
+  fulfilled_by: string | null;
+  created_at: string;
+  updated_at: string;
+}

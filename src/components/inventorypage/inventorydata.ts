@@ -7,7 +7,7 @@ export type PredictiveStatus = "HIGH RISK OF DEPLETION" | "STABLE" | "MONITOR";
 export interface InventoryItem {
   id: string;
   name: string;
-  category: ItemCategory;
+  category: string;
   unitLabel: string;
   currentStock: number;
   maxStock: number;

@@ -50,9 +50,10 @@ function StockBar({ current, max }: { current: number; max: number }) {
 interface InventoryTableProps {
   items: InventoryItem[];
   onItemsChange: (items: InventoryItem[]) => void;
+  onUpdateStock?: (id: string, newStock: number) => void;
 }
 
-export function InventoryTable({ items, onItemsChange }: InventoryTableProps) {
+export function InventoryTable({ items, onItemsChange, onUpdateStock }: InventoryTableProps) {
   const [activeTab, setActiveTab] = useState<TabOption>("All Items");
   const [sortBy, setSortBy] = useState<SortOption>("Stock Level (Low to High)");
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,6 +87,7 @@ export function InventoryTable({ items, onItemsChange }: InventoryTableProps) {
   }
 
   function handleUpdate(id: string, newStock: number) {
+    onUpdateStock?.(id, newStock);
     onItemsChange(
       items.map((item) => (item.id === id ? { ...item, currentStock: newStock } : item))
     );
@@ -136,7 +138,8 @@ export function InventoryTable({ items, onItemsChange }: InventoryTableProps) {
         </div>
 
         {/* Table */}
-        <table className="w-full mt-3">
+        <div className="overflow-x-auto">
+        <table className="w-full mt-3 min-w-[640px]">
           <thead>
             <tr className="bg-gray-900 text-white text-xs uppercase tracking-widest">
               <th className="text-left px-5 py-3 font-semibold w-[32%]">Item Description</th>
@@ -209,6 +212,7 @@ export function InventoryTable({ items, onItemsChange }: InventoryTableProps) {
             })}
           </tbody>
         </table>
+        </div>
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">

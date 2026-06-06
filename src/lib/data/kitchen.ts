@@ -225,19 +225,30 @@ export async function getInventoryRequests(): Promise<InventoryRequest[]> {
       updated_at,
       staff:requested_by (
         full_name
+      ),
+      inventory_items:item_id (
+        unit
       )
     `,
     )
-    .in("status", ["requested", "approved", "fulfilled"])
+    .in("status", ["requested", "approved", "fulfilled", "rejected"])
     .order("created_at", { ascending: false })
     .limit(20);
 
   if (error) throw error;
 
   return (data || []).map((req: any) => {
+    // Map storekeeper status → kitchen UI state
     let mappedStatus: InventoryRequest["status"] = "awaiting";
+    let alertMessage: string | undefined;
     if (req.status === "fulfilled") mappedStatus = "confirmed";
-    else if (req.status === "requested") mappedStatus = "awaiting";
+    else if (req.status === "approved") mappedStatus = "awaiting";
+    else if (req.status === "rejected") {
+      mappedStatus = "system_alert";
+      alertMessage = `Request for ${req.item_name} was rejected by the storekeeper.`;
+    } else mappedStatus = "awaiting";
+
+    const unit = req.inventory_items?.unit ?? "units";
 
     return {
       id: req.id,
@@ -247,10 +258,11 @@ export async function getInventoryRequests(): Promise<InventoryRequest[]> {
       items: [
         {
           name: req.item_name,
-          amount: `${req.quantity} ${req.notes || "units"}`,
+          amount: `${req.quantity} ${unit}`,
         },
       ],
       storeKeeperNote: req.notes || undefined,
+      alertMessage,
       requested_by_name: req.staff?.full_name || "Kitchen",
       created_at: req.created_at,
       updated_at: req.updated_at,

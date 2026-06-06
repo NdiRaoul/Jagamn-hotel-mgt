@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { formatMoney } from "@/lib/currency";
 import {
   Package,
   Truck,
@@ -40,8 +42,23 @@ export default function ProcurementClient({
   orders,
   suppliers,
 }: ProcurementClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("orders");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const updateStatus = async (orderId: string, status: string) => {
+    const res = await fetch(`/api/admin/procurement/orders/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to update order");
+    }
+  };
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
@@ -127,7 +144,7 @@ export default function ProcurementClient({
           />
           <ProcStatCard
             label="Monthly Spend"
-            value={`$${kpis?.monthly_spend ? (kpis.monthly_spend / 1000).toFixed(0) : "0"}k`}
+            value={formatMoney(Math.round((kpis?.totalSpendMinor ?? 0) / 100))}
             subtext="Across all departments"
             icon={<ShoppingCart className="w-5 h-5" />}
           />
@@ -246,7 +263,7 @@ export default function ProcurementClient({
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <h4 className="manrope-bold text-base text-[#0D2137]">
-                          {po.item_description || "N/A"}
+                          {po.description || po.item_description || "N/A"}
                         </h4>
                         <Badge
                           className={cn(
@@ -266,10 +283,10 @@ export default function ProcurementClient({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-10 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-right">
                       <p className="manrope-bold text-lg text-[#0D2137]">
-                        ${(po.total_amount || 0).toLocaleString("en-US")}
+                        {formatMoney(Math.round((po.total_minor ?? 0) / 100))}
                       </p>
                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
                         {po.created_at
@@ -277,6 +294,22 @@ export default function ProcurementClient({
                           : "N/A"}
                       </p>
                     </div>
+                    {po.status === "pending_approval" && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateStatus(po.id, "approved")}
+                          className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => updateStatus(po.id, "cancelled")}
+                          className="h-10 px-4 rounded-xl border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

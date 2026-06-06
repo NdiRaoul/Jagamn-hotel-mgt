@@ -15,7 +15,15 @@ import { stockMovementData } from "./reportsdata";
 
 const DATE_RANGES = ["Last 7 Days", "Last 30 Days", "Last 90 Days"];
 
-export function StockMovementChart() {
+interface MovementDatum {
+  period: string;
+  inflow: number;
+  outflow: number;
+}
+
+export function StockMovementChart({
+  data = stockMovementData,
+}: { data?: MovementDatum[] } = {}) {
   const [dateRange, setDateRange] = useState("Last 7 Days");
 
   return (
@@ -42,7 +50,7 @@ export function StockMovementChart() {
 
       <ResponsiveContainer width="100%" height={280}>
         <LineChart
-          data={stockMovementData}
+          data={data}
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
@@ -56,11 +64,11 @@ export function StockMovementChart() {
             tick={{ fontSize: 11, fill: "#9CA3AF" }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+            tickFormatter={(v: number) => `${v}`}
           />
           <Tooltip
             formatter={(value, name) => [
-              `$${Number(value).toLocaleString()}`,
+              `${Number(value).toLocaleString()}`,
               name === "inflow" ? "Stock Inflow" : "Stock Outflow",
             ]}
             contentStyle={{

@@ -11,15 +11,36 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Zap } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 import {
   inventoryValuationData,
-  topCategories,
-  predictiveInsight,
+  topCategories as mockTopCategories,
+  predictiveInsight as mockInsight,
 } from "./reportsdata";
 
 const DATE_RANGES = ["Last 30 Days", "Last 90 Days", "This Year"];
 
-export function InventoryValuationChart() {
+interface ValuationDatum {
+  category: string;
+  value: number;
+}
+interface TopCategory {
+  name: string;
+  sub: string;
+  turnover: string;
+}
+
+interface InventoryValuationChartProps {
+  data?: ValuationDatum[];
+  topCategories?: TopCategory[];
+  insight?: string;
+}
+
+export function InventoryValuationChart({
+  data = inventoryValuationData,
+  topCategories = mockTopCategories,
+  insight = mockInsight,
+}: InventoryValuationChartProps = {}) {
   const [dateRange, setDateRange] = useState("Last 30 Days");
 
   return (
@@ -48,7 +69,7 @@ export function InventoryValuationChart() {
 
         <ResponsiveContainer width="100%" height={220}>
           <BarChart
-            data={inventoryValuationData}
+            data={data}
             margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
@@ -62,13 +83,10 @@ export function InventoryValuationChart() {
               tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
             />
             <Tooltip
-              formatter={(value) => [
-                `$${Number(value).toLocaleString()}`,
-                "Value",
-              ]}
+              formatter={(value) => [formatMoney(Number(value)), "Value"]}
               contentStyle={{
                 borderRadius: "8px",
                 border: "1px solid #E5E7EB",
@@ -118,7 +136,7 @@ export function InventoryValuationChart() {
             </span>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            {predictiveInsight}
+            {insight}
           </p>
         </div>
       </div>

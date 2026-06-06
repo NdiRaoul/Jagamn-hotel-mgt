@@ -31,25 +31,3 @@ export function formatMoney(
   }).format(amountXaf);
   return `${formatted} FCFA`;
 }
-
-/**
- * @deprecated Use formatMoney() directly. XAF is zero-decimal, no minor units.
- * This function is kept for backward compatibility during migration.
- *
- * MIGRATION NOTE: If you're calling this, you're likely doing unnecessary ÷100.
- * XAF has no subunits - 1000 XAF = 1000 francs, not 1000 cents.
- *
- * After Phase 4 migration, all *_minor columns are renamed to plain amounts.
- * Replace: formatMoneyMinor(value) → formatMoney(value)
- */
-export function formatMoneyMinor(
-  amountXaf: number,
-  options?: Intl.NumberFormatOptions,
-): string {
-  // During migration: some old data might still be stored as ×100
-  // After migration complete: this should just call formatMoney(amountXaf)
-  console.warn(
-    "formatMoneyMinor is deprecated. Use formatMoney() for XAF (zero-decimal currency).",
-  );
-  return formatMoney(amountXaf / 100, options);
-}

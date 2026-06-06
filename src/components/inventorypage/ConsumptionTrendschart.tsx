@@ -10,10 +10,29 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { consumptionTrendsData, consumptionSummary } from "./reportsdata";
+import {
+  consumptionTrendsData,
+  consumptionSummary as mockConsumptionSummary,
+} from "./reportsdata";
 import { TrendingDown } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
 
-export function ConsumptionTrendsChart() {
+interface ConsumptionDatum {
+  month: string;
+  purchased: number;
+  consumed: number;
+}
+interface ConsumptionSummary {
+  purchased: string;
+  consumed: string;
+  note: string;
+}
+
+export function ConsumptionTrendsChart({
+  data = consumptionTrendsData,
+  summary = mockConsumptionSummary,
+}: { data?: ConsumptionDatum[]; summary?: ConsumptionSummary } = {}) {
+  const consumptionSummary = summary;
   return (
     <div className="mb-6 space-y-4">
       {/* Chart */}
@@ -31,7 +50,7 @@ export function ConsumptionTrendsChart() {
 
         <ResponsiveContainer width="100%" height={260}>
           <BarChart
-            data={consumptionTrendsData}
+            data={data}
             margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
@@ -45,11 +64,11 @@ export function ConsumptionTrendsChart() {
               tick={{ fontSize: 11, fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
             />
             <Tooltip
               formatter={(value, name) => [
-                `$${Number(value).toLocaleString()}`,
+                formatMoney(Number(value)),
                 name === "purchased" ? "Purchased" : "Consumed",
               ]}
               contentStyle={{

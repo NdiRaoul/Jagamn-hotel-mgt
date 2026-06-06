@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { lowStockItems } from "./reportsdata";
+import { lowStockItems as mockLowStockItems, LowStockReportItem } from "./reportsdata";
 import Image from "next/image";
 
-export function CriticalLowStock() {
+export function CriticalLowStock({
+  items: lowStockItems = mockLowStockItems,
+}: { items?: LowStockReportItem[] } = {}) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
 

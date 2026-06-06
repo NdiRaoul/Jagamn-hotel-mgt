@@ -1,3 +1,5 @@
+import { formatMoney } from "@/lib/currency";
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type KitchenRequestStatus = "NEEDS APPROVAL" | "IN QUEUE" | "DISPATCHED";
@@ -108,8 +110,8 @@ export const mockStockAlerts: StockAlert[] = [
 ];
 
 export const mockPurchaseOrders: PurchaseOrder[] = [
-  { id: "8822", name: "Stationery", amount: "$1,240", column: "DRAFTS" },
-  { id: "8825", name: "Linen", amount: "$4,800", column: "DRAFTS" },
+  { id: "8822", name: "Stationery", amount: formatMoney(1240), column: "DRAFTS" },
+  { id: "8825", name: "Linen", amount: formatMoney(4800), column: "DRAFTS" },
   { id: "8790", name: "Wine Cellar", badge: "Pending Finance", column: "SUBMITTED" },
   { id: "8795", name: "Pool Chem", badge: "Vendor Review", column: "SUBMITTED" },
   { id: "8750", name: "Fresh Produce", badge: "Expected 2 PM", column: "APPROVED" },

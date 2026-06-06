@@ -13,6 +13,9 @@ import {
   LogOut,
   Wallet,
   Building2,
+  ShoppingCart,
+  Package,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,11 +24,19 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import Link from "next/link";
 import type { DashboardKpi } from "@/lib/data/admin";
 import type { Staff } from "@/types/database";
+import { formatMoney } from "@/lib/currency";
 
 interface Props {
   kpis: DashboardKpi[];
   revenue: { revenue: number; settledPayments: number; pendingPayments: number };
   roster: Staff[];
+  alerts?: { item: string; priority: string; status: string }[];
+  procurementKpis?: {
+    pendingApproval: number;
+    inTransit: number;
+    deliveredThisMonth: number;
+    totalSpendMinor: number;
+  };
 }
 
 function buildDeploymentRows(roster: Staff[]) {
@@ -67,7 +78,13 @@ const SPARKLINE = [
   { value: 55 },
 ];
 
-export default function AdminOverviewClient({ kpis, revenue, roster }: Props) {
+export default function AdminOverviewClient({
+  kpis,
+  revenue,
+  roster,
+  alerts = [],
+  procurementKpis,
+}: Props) {
   const arrivals = kpis.find((k) => k.label === "Today's Arrivals")?.value ?? 0;
   const departures =
     kpis.find((k) => k.label === "Today's Departures")?.value ?? 0;
@@ -131,7 +148,7 @@ export default function AdminOverviewClient({ kpis, revenue, roster }: Props) {
               <div className="flex items-end justify-between">
                 <div>
                   <h2 className="manrope-bold text-5xl mb-3">
-                    ${revenue.revenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                    {formatMoney(revenue.revenue)}
                   </h2>
                   <div className="flex items-center gap-1.5 text-green-400 text-xs font-bold">
                     <TrendingUp className="w-4 h-4" />
@@ -206,6 +223,92 @@ export default function AdminOverviewClient({ kpis, revenue, roster }: Props) {
               <h3 className="manrope-bold text-2xl text-jagamn-primary">{departures}</h3>
               <span className="text-xs text-gray-400 font-medium">departures</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Operations Alerts + Procurement ──────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Operations Alerts (low stock) */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-jagamn-tertiary" />
+              <h3 className="manrope-bold text-lg text-jagamn-primary">
+                Operations Alerts
+              </h3>
+            </div>
+            <Link
+              href="/admin/procurement"
+              className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-jagamn-primary"
+            >
+              View Procurement
+            </Link>
+          </div>
+          {alerts.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">
+              No low-stock alerts — inventory healthy.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {alerts.slice(0, 6).map((a, i) => (
+                <li key={i} className="flex items-center justify-between py-3">
+                  <span className="text-sm font-medium text-jagamn-primary">
+                    {a.item}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full",
+                      a.priority === "high"
+                        ? "bg-red-50 text-red-600"
+                        : "bg-amber-50 text-amber-600",
+                    )}
+                  >
+                    {a.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Procurement KPIs */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+          <div className="flex items-center gap-2 mb-5">
+            <ShoppingCart className="w-5 h-5 text-jagamn-primary" />
+            <h3 className="manrope-bold text-lg text-jagamn-primary">Procurement</h3>
+          </div>
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-gray-500">
+                <Package className="w-4 h-4" /> Pending approval
+              </span>
+              <span className="font-bold text-jagamn-primary">
+                {procurementKpis?.pendingApproval ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-gray-500">
+                <Truck className="w-4 h-4" /> In transit
+              </span>
+              <span className="font-bold text-jagamn-primary">
+                {procurementKpis?.inTransit ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Delivered this month</span>
+              <span className="font-bold text-jagamn-primary">
+                {procurementKpis?.deliveredThisMonth ?? 0}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+              Total spend
+            </p>
+            <p className="manrope-bold text-2xl text-jagamn-primary">
+              {formatMoney(Math.round((procurementKpis?.totalSpendMinor ?? 0) / 100))}
+            </p>
           </div>
         </div>
       </div>

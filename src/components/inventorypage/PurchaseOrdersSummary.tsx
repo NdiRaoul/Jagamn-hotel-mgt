@@ -1,6 +1,6 @@
 "use client";
 
-import { PurchaseOrder, POStatus, mockPOCounts } from "./data";
+import { PurchaseOrder, POStatus } from "./data";
 
 const badgeStyles: Record<string, string> = {
   "Pending Finance": "text-amber-600",
@@ -74,16 +74,19 @@ export function PurchaseOrdersSummary({ orders, onViewOrder }: PurchaseOrdersSum
   return (
     <div className="mt-8">
       <h2 className="font-bold text-gray-900 mb-4 text-base">Purchase Orders Summary</h2>
-      <div className="flex gap-4">
-        {COLUMNS.map((col) => (
-          <POColumn
-            key={col}
-            status={col}
-            count={mockPOCounts[col]}
-            orders={orders.filter((o) => o.column === col)}
-            onOrderClick={onViewOrder}
-          />
-        ))}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {COLUMNS.map((col) => {
+          const colOrders = orders.filter((o) => o.column === col);
+          return (
+            <POColumn
+              key={col}
+              status={col}
+              count={colOrders.length}
+              orders={colOrders}
+              onOrderClick={onViewOrder}
+            />
+          );
+        })}
       </div>
     </div>
   );

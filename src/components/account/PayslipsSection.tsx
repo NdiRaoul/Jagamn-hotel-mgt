@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Download, FileText } from "lucide-react";
-import { formatMoneyMinor } from "@/lib/currency";
+import { formatMoney } from "@/lib/currency";
 import jsPDF from "jspdf";
 
 interface Payslip {
@@ -98,12 +98,12 @@ export function PayslipsSection() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Base Salary: ${formatMoneyMinor(payslip.base_salary_minor)}`,
+      `Base Salary: ${formatMoney(Math.round(payslip.base_salary_minor / 100))}`,
       20,
       105,
     );
     doc.text(
-      `Deductions: ${formatMoneyMinor(payslip.deductions_minor)}`,
+      `Deductions: ${formatMoney(Math.round(payslip.deductions_minor / 100))}`,
       20,
       112,
     );
@@ -111,7 +111,7 @@ export function PayslipsSection() {
     // Net Pay (highlighted)
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`Net Pay: ${formatMoneyMinor(payslip.net_pay_minor)}`, 20, 125);
+    doc.text(`Net Pay: ${formatMoney(Math.round(payslip.net_pay_minor / 100))}`, 20, 125);
 
     // Status
     doc.setFontSize(10);
@@ -191,7 +191,7 @@ export function PayslipsSection() {
                         Base Salary
                       </p>
                       <p className="font-medium text-jagamn-primary">
-                        {formatMoneyMinor(payslip.base_salary_minor)}
+                        {formatMoney(Math.round(payslip.base_salary_minor / 100))}
                       </p>
                     </div>
                     <div>
@@ -199,7 +199,7 @@ export function PayslipsSection() {
                         Deductions
                       </p>
                       <p className="font-medium text-red-600">
-                        {formatMoneyMinor(payslip.deductions_minor)}
+                        {formatMoney(Math.round(payslip.deductions_minor / 100))}
                       </p>
                     </div>
                     <div>
@@ -207,7 +207,7 @@ export function PayslipsSection() {
                         Net Pay
                       </p>
                       <p className="font-bold text-jagamn-primary text-lg">
-                        {formatMoneyMinor(payslip.net_pay_minor)}
+                        {formatMoney(Math.round(payslip.net_pay_minor / 100))}
                       </p>
                     </div>
                   </div>

@@ -36,7 +36,7 @@ import {
 import type { Staff } from "@/types/database";
 import type { LeaveRequest, Deduction, LeaveType } from "@/lib/data/hr";
 import type { HrLeaveSummary } from "@/lib/data/admin";
-import { formatMoneyMinor } from "@/lib/currency";
+import { formatMoney } from "@/lib/currency";
 
 interface Props {
   roster: Staff[];
@@ -577,7 +577,7 @@ function DeductionsView({ requests }: { requests: Deduction[] }) {
                     </Badge>
                   </td>
                   <td className="px-10 py-6 text-red-500 manrope-bold text-base">
-                    -{formatMoneyMinor(d.amount_minor)}
+                    -{formatMoney(Math.round(d.amount_minor / 100))}
                   </td>
                   <td className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {d.applied_on}

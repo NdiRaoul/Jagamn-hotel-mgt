@@ -182,16 +182,20 @@ function RequestCard({ request, onConfirm, onDismiss }: RequestCardProps) {
 interface PendingKitchenConfirmationsProps {
   requests: KitchenRequest[];
   onViewAll: () => void;
+  onConfirm?: (id: string) => void;
+  onReject?: (id: string) => void;
 }
 
-export function PendingKitchenConfirmations({ requests, onViewAll }: PendingKitchenConfirmationsProps) {
+export function PendingKitchenConfirmations({ requests, onViewAll, onConfirm, onReject }: PendingKitchenConfirmationsProps) {
   const [items, setItems] = useState<KitchenRequest[]>(requests);
 
   function handleConfirm(id: string) {
+    onConfirm?.(id);
     setItems((prev) => prev.filter((r) => r.id !== id));
   }
 
   function handleDismiss(id: string) {
+    onReject?.(id);
     setItems((prev) => prev.filter((r) => r.id !== id));
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { formatMoney } from "@/lib/currency";
 import {
   Plus,
   Search,
@@ -256,7 +257,7 @@ export default function FBClient({ summary, error }: Props) {
                     {item.category}
                   </Badge>
                   <span className="manrope-bold text-2xl text-[#0D2137]">
-                    ${item.price.toFixed(2)}
+                    {formatMoney(item.price)}
                   </span>
                 </div>
                 <div>
@@ -443,9 +444,6 @@ function AddMenuModal({ onAdd }: { onAdd: (item: LocalMenuItem) => void }) {
                 Price (FCFA)
               </label>
               <div className="relative">
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl manrope-bold text-slate-400">
-                  $
-                </span>
                 <Input
                   type="number"
                   value={price}

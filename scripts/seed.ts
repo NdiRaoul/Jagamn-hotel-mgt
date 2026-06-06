@@ -1115,6 +1115,169 @@ async function seed() {
     });
   }
 
+  // ── 7b. Storekeeper samples (expanded inventory, requests, POs) ──
+  console.log("\n── Storekeeper Samples (Inventory, Requests, POs) ──");
+
+  // Expand inventory_items (hotel-wide). Amounts are counts, not money.
+  const MORE_ITEMS = [
+    { name: "Egyptian Cotton Towels", category: "Textiles", unit: "cases", on_hand: 12, reorder_level: 30, max_stock: 120 },
+    { name: "Artisan Mineral Water", category: "Consumables", unit: "units", on_hand: 410, reorder_level: 120, max_stock: 500 },
+    { name: "Multi-surface Detergent", category: "Maintenance", unit: "packs", on_hand: 8, reorder_level: 20, max_stock: 80 },
+    { name: "Lavender Bath Salts", category: "Amenities", unit: "kg", on_hand: 22, reorder_level: 15, max_stock: 40 },
+    { name: "Premium Coffee Beans", category: "F&B", unit: "kg", on_hand: 6, reorder_level: 10, max_stock: 50 },
+  ];
+  for (const it of MORE_ITEMS) {
+    const { error } = await supabase
+      .from("inventory_items")
+      .insert({ ...it, is_active: true });
+    log(`inventory: ${it.name}`, !error, error?.message);
+    summary.push({
+      step: `inventory:${it.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Extra suppliers for PO variety
+  const EXTRA_SUPPLIERS = [
+    { name: "Royal Gourmet Imports", category: "F&B", phone: "+237 6 99 11 22 33", rating: 4.6 },
+    { name: "Grand Estates Linens", category: "Textiles", phone: "+237 6 77 44 55 66", rating: 4.2 },
+    { name: "CleanPro Supplies", category: "Maintenance", phone: "+237 6 55 88 99 00", rating: 4.0 },
+  ];
+  for (const s of EXTRA_SUPPLIERS) {
+    const { error } = await supabase
+      .from("suppliers")
+      .insert({ ...s, is_active: true });
+    log(`supplier: ${s.name}`, !error, error?.message);
+    summary.push({
+      step: `supplier:${s.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Look up ids
+  const { data: invItems } = await supabase
+    .from("inventory_items")
+    .select("id,name");
+  const { data: kitchenStaff } = await supabase
+    .from("staff")
+    .select("id")
+    .eq("email", "kitchen@jagamnpalace.com")
+    .single();
+  const { data: storeStaff } = await supabase
+    .from("staff")
+    .select("id")
+    .eq("email", "store@jagamnpalace.com")
+    .single();
+  const findItem = (n: string) =>
+    invItems?.find((i: { id: string; name: string }) => i.name.includes(n));
+
+  // Inventory requests (kitchen → storekeeper)
+  const REQS = [
+    { name: "Wagyu Beef", qty: 5, status: "requested", notes: "Italian Night prep" },
+    { name: "Coffee Beans", qty: 8, status: "requested", notes: "Breakfast service" },
+    { name: "Alphonso Mangoes", qty: 10, status: "approved", notes: "Dessert station" },
+  ];
+  for (const r of REQS) {
+    const it = findItem(r.name);
+    const { error } = await supabase.from("inventory_requests").insert({
+      item_id: it?.id ?? null,
+      item_name: it?.name ?? r.name,
+      quantity: r.qty,
+      requested_by: kitchenStaff?.id ?? null,
+      status: r.status,
+      notes: r.notes,
+    });
+    log(`inv-request: ${r.name}`, !error, error?.message);
+    summary.push({
+      step: `inv-request:${r.name}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
+  // Purchase orders + line items (amounts × 100 to match *_minor convention)
+  const { data: allSuppliers } = await supabase
+    .from("suppliers")
+    .select("id,name");
+  const supId = (n: string) =>
+    allSuppliers?.find((s: { id: string; name: string }) => s.name.includes(n))
+      ?.id ?? null;
+  const PURCHASE_ORDERS = [
+    {
+      description: "Fresh produce restock",
+      supplier: "Gourmet",
+      status: "pending_approval",
+      priority: "high",
+      items: [
+        { description: "Alphonso Mangoes", quantity: 40, unit_price: 2500 },
+        { description: "Saffron (premium)", quantity: 200, unit_price: 350 },
+      ],
+    },
+    {
+      description: "Linen replenishment",
+      supplier: "Linens",
+      status: "approved",
+      priority: "medium",
+      items: [{ description: "Egyptian Cotton Towels", quantity: 80, unit_price: 8000 }],
+    },
+    {
+      description: "Housekeeping chemicals",
+      supplier: "Clean",
+      status: "in_transit",
+      priority: "medium",
+      items: [{ description: "Multi-surface Detergent", quantity: 30, unit_price: 3200 }],
+    },
+    {
+      description: "Protein delivery",
+      supplier: "Gourmet",
+      status: "delivered",
+      priority: "urgent",
+      items: [{ description: "Wagyu Beef A5", quantity: 12, unit_price: 45000 }],
+    },
+  ];
+  for (const po of PURCHASE_ORDERS) {
+    const total = po.items.reduce(
+      (s, i) => s + i.quantity * i.unit_price * 100,
+      0,
+    );
+    const { data: created, error } = await supabase
+      .from("purchase_orders")
+      .insert({
+        description: po.description,
+        supplier_id: supId(po.supplier),
+        total_minor: total,
+        currency: "XAF",
+        status: po.status,
+        priority: po.priority,
+        created_by: storeStaff?.id ?? null,
+        ordered_at: ["in_transit", "delivered"].includes(po.status)
+          ? new Date().toISOString()
+          : null,
+        delivered_at:
+          po.status === "delivered" ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+    if (created) {
+      await supabase.from("purchase_order_items").insert(
+        po.items.map((i) => ({
+          order_id: created.id,
+          description: i.description,
+          quantity: i.quantity,
+          unit_price_minor: i.unit_price * 100,
+        })),
+      );
+    }
+    log(`purchase-order: ${po.description}`, !error, error?.message);
+    summary.push({
+      step: `purchase-order:${po.description}`,
+      status: error ? "error" : "ok",
+      detail: error?.message || "inserted",
+    });
+  }
+
   // ── 8. Sample Data (from 04_seed_samples.ts) ────────────────
   console.log("\n── Sample Data (Salaries, Leave, Payroll, Dining, Help) ──");
 

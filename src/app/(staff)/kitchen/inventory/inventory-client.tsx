@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { InventoryRequest, InventoryItem } from "@/lib/data/kitchen";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +25,42 @@ export default function InventoryClient({
   requests: InventoryRequest[];
   inventory: InventoryItem[];
 }) {
-  const [requests, setRequests] = useState(initialRequests);
+  const router = useRouter();
+  const [requests] = useState(initialRequests);
+  const [showRequest, setShowRequest] = useState(false);
+  const [itemId, setItemId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const lowStockItems = inventory.filter(
     (item) => item.on_hand <= item.reorder_level,
   );
+
+  async function submitRequest() {
+    const item = inventory.find((i) => i.id === itemId);
+    if (!item) return;
+    setSubmitting(true);
+    try {
+      await fetch("/api/kitchen/inventory-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: item.id,
+          item_name: item.name,
+          quantity: Number(quantity) || 1,
+          notes: notes || null,
+        }),
+      });
+      setShowRequest(false);
+      setItemId("");
+      setQuantity("1");
+      setNotes("");
+      router.refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
@@ -37,11 +69,94 @@ export default function InventoryClient({
         <h1 className="manrope-bold text-4xl text-[#00152A]">
           Live Inventory Verification
         </h1>
-        <div className="flex items-center gap-2 text-sm font-bold text-[#1B7F34]">
-          <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
-          Store Keeper Online
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-[#1B7F34]">
+            <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
+            Store Keeper Online
+          </div>
+          <Button
+            onClick={() => setShowRequest(true)}
+            className="bg-[#BA722E] hover:bg-[#D4893E] text-white font-bold rounded-lg flex items-center gap-2"
+          >
+            <Package className="w-4 h-4" />
+            Request Stock
+          </Button>
         </div>
       </div>
+
+      {/* ── Request Stock Modal ───────────────────── */}
+      {showRequest && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowRequest(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="manrope-bold text-lg text-[#00152A]">
+              Request Stock from Store
+            </h3>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+                Item
+              </label>
+              <select
+                value={itemId}
+                onChange={(e) => setItemId(e.target.value)}
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00152A]"
+              >
+                <option value="">Select an item…</option>
+                {inventory.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} ({i.on_hand} {i.unit})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+                Quantity
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00152A]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+                Notes (optional)
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Italian Night prep"
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00152A]"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowRequest(false)}
+                className="flex-1 border-gray-200 font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={submitRequest}
+                disabled={!itemId || submitting}
+                className="flex-1 bg-[#00152A] hover:bg-[#0A2038] text-white font-bold"
+              >
+                {submitting ? "Sending…" : "Send Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Main Grid ─────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
@@ -270,6 +385,30 @@ function RequestCard({ request }: { request: InventoryRequest }) {
             Notify Guest
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  // Rejected by storekeeper
+  if (request.status === "system_alert") {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-red-500 shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            Request {request.orderId}
+          </span>
+          <Badge className="bg-red-50 text-red-600 border-0 text-[9px] font-bold flex items-center gap-1 px-2 py-0.5">
+            <AlertTriangle className="w-3 h-3" />
+            Rejected
+          </Badge>
+        </div>
+        <h3 className="manrope-bold text-2xl text-[#00152A]">{request.dish}</h3>
+        <p className="text-sm text-red-600">
+          {request.alertMessage ?? "This request was rejected by the storekeeper."}
+        </p>
+        {request.storeKeeperNote && (
+          <p className="text-xs text-gray-500 italic">{request.storeKeeperNote}</p>
+        )}
       </div>
     );
   }

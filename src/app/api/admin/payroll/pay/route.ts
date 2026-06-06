@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { notify } from "@/lib/data/notifications";
-import { formatMoneyMinor } from "@/lib/currency";
+import { formatMoney } from "@/lib/currency";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager"];
 const ALLOWED_METHODS = ["cash", "bank", "mtn_momo", "orange_money", "manual"];
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
           staffId: item.staff_id,
           type: "payroll",
           title: "You've been paid",
-          body: `${formatMoneyMinor(item.net_minor)} paid via ${method.replace(/_/g, " ")}.`,
+          body: `${formatMoney(Math.round(item.net_minor / 100))} paid via ${method.replace(/_/g, " ")}.`,
         });
 
         results.push({ itemId, success: true, paymentRef });

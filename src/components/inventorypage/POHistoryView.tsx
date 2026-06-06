@@ -1,6 +1,6 @@
 "use client";
 
-import { poHistoryItems, POHistoryItem } from "./reportsdata";
+import { poHistoryItems as mockPoHistoryItems, POHistoryItem } from "./reportsdata";
 
 const statusBadge: Record<string, string> = {
   DRAFT:      "bg-gray-100 text-gray-600 border border-gray-200",
@@ -10,7 +10,9 @@ const statusBadge: Record<string, string> = {
   RECONCILED: "bg-gray-800 text-gray-100",
 };
 
-export function POHistoryView() {
+export function POHistoryView({
+  items: poHistoryItems = mockPoHistoryItems,
+}: { items?: POHistoryItem[] } = {}) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-6">
       <div className="px-5 py-4 border-b border-gray-100">

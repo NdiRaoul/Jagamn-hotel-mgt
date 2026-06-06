@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { formatMoney } from "@/lib/currency";
 import {
   Package,
   Truck,
   ShoppingCart,
   Plus,
+  Trash2,
   Search,
   ChevronRight,
   AlertCircle,
@@ -37,48 +39,14 @@ import { Label } from "@/components/ui/label";
 import type {
   PurchaseOrder,
   Supplier,
-  ProcurementBudget,
   ProcurementKpis,
 } from "@/lib/data/procurement";
 
 interface Props {
   orders: PurchaseOrder[];
   suppliers: Supplier[];
-  budgets: ProcurementBudget[];
   kpis: ProcurementKpis;
   error: string | null;
-}
-
-function BudgetProgress({
-  label,
-  current,
-  total,
-  color,
-}: {
-  label: string;
-  current: number;
-  total: number;
-  color: string;
-}) {
-  const pct = total > 0 ? Math.min(100, (current / total) * 100) : 0;
-  return (
-    <div className="space-y-2">
-      <div className="flex items-end justify-between">
-        <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">
-          {label}
-        </span>
-        <span className="text-[11px] manrope-bold">
-          ${(current / 100000).toFixed(0)}k / ${(total / 100000).toFixed(0)}k
-        </span>
-      </div>
-      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-1000"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
 }
 
 const STATUS_NEXT: Record<string, string | null> = {
@@ -102,7 +70,6 @@ const STATUS_LABELS: Record<string, string> = {
 export default function ProcurementClient({
   orders: initialOrders,
   suppliers,
-  budgets,
   kpis,
   error,
 }: Props) {
@@ -121,11 +88,43 @@ export default function ProcurementClient({
   const [newPO, setNewPO] = useState({
     description: "",
     supplier_id: "",
-    total_minor: "",
     priority: "medium",
     department: "",
     notes: "",
   });
+
+  // Line items (each with a quantity) — the PO total is derived from these.
+  type LineItem = {
+    id: string;
+    description: string;
+    quantity: number;
+    unitPrice: number; // whole FCFA
+  };
+  const newLineItem = (): LineItem => ({
+    id: Math.random().toString(36).slice(2, 8),
+    description: "",
+    quantity: 1,
+    unitPrice: 0,
+  });
+  const [lineItems, setLineItems] = useState<LineItem[]>([newLineItem()]);
+
+  const updateLineItem = (
+    id: string,
+    field: keyof LineItem,
+    value: string | number,
+  ) =>
+    setLineItems((prev) =>
+      prev.map((li) => (li.id === id ? { ...li, [field]: value } : li)),
+    );
+  const addLineItem = () => setLineItems((prev) => [...prev, newLineItem()]);
+  const removeLineItem = (id: string) =>
+    setLineItems((prev) =>
+      prev.length > 1 ? prev.filter((li) => li.id !== id) : prev,
+    );
+  const lineItemsTotal = lineItems.reduce(
+    (sum, li) => sum + li.quantity * li.unitPrice,
+    0,
+  );
 
   useEffect(() => {
     const handler = (e: CustomEvent<string>) => setSearchQuery(e.detail || "");
@@ -176,8 +175,13 @@ export default function ProcurementClient({
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)),
       );
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to update order");
     }
   };
+
+  const handleDecline = (orderId: string) => handleAdvanceStatus(orderId, "cancelled");
 
   const handleCreatePO = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,12 +192,17 @@ export default function ProcurementClient({
       body: JSON.stringify({
         description: newPO.description,
         supplier_id: newPO.supplier_id || null,
-        total_minor: newPO.total_minor
-          ? Math.round(parseFloat(newPO.total_minor) * 100)
-          : 0,
+        total_minor: Math.round(lineItemsTotal * 100),
         priority: newPO.priority,
         department: newPO.department || null,
         notes: newPO.notes || null,
+        items: lineItems
+          .filter((li) => li.description.trim())
+          .map((li) => ({
+            description: li.description,
+            quantity: li.quantity,
+            unit_price_minor: Math.round(li.unitPrice * 100),
+          })),
       }),
     });
     if (res.ok) {
@@ -208,11 +217,11 @@ export default function ProcurementClient({
       setNewPO({
         description: "",
         supplier_id: "",
-        total_minor: "",
         priority: "medium",
         department: "",
         notes: "",
       });
+      setLineItems([newLineItem()]);
     }
     setSubmitting(false);
   };
@@ -286,21 +295,94 @@ export default function ProcurementClient({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
-                      Total Amount (FCFA)
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newPO.total_minor}
-                      onChange={(e) =>
-                        setNewPO({ ...newPO, total_minor: e.target.value })
-                      }
-                      placeholder="0.00"
-                      className="h-12 bg-[#F1F5F9] border-0 rounded-xl px-5 font-medium"
-                    />
+                  <div className="space-y-3 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                        Line Items
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={addLineItem}
+                        className="flex items-center gap-1.5 text-[10px] font-black text-[#E8924A] uppercase tracking-widest hover:text-[#0D2137] transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Item
+                      </button>
+                    </div>
+
+                    {/* Column headers */}
+                    <div className="grid grid-cols-12 gap-2 px-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      <span className="col-span-5">Item</span>
+                      <span className="col-span-2 text-center">Qty</span>
+                      <span className="col-span-3 text-center">Unit (FCFA)</span>
+                      <span className="col-span-2 text-right">Subtotal</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {lineItems.map((li) => (
+                        <div
+                          key={li.id}
+                          className="grid grid-cols-12 gap-2 items-center"
+                        >
+                          <Input
+                            value={li.description}
+                            onChange={(e) =>
+                              updateLineItem(li.id, "description", e.target.value)
+                            }
+                            placeholder="e.g. Egyptian Cotton Towels"
+                            className="col-span-5 h-11 bg-[#F1F5F9] border-0 rounded-xl px-3 text-sm font-medium"
+                          />
+                          <Input
+                            type="number"
+                            min={1}
+                            value={li.quantity}
+                            onChange={(e) =>
+                              updateLineItem(
+                                li.id,
+                                "quantity",
+                                parseInt(e.target.value) || 0,
+                              )
+                            }
+                            className="col-span-2 h-11 bg-[#F1F5F9] border-0 rounded-xl px-2 text-sm text-center font-semibold"
+                          />
+                          <Input
+                            type="number"
+                            min={0}
+                            value={li.unitPrice}
+                            onChange={(e) =>
+                              updateLineItem(
+                                li.id,
+                                "unitPrice",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="col-span-3 h-11 bg-[#F1F5F9] border-0 rounded-xl px-2 text-sm text-center font-semibold"
+                          />
+                          <div className="col-span-2 flex items-center justify-end gap-1">
+                            <span className="text-xs font-bold text-[#0D2137] truncate">
+                              {formatMoney(
+                                Math.round(li.quantity * li.unitPrice),
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeLineItem(li.id)}
+                              className="text-slate-300 hover:text-red-500 transition-colors shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Total
+                      </span>
+                      <span className="manrope-bold text-lg text-[#0D2137]">
+                        {formatMoney(Math.round(lineItemsTotal))}
+                      </span>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black text-[#43474D] uppercase tracking-widest">
@@ -379,7 +461,7 @@ export default function ProcurementClient({
             },
             {
               label: "Total Spend",
-              value: `$${(kpis.totalSpendMinor / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
+              value: formatMoney(Math.round(kpis.totalSpendMinor / 100)),
               icon: <ShoppingCart className="w-5 h-5" />,
               alert: false,
             },
@@ -545,21 +627,38 @@ export default function ProcurementClient({
                       <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
                           <p className="manrope-bold text-lg text-[#0D2137]">
-                            ${(po.total_minor / 100).toLocaleString("en-US")}
+                            {formatMoney(Math.round(po.total_minor / 100))}
                           </p>
                           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
                             {new Date(po.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        {nextStatus && (
-                          <button
-                            onClick={() =>
-                              handleAdvanceStatus(po.id, nextStatus)
-                            }
-                            className="h-10 px-4 rounded-xl bg-[#0D2137] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0D2137]/80 transition-all"
-                          >
-                            → {STATUS_LABELS[nextStatus]}
-                          </button>
+                        {po.status === "pending_approval" ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleAdvanceStatus(po.id, "approved")}
+                              className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleDecline(po.id)}
+                              className="h-10 px-4 rounded-xl border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        ) : (
+                          nextStatus && (
+                            <button
+                              onClick={() =>
+                                handleAdvanceStatus(po.id, nextStatus)
+                              }
+                              className="h-10 px-4 rounded-xl bg-[#0D2137] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0D2137]/80 transition-all"
+                            >
+                              → {STATUS_LABELS[nextStatus]}
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
@@ -618,42 +717,6 @@ export default function ProcurementClient({
                   </p>
                 )}
               </div>
-            </div>
-
-            {/* Budget bars */}
-            <div className="bg-[#0D2137] rounded-3xl p-8 text-white shadow-2xl space-y-8 relative overflow-hidden">
-              <h3 className="manrope-bold text-lg">Supply Budget</h3>
-              <div className="space-y-6 relative z-10">
-                {budgets.length > 0 ? (
-                  budgets.map((b) => (
-                    <BudgetProgress
-                      key={b.id}
-                      label={b.department}
-                      current={
-                        kpis.totalSpendMinor / Math.max(budgets.length, 1)
-                      }
-                      total={b.budget_minor}
-                      color="#E8924A"
-                    />
-                  ))
-                ) : (
-                  <>
-                    <BudgetProgress
-                      label="Food & Beverage"
-                      current={0}
-                      total={12000000}
-                      color="#E8924A"
-                    />
-                    <BudgetProgress
-                      label="Housekeeping"
-                      current={0}
-                      total={5000000}
-                      color="#1D61FF"
-                    />
-                  </>
-                )}
-              </div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
             </div>
           </div>
         </div>

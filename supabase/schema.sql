@@ -2031,3 +2031,36 @@ create policy "owner manage policies" on hotel_policies
 -- System config: owner only
 create policy "owner manage config" on system_config
   for all using (staff_role() = 'owner');
+
+-- ── Storekeeper enablement (idempotent) ─────────────────────────────────
+-- Money convention: *_minor columns stay francs × 100 to match the rest of
+-- the app. The data layer divides by 100 before display. NO money backfill.
+
+-- 1. inventory_items: columns the storekeeper UI needs
+alter table inventory_items add column if not exists max_stock       integer;
+alter table inventory_items add column if not exists image_url        text;
+alter table inventory_items add column if not exists last_counted_at  timestamptz;
+alter table inventory_items add column if not exists supplier_id      uuid references suppliers(id) on delete set null;
+
+-- backfill a sane max_stock where missing (derive from reorder_level / on_hand)
+update inventory_items
+  set max_stock = greatest(reorder_level * 4, on_hand)
+  where max_stock is null;
+
+-- 2. inventory_requests: storekeeper approval metadata
+--    (status set already exists: requested | approved | fulfilled | rejected)
+alter table inventory_requests add column if not exists approved_by uuid references staff(id) on delete set null;
+alter table inventory_requests add column if not exists approved_at timestamptz;
+
+-- 3. Helpful indexes
+create index if not exists idx_inv_requests_status on inventory_requests(status, created_at desc);
+create index if not exists idx_po_status_created    on purchase_orders(status, created_at desc);
+create index if not exists idx_inv_items_active      on inventory_items(is_active, name);
+
+-- 4. Dashboard helper: today's stock in/out counts
+create or replace view storekeeper_stock_today as
+select
+  (select count(*) from inventory_requests where status = 'fulfilled'
+     and fulfilled_at >= date_trunc('day', now()))                       as stock_out_today,
+  (select count(*) from purchase_orders   where status = 'delivered'
+     and delivered_at >= date_trunc('day', now()))                       as stock_in_today;

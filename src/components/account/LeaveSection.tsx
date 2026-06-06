@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, X, Calendar } from "lucide-react";
-import { formatMoneyMinor } from "@/lib/currency";
 
 interface LeaveType {
   id: string;

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager", "storekeeper"];
+// Approving or declining a purchase order is reserved for admins (and the owner).
+const APPROVAL_ROLES = ["owner", "admin"];
 
 const STATUS_FLOW: Record<string, string[]> = {
   pending_approval: ["approved", "cancelled"],
@@ -44,6 +46,18 @@ export async function PATCH(
   if (!current)
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
+  // Only admins/owner may approve or decline a pending purchase order.
+  if (
+    current.status === "pending_approval" &&
+    (status === "approved" || status === "cancelled") &&
+    !APPROVAL_ROLES.includes(session.role)
+  ) {
+    return NextResponse.json(
+      { error: "Only an admin can approve or decline purchase orders" },
+      { status: 403 },
+    );
+  }
+
   const allowed = STATUS_FLOW[current.status] ?? [];
   if (!allowed.includes(String(status))) {
     return NextResponse.json(
@@ -73,6 +87,32 @@ export async function PATCH(
       { error: "Failed to update order" },
       { status: 500 },
     );
+  }
+
+  // Receive goods: on delivery, increment on_hand for matched inventory items.
+  if (status === "delivered") {
+    const { data: lineItems } = await supabaseAdmin
+      .from("purchase_order_items")
+      .select("description,quantity")
+      .eq("order_id", id);
+
+    for (const li of lineItems ?? []) {
+      const { data: match } = await supabaseAdmin
+        .from("inventory_items")
+        .select("id,on_hand")
+        .ilike("name", `%${li.description}%`)
+        .limit(1)
+        .maybeSingle();
+      if (match) {
+        await supabaseAdmin
+          .from("inventory_items")
+          .update({
+            on_hand: match.on_hand + (li.quantity ?? 0),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", match.id);
+      }
+    }
   }
 
   await supabaseAdmin.from("audit_log").insert({

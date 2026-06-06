@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { formatMoneyMinor } from "@/lib/currency";
+import { formatMoney } from "@/lib/currency";
 import type { PayrollRun, PayrollItem } from "@/lib/data/payroll";
 
 interface Props {
@@ -335,7 +335,7 @@ export default function PayrollClient({
             </p>
             <h3 className="manrope-bold text-3xl text-[#0D2137] tracking-tight">
               {selectedRun
-                ? formatMoneyMinor(selectedRun.gross_total_minor)
+                ? formatMoney(Math.round(selectedRun.gross_total_minor / 100))
                 : "—"}
             </h3>
           </div>
@@ -345,7 +345,7 @@ export default function PayrollClient({
             </p>
             <h3 className="manrope-bold text-3xl text-[#0D2137] tracking-tight">
               {selectedRun
-                ? formatMoneyMinor(selectedRun.net_total_minor)
+                ? formatMoney(Math.round(selectedRun.net_total_minor / 100))
                 : "—"}
             </h3>
           </div>
@@ -465,17 +465,17 @@ export default function PayrollClient({
                       </td>
                       <td className="px-6 md:px-8 py-5 text-right">
                         <span className="manrope-bold text-sm text-[#0D2137]">
-                          {formatMoneyMinor(item.gross_minor)}
+                          {formatMoney(Math.round(item.gross_minor / 100))}
                         </span>
                       </td>
                       <td className="px-6 md:px-8 py-5 text-right">
                         <span className="manrope-bold text-sm text-[#0D2137]">
-                          {formatMoneyMinor(item.deductions_minor)}
+                          {formatMoney(Math.round(item.deductions_minor / 100))}
                         </span>
                       </td>
                       <td className="px-6 md:px-8 py-5 text-right">
                         <span className="manrope-bold text-sm text-[#0D2137]">
-                          {formatMoneyMinor(item.net_minor)}
+                          {formatMoney(Math.round(item.net_minor / 100))}
                         </span>
                       </td>
                       <td className="px-6 md:px-8 py-5 text-center">
@@ -598,10 +598,8 @@ export default function PayrollClient({
             </div>
             <div className="text-sm text-slate-500">
               Net:{" "}
-              {formatMoneyMinor(
-                Math.round(
-                  (parseFloat(editGross) - parseFloat(editDeductions)) * 100,
-                ),
+              {formatMoney(
+                Math.round(parseFloat(editGross) - parseFloat(editDeductions)),
               )}
             </div>
           </div>

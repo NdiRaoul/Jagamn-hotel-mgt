@@ -172,13 +172,31 @@ export interface FBSummaryItem {
   status: "available" | "out_of_stock";
 }
 
-// TODO: food_and_beverage_items table is pending — returns empty until created.
+// Sourced from the live menu_items table (the F&B menu).
 export async function getFoodAndBeverageSummary(): Promise<{
   items: FBSummaryItem[];
   totalItems: number;
   outOfStock: number;
 }> {
-  return { items: [], totalItems: 0, outOfStock: 0 };
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .select("id,name,price,is_available,menu_categories(name)")
+    .order("sort_order");
+  if (error) throw error;
+
+  const items: FBSummaryItem[] = (data || []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    category: row.menu_categories?.name ?? "Uncategorized",
+    price: row.price ?? 0, // whole XAF
+    status: row.is_available ? "available" : "out_of_stock",
+  }));
+
+  return {
+    items,
+    totalItems: items.length,
+    outOfStock: items.filter((i) => i.status === "out_of_stock").length,
+  };
 }
 
 export async function getHousekeepingTasks(): Promise<
