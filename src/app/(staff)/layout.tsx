@@ -3,5 +3,5 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="staff-layout  min-h-screen">{children}</div>;
+  return <div className="staff-layout min-h-screen">{children}</div>;
 }
