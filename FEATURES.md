@@ -27,7 +27,8 @@ Status legend: ✅ Done · 🚧 Partial / In progress · ❌ Not done (stub or m
 | Email confirmation / auth callback | ✅ Done |
 | Create profile on first login | ✅ Done |
 | Session timeout / idle logout (staff, 20 min) | ✅ Done |
-| Role-based access guard | ✅ Done |
+| Role-based access guard (each role confined to its portal; owner all-access; role-mismatch bounces to own portal) | ✅ Done |
+| Login event capture (device + location) for audit | ✅ Done |
 
 ## Guest Dashboard
 
@@ -51,8 +52,9 @@ Status legend: ✅ Done · 🚧 Partial / In progress · ❌ Not done (stub or m
 | Payment webhooks (Stripe/Fapshi) | ✅ Done |
 | Payment ledger (double-entry) | ✅ Done |
 | Booking confirmation on successful payment | ✅ Done |
+| Payment/booking status auto-flips pending → paid (or failed) on processor result | ✅ Done |
 | Reception cash payments | ✅ Done |
-| Currency handling (XAF, zero-decimal) | ✅ Done |
+| Currency handling (XAF/FCFA, zero-decimal) — client & server | ✅ Done |
 
 ## Reception / Front Desk
 
@@ -87,39 +89,53 @@ Status legend: ✅ Done · 🚧 Partial / In progress · ❌ Not done (stub or m
 
 | Feature | Status |
 | --- | --- |
-| Storekeeper portal | 🚧 Partial (stub) |
-| Inventory request fulfillment workflow | ❌ Not done (placeholder/stub endpoint) |
-| Inventory items management | 🚧 Partial |
+| Storekeeper portal (own sidebar, session-guarded, live staff) | ✅ Done |
+| Dashboard (KPI cards: total inventory value, critical alerts, open orders) | ✅ Done |
+| Inventory page (dynamic, 10/page, status badges) | ✅ Done |
+| Add Inventory item (modal + DB write + table refresh) | ✅ Done |
+| Inventory item image upload (Supabase storage) | ✅ Done |
+| Update stock count / manual audit | ✅ Done |
+| Inventory request fulfillment workflow (approve/fulfill/reject + stock decrement + notify kitchen) | ✅ Done |
+| Purchase orders (list, create via modal, receive goods → stock increment) | ✅ Done |
+| Reports (valuation, stock movement, low stock, PO history, consumption) | ✅ Done |
+| Reports export (CSV + PDF) | ✅ Done |
+| Pricing in FCFA via `formatMoney` | ✅ Done |
+| Color scheme aligned to app tokens | ✅ Done |
+
+> Runtime note: storekeeper screens depend on the `supabase/migrations/2026_storekeeper.sql` migration being applied (adds `inventory_items.max_stock/image_url/last_counted_at/supplier_id`, request approval columns, `storekeeper_stock_today` view). Apply it in the Supabase SQL editor, then `npm run seed`.
 
 ## Admin / Manager Portal
 
 | Feature | Status |
 | --- | --- |
-| Admin dashboard overview | ✅ Done |
+| Admin dashboard overview (+ operations alerts & procurement KPI cards) | ✅ Done |
 | Rooms & room types management | ✅ Done |
+| Users / Customers page (members + guests, returning, account status, detail modal) | ✅ Done |
 | Staff management + staff detail | ✅ Done |
 | Send staff credentials / reset password / suspend / reactivate | ✅ Done |
 | HR (departments, positions, leave) | ✅ Done |
-| HR deductions | ✅ Done |
-| Payroll runs + pay items | ✅ Done |
-| Procurement (suppliers, purchase orders, budgets) | ✅ Done |
-| F&B / menu management | ✅ Done |
-| Revenue reporting | ✅ Done |
+| HR deductions (own sidebar item) | ✅ Done |
+| Payroll runs + pay items (FCFA) | ✅ Done |
+| Procurement — approve/decline orders (admin/owner only); suppliers; create PO with line-item quantities | ✅ Done |
+| F&B / menu management (live `menu_items`) | ✅ Done |
+| Revenue reporting (FCFA) | ✅ Done |
 | Alerts management | ✅ Done |
+| Audit logs (Operations / Logins tabs, device + location, CSV/PDF export) | ✅ Done |
 
 ## Superadmin / Owner Portal
 
 | Feature | Status |
 | --- | --- |
-| Superadmin dashboard overview | ✅ Done |
+| Superadmin dashboard overview (+ procurement & low-stock cards) | ✅ Done |
 | Rooms management | ✅ Done |
+| Users / Customers page | ✅ Done |
 | Staff management + staff detail | ✅ Done |
 | HR + deductions | ✅ Done |
 | Payroll | ✅ Done |
 | Procurement | ✅ Done |
 | Revenue reporting | ✅ Done |
 | Financial sync | ✅ Done |
-| Audit log (partitioned) | ✅ Done |
+| Audit log (Operations / Logins tabs, device + location, CSV/PDF export) | ✅ Done |
 | System alerts | ✅ Done |
 | Settings / system config / hotel policies | ✅ Done |
 | F&B management | ✅ Done |
@@ -162,7 +178,3 @@ Status legend: ✅ Done · 🚧 Partial / In progress · ❌ Not done (stub or m
 | PDF generation (jsPDF) | ✅ Done |
 | Money formatting with comma separators (XAF) | ✅ Done |
 
----
-
-### Known incomplete areas
-- **Storekeeper portal** — UI is a placeholder with a `TODO(storekeeper)` marker; the inventory-request fulfillment API (`/api/storekeeper/inventory-requests/[id]`) returns a permissive stub and full fulfillment logic is pending.
