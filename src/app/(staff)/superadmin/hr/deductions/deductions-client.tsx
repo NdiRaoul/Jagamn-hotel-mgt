@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingDown, Plus, DollarSign } from "lucide-react";
+import { TrendingDown, DollarSign, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,8 +41,15 @@ export default function DeductionsClient({
 }: DeductionsClientProps) {
   const { toast } = useToast();
   const [deductions, setDeductions] = useState(initialDeductions);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedDeduction, setSelectedDeduction] =
+    useState<StaffDeduction | null>(null);
+
+  // The owner may only apply deductions to admin/manager staff. Everyone else
+  // is view-only here, so they're excluded from the target dropdown.
+  const eligibleStaff = staff.filter((s) =>
+    ["admin", "manager"].includes(s.role),
+  );
 
   // Form state
   const [selectedStaff, setSelectedStaff] = useState("");
@@ -100,7 +107,6 @@ export default function DeductionsClient({
       const newDeduction = await response.json();
 
       setDeductions([newDeduction, ...deductions]);
-      setIsAddDialogOpen(false);
       setSelectedStaff("");
       setDeductionType("");
       setAmount("");
@@ -171,11 +177,16 @@ export default function DeductionsClient({
                   <SelectValue placeholder="Select an employee..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {staff.map((s) => (
+                  {eligibleStaff.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.full_name} - {s.staff_code}
                     </SelectItem>
                   ))}
+                  {eligibleStaff.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-gray-400">
+                      No admin/manager staff available.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -290,9 +301,19 @@ export default function DeductionsClient({
                             {deduction.staff?.position}
                           </p>
                         </div>
-                        <p className="manrope-bold text-lg text-red-600">
-                          -{formatCurrency(deduction.amount_minor)}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <p className="manrope-bold text-lg text-red-600">
+                            -{formatCurrency(deduction.amount_minor)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDeduction(deduction)}
+                            title="View details"
+                            className="text-slate-400 hover:text-jagamn-primary transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 mb-2">
@@ -353,6 +374,63 @@ export default function DeductionsClient({
           </div>
         </div>
       </div>
+
+      {/* Read-only deduction details modal */}
+      <Dialog
+        open={!!selectedDeduction}
+        onOpenChange={(open) => !open && setSelectedDeduction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deduction Details</DialogTitle>
+            <DialogDescription>
+              {selectedDeduction?.staff?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDeduction && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Amount</span>
+                <span className="font-bold text-red-600">
+                  -{formatCurrency(selectedDeduction.amount_minor)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Type</span>
+                <Badge
+                  className={`text-[9px] font-bold uppercase ${getTypeColor(selectedDeduction.type)}`}
+                >
+                  {selectedDeduction.type}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Applied</span>
+                <span className="font-semibold text-jagamn-primary">
+                  {new Date(
+                    selectedDeduction.applied_date,
+                  ).toLocaleString()}
+                </span>
+              </div>
+              {selectedDeduction.staff?.department && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Department</span>
+                  <span className="font-semibold text-jagamn-primary">
+                    {selectedDeduction.staff.department}
+                  </span>
+                </div>
+              )}
+              {selectedDeduction.reason && (
+                <div className="pt-2 border-t border-gray-100">
+                  <span className="text-gray-400 block mb-1">Reason</span>
+                  <p className="text-jagamn-primary italic">
+                    "{selectedDeduction.reason}"
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -52,7 +52,7 @@ export default function ReportsClient({ reports }: { reports: StoreReports }) {
   const lowStockItems: LowStockReportItem[] = reports.lowStock.map((l) => ({
     id: l.id,
     name: l.name,
-    image: PLACEHOLDER,
+    image: l.image_url ?? PLACEHOLDER,
     lastTime: "",
     currentUnits: l.on_hand,
     minUnits: l.reorder_level,
@@ -134,7 +134,7 @@ export default function ReportsClient({ reports }: { reports: StoreReports }) {
         </div>
       )}
 
-      <ExportReportBar activeTab={activeTab} />
+      <ExportReportBar activeTab={activeTab} reports={reports} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   RefreshCcw,
   TrendingUp,
@@ -9,6 +10,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   LineChart,
@@ -99,7 +102,36 @@ export default function FinancialSyncClient({
     revenue: point.revenue,
   }));
 
+  const router = useRouter();
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncLabel, setLastSyncLabel] = useState<string | null>(null);
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/financial-sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      setLastSyncLabel("Just now");
+      toast({
+        title: "Financial sync complete",
+        description: "Payment ledger and revenue figures are up to date.",
+      });
+      router.refresh();
+    } catch (e: any) {
+      toast({
+        title: "Sync failed",
+        description: e?.message || "Could not run financial sync",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const timeSinceSync = () => {
+    if (lastSyncLabel) return lastSyncLabel;
     const now = new Date();
     const sync = new Date(syncStats.lastSync);
     const diffMs = now.getTime() - sync.getTime();
@@ -124,11 +156,21 @@ export default function FinancialSyncClient({
             Real-time payment processing and revenue reconciliation
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-sm font-bold text-green-700">
-            Last sync: {timeSinceSync()}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-bold text-green-700">
+              Last sync: {timeSinceSync()}
+            </span>
+          </div>
+          <Button
+            onClick={handleSyncNow}
+            disabled={syncing}
+            className="bg-jagamn-primary hover:bg-jagamn-tertiary text-white gap-2"
+          >
+            <RefreshCcw className={cn("w-4 h-4", syncing && "animate-spin")} />
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
         </div>
       </div>
 

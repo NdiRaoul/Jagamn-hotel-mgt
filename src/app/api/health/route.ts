@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { drainReconcileQueue } from "@/lib/redis/reconcile";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
  *   unreachable, so the orchestrator can drain the instance from rotation.
  */
 export async function GET(request: NextRequest) {
+  // Fire-and-forget reconcile drain (backstop for missed webhooks).
+  drainReconcileQueue().catch(() => {});
+
   const deep = new URL(request.url).searchParams.get("check") === "db";
   const timestamp = new Date().toISOString();
 

@@ -58,6 +58,20 @@ const STATUS_CONFIG = {
     textColor: "text-yellow-600",
     icon: Sparkles,
   },
+  dirty: {
+    color: "bg-[#ECC94B]",
+    text: "Needs Cleaning",
+    light: "bg-yellow-50",
+    textColor: "text-yellow-600",
+    icon: Sparkles,
+  },
+  out_of_order: {
+    color: "bg-[#718096]",
+    text: "Out of Order",
+    light: "bg-gray-50",
+    textColor: "text-gray-600",
+    icon: Hammer,
+  },
 };
 
 interface RoomsClientProps {
@@ -84,7 +98,7 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
       (r: any) => r.status === "occupied",
     ).length;
     const cleaning = initialRooms.filter(
-      (r: any) => r.status === "cleaning",
+      (r: any) => r.status === "dirty" || r.status === "cleaning",
     ).length;
     return {
       occupancy: total ? Math.round((occupied / total) * 100) : 0,
@@ -97,9 +111,10 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
-        (r.room_number && r.room_number.toLowerCase().includes(q)) ||
-        (r.room_type && r.room_type.toLowerCase().includes(q)) ||
-        (r.guest_name && r.guest_name.toLowerCase().includes(q)) ||
+        (r.unitCode && r.unitCode.toLowerCase().includes(q)) ||
+        (r.roomTypeName && r.roomTypeName.toLowerCase().includes(q)) ||
+        (r.guestName && r.guestName.toLowerCase().includes(q)) ||
+        (r.bookingRef && r.bookingRef.toLowerCase().includes(q)) ||
         (r.status && r.status.toLowerCase().includes(q));
 
       const matchesFloor =
@@ -217,22 +232,28 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
             >
               <div className="flex items-start justify-between mb-6">
                 <h4 className="manrope-bold text-3xl text-[#0D2137]">
-                  {room.room_number || "N/A"}
+                  {room.unitCode || "N/A"}
                 </h4>
               </div>
               <div className="space-y-1 mb-8">
                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">
-                  {room.room_type || "N/A"}
+                  {room.roomTypeName || "N/A"}
                 </p>
                 <p
                   className={cn(
                     "manrope-bold text-sm leading-tight transition-colors",
-                    room.status === "maintenance"
+                    room.status === "out_of_order"
                       ? "text-red-500"
                       : "text-[#0D2137]",
                   )}
                 >
-                  {room.guest_name || "Available"}
+                  {room.status === "occupied"
+                    ? room.bookingRef || room.guestName || "Occupied"
+                    : room.status === "dirty"
+                      ? "Needs Cleaning"
+                      : room.status === "out_of_order"
+                        ? "Out of Order"
+                        : "Available"}
                 </p>
               </div>
               <div className="flex items-center justify-between">

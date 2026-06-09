@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { formatMoney } from "@/lib/currency";
+import { formatTxnId } from "@/lib/txn";
 import {
   TrendingUp,
   TrendingDown,
@@ -44,6 +45,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
+import { RefundModal, type RefundTarget } from "@/components/payments/RefundModal";
 
 interface RevenueClientProps {
   revenue: any;
@@ -58,9 +61,11 @@ export default function RevenueClient({
   revenueDaily,
   revenueByRoomType,
 }: RevenueClientProps) {
+  const router = useRouter();
   const [timeframe, setTimeframe] = useState("weekly");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [refundTarget, setRefundTarget] = useState<RefundTarget | null>(null);
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
     to: "",
@@ -79,12 +84,12 @@ export default function RevenueClient({
   const handleExport = () => {
     const headers = ["ID", "Guest", "Method", "Amount", "Status", "Date"];
     const rows = filteredTransactions.map((tx: any) => [
-      tx.id || "",
-      tx.guest_name || "",
-      tx.payment_method || "",
-      tx.amount?.toString() || "0",
-      tx.status || "",
-      tx.created_at || "",
+      tx.paymentId || "",
+      tx.guestName || tx.bookingRef || "",
+      tx.provider || "",
+      Math.round((tx.amountMinor || 0) / 100).toString(),
+      tx.derivedStatus || "",
+      tx.eventAt || "",
     ]);
     const csvContent = [
       headers.join(","),
@@ -109,17 +114,18 @@ export default function RevenueClient({
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !searchQuery ||
-      (tx.guest_name && tx.guest_name.toLowerCase().includes(q)) ||
-      (tx.id && tx.id.toLowerCase().includes(q)) ||
-      (tx.payment_method && tx.payment_method.toLowerCase().includes(q)) ||
-      (tx.status && tx.status.toLowerCase().includes(q)) ||
-      (tx.amount && tx.amount.toString().includes(q));
+      (tx.guestName && tx.guestName.toLowerCase().includes(q)) ||
+      (tx.paymentId && tx.paymentId.toLowerCase().includes(q)) ||
+      (tx.bookingRef && tx.bookingRef.toLowerCase().includes(q)) ||
+      (tx.provider && tx.provider.toLowerCase().includes(q)) ||
+      (tx.derivedStatus && tx.derivedStatus.toLowerCase().includes(q));
 
     // Status Filter
-    const matchesStatus = statusFilter === "all" || tx.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" || tx.derivedStatus === statusFilter;
 
     // Date Filter
-    const txDate = tx.created_at ? new Date(tx.created_at).getTime() : 0;
+    const txDate = tx.eventAt ? new Date(tx.eventAt).getTime() : 0;
     const from = dateFilter.from
       ? new Date(dateFilter.from).getTime()
       : -Infinity;
@@ -428,22 +434,25 @@ export default function RevenueClient({
                     <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
                       Date
                     </th>
+                    <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredTransactions.map((tx: any) => (
                     <tr
-                      key={tx.id}
+                      key={`${tx.paymentId}-${tx.eventAt}`}
                       className="group hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-10 py-6">
                         <span className="manrope-bold text-xs text-[#0D2137]">
-                          {tx.id}
+                          {formatTxnId(tx.paymentId)}
                         </span>
                       </td>
                       <td className="px-10 py-6">
                         <p className="manrope-bold text-sm text-[#0D2137]">
-                          {tx.guest_name || "N/A"}
+                          {tx.guestName || tx.bookingRef || "N/A"}
                         </p>
                       </td>
                       <td className="px-10 py-6">
@@ -451,21 +460,21 @@ export default function RevenueClient({
                           variant="outline"
                           className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
                         >
-                          {tx.payment_method || "N/A"}
+                          {tx.provider || tx.eventType || "N/A"}
                         </Badge>
                       </td>
                       <td className="px-10 py-6 text-right">
                         <span className="manrope-bold text-base text-[#0D2137]">
-                          ${tx.amount?.toLocaleString("en-US") || "0"}
+                          {formatMoney(Math.round((tx.amountMinor || 0) / 100))}
                         </span>
                       </td>
                       <td className="px-10 py-6 text-center">
                         <div
                           className={cn(
                             "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-                            tx.status === "completed"
+                            tx.derivedStatus === "paid"
                               ? "bg-green-50 text-green-600"
-                              : tx.status === "pending"
+                              : tx.derivedStatus === "pending"
                                 ? "bg-amber-50 text-amber-600"
                                 : "bg-red-50 text-red-600",
                           )}
@@ -473,31 +482,49 @@ export default function RevenueClient({
                           <div
                             className={cn(
                               "w-1.5 h-1.5 rounded-full",
-                              tx.status === "completed"
+                              tx.derivedStatus === "paid"
                                 ? "bg-green-500"
-                                : tx.status === "pending"
+                                : tx.derivedStatus === "pending"
                                   ? "bg-amber-500"
                                   : "bg-red-500",
                             )}
                           />
                           <span className="text-[9px] font-black uppercase tracking-widest">
-                            {tx.status || "Unknown"}
+                            {tx.derivedStatus || "Unknown"}
                           </span>
                         </div>
                       </td>
                       <td className="px-10 py-6 text-right">
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          {tx.created_at
-                            ? new Date(tx.created_at).toLocaleDateString()
+                          {tx.eventAt
+                            ? new Date(tx.eventAt).toLocaleDateString()
                             : "N/A"}
                         </span>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        {tx.derivedStatus === "paid" && (
+                          <button
+                            onClick={() =>
+                              setRefundTarget({
+                                paymentId: tx.paymentId,
+                                bookingRef: tx.bookingRef,
+                                amountXaf: Math.round(
+                                  (tx.amountMinor || 0) / 100,
+                                ),
+                              })
+                            }
+                            className="text-[10px] font-black uppercase tracking-widest text-[#E8924A] hover:underline"
+                          >
+                            Refund
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                   {filteredTransactions.length === 0 && (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
                       >
                         No fiscal records found matching your current
@@ -511,6 +538,14 @@ export default function RevenueClient({
           </div>
         </div>
       </div>
+
+      {refundTarget && (
+        <RefundModal
+          target={refundTarget}
+          onClose={() => setRefundTarget(null)}
+          onRefunded={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

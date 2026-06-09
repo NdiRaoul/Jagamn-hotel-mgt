@@ -25,6 +25,7 @@ import Link from "next/link";
 import type { DashboardKpi } from "@/lib/data/admin";
 import type { Staff } from "@/types/database";
 import { formatMoney } from "@/lib/currency";
+import { PredictiveStockAnalysis } from "@/components/inventorypage/PredictiveStockAnalysis";
 
 interface Props {
   kpis: DashboardKpi[];
@@ -36,6 +37,10 @@ interface Props {
     inTransit: number;
     deliveredThisMonth: number;
     totalSpendMinor: number;
+  };
+  predictive?: {
+    items: { id: string; name: string; status: string }[];
+    occupancyPct: number;
   };
 }
 
@@ -84,6 +89,7 @@ export default function AdminOverviewClient({
   roster,
   alerts = [],
   procurementKpis,
+  predictive = { items: [], occupancyPct: 0 },
 }: Props) {
   const arrivals = kpis.find((k) => k.label === "Today's Arrivals")?.value ?? 0;
   const departures =
@@ -312,6 +318,16 @@ export default function AdminOverviewClient({
           </div>
         </div>
       </div>
+
+      {/* ── Predictive Stock Analysis (real data) ──────── */}
+      {predictive.items.length > 0 && (
+        <div className="flex">
+          <PredictiveStockAnalysis
+            items={predictive.items}
+            occupancyPct={predictive.occupancyPct}
+          />
+        </div>
+      )}
 
       {/* ── Row 2: Quick Actions ─────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

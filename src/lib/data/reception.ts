@@ -5,9 +5,17 @@ export interface ArrivalRecord {
   id: string;
   bookingRef: string;
   guestName: string;
+  guestPhone: string | null;
   roomType: string;
+  roomUnit: string | null;
   checkIn: string;
-  status: "confirmed" | "checked_in" | "completed" | "pending" | "cancelled";
+  status:
+    | "confirmed"
+    | "checked_in"
+    | "checked_out"
+    | "completed"
+    | "pending"
+    | "cancelled";
   paymentStatus: string;
   actionHref: string | null;
 }
@@ -16,9 +24,10 @@ export interface DepartureRecord {
   id: string;
   bookingRef: string;
   guestName: string;
+  guestPhone: string | null;
   roomSlug: string;
   checkOut: string;
-  status: "confirmed" | "completed" | "pending" | "cancelled";
+  status: "confirmed" | "checked_out" | "completed" | "pending" | "cancelled";
   paymentStatus: string;
   balanceDue: number;
   actionHref: string | null;
@@ -56,13 +65,15 @@ function normalizeRoomTypeName(roomType: RoomType | null | undefined) {
 
 export async function getArrivals(
   date: string = toDateKey(new Date()),
+  toDate: string = date,
 ): Promise<ArrivalRecord[]> {
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,room_type_id,room_types(name),check_in,status,payment_status",
+      "id,booking_ref,guest_name,guest_phone,room_type_id,room_types(name),rooms(unit_code),check_in,status,payment_status",
     )
-    .eq("check_in", date)
+    .gte("check_in", date)
+    .lte("check_in", toDate)
     .neq("status", "cancelled")
     .order("check_in", { ascending: true });
 
@@ -71,31 +82,44 @@ export async function getArrivals(
   }
 
   return (
-    (data || []) as unknown as (Booking & { room_types?: RoomType })[]
-  ).map((booking) => ({
-    id: booking.id,
-    bookingRef: booking.booking_ref,
-    guestName: booking.guest_name,
-    roomType: normalizeRoomTypeName(booking.room_types),
-    checkIn: booking.check_in,
-    status: booking.status as ArrivalRecord["status"],
-    paymentStatus: booking.payment_status || "pending",
-    actionHref:
-      booking.status !== "cancelled"
-        ? `/reception/check-in/${booking.id}`
-        : null,
-  }));
+    (data || []) as unknown as (Booking & {
+      room_types?: RoomType;
+      rooms?: { unit_code: string } | { unit_code: string }[] | null;
+    })[]
+  ).map((booking) => {
+    const room = Array.isArray(booking.rooms) ? booking.rooms[0] : booking.rooms;
+    return {
+      id: booking.id,
+      bookingRef: booking.booking_ref,
+      guestName: booking.guest_name,
+      guestPhone: booking.guest_phone ?? null,
+      roomType: normalizeRoomTypeName(booking.room_types),
+      roomUnit: room?.unit_code ?? null,
+      checkIn: booking.check_in,
+      status: booking.status as ArrivalRecord["status"],
+      paymentStatus: booking.payment_status || "pending",
+      actionHref:
+        booking.status !== "cancelled"
+          ? `/reception/check-in/${booking.id}`
+          : null,
+    };
+  });
 }
 
 export async function getDepartures(
   date: string = toDateKey(new Date()),
+  toDate: string = date,
 ): Promise<DepartureRecord[]> {
+  // Fetch the bookings WITHOUT embedding the folio-balance view. Embedding it
+  // makes the whole query throw ("Failed to load departures") whenever
+  // PostgREST can't resolve the relationship (view missing or no detected FK).
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,room_slug,check_out,total_amount,payment_status,status,booking_folio_balance(paid_minor, balance_minor)",
+      "id,booking_ref,guest_name,guest_phone,room_slug,check_out,total_amount,payment_status,status",
     )
-    .eq("check_out", date)
+    .gte("check_out", date)
+    .lte("check_out", toDate)
     .neq("status", "cancelled")
     .order("check_out", { ascending: true });
 
@@ -107,39 +131,54 @@ export async function getDepartures(
     id: string;
     booking_ref: string;
     guest_name: string;
+    guest_phone: string | null;
     room_slug: string;
     check_out: string;
     total_amount: number;
     payment_status: string;
     status: string;
-    booking_folio_balance?: Array<{
-      paid_minor: number;
-      balance_minor: number;
-    }>;
   };
 
-  return (data || []).map((booking: DepartureBooking) => {
-    // If view not found/joined, fallback to 0 balance (e.g. legacy bookings)
-    const folio = booking.booking_folio_balance?.[0] || {
-      balance_minor: 0,
-      paid_minor: booking.total_amount * 100,
-    };
+  const bookings = (data || []) as DepartureBooking[];
+
+  // Fetch folio balances separately and merge in JS. A missing view / failed
+  // read degrades to a 0 balance instead of breaking the whole page.
+  const folioByBooking = new Map<
+    string,
+    { paid_minor: number; balance_minor: number }
+  >();
+  if (bookings.length > 0) {
+    const { data: folios } = await supabaseAdmin
+      .from("booking_folio_balance")
+      .select("booking_id, paid_minor, balance_minor")
+      .in(
+        "booking_id",
+        bookings.map((b) => b.id),
+      );
+    for (const f of folios ?? []) {
+      folioByBooking.set(f.booking_id, {
+        paid_minor: f.paid_minor ?? 0,
+        balance_minor: f.balance_minor ?? 0,
+      });
+    }
+  }
+
+  return bookings.map((booking) => {
+    // `*_minor` columns store francs × 100; divide back to whole XAF for the UI.
+    const folio = folioByBooking.get(booking.id);
+    const balanceDue = folio ? folio.balance_minor / 100 : 0;
     return {
       id: booking.id,
       bookingRef: booking.booking_ref,
       guestName: booking.guest_name,
+      guestPhone: booking.guest_phone ?? null,
       roomSlug: booking.room_slug,
       checkOut: booking.check_out,
       status: booking.status as DepartureRecord["status"],
       paymentStatus: booking.payment_status || "pending",
-      balanceDue: folio.balance_minor / 100, // keep the TS interface in XAF for UI, or we should use minor. The interface says `balanceDue: number`. We divide by 100 to get XAF if minor was XAF*100, but wait!
-      // "Stripe XAF is zero-decimal, so do NOT ×100".
-      // Let's assume balance_minor is stored as minor units but since currency is XAF, minor = XAF.
-      // Wait, prompt G says: "*_minor values are XAF×100." Let me re-read prompt G.
-      // "currency rule ... XAF only ... *_minor values are XAF×100. Stripe XAF is zero-decimal so do NOT x100"
-      // Wait, if *_minor = XAF*100, then balanceDue should be balance_minor / 100. Let's do that.
+      balanceDue,
       actionHref:
-        booking.status !== "completed"
+        booking.status !== "checked_out" && booking.status !== "completed"
           ? `/reception/departures/check-out/${booking.id}`
           : null,
     };
@@ -154,17 +193,17 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     await Promise.all([
       supabaseAdmin
         .from("rooms")
-        .select("id,unit_code,floor,is_active,room_type_id"),
+        .select("id,unit_code,floor,is_active,room_type_id,housekeeping_status"),
       supabaseAdmin.from("room_types").select("id,name"),
+      // Rooms currently occupied: a non-departed booking spanning today.
       supabaseAdmin
         .from("bookings")
         .select(
           "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref",
         )
-        .neq("status", "cancelled")
-        .or(
-          `and(check_in.lte.${todayKey},check_out.gt.${todayKey}),and(check_out.eq.${todayKey},status.eq.completed)`,
-        ),
+        .not("status", "in", "(cancelled,expired,checked_out,completed)")
+        .lte("check_in", todayKey)
+        .gt("check_out", todayKey),
     ]);
 
   if (!rooms) throw new Error("Failed to load rooms");
@@ -180,7 +219,9 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     }
   });
 
-  return ((rooms || []) as unknown as Room[]).map((room) => {
+  return (
+    (rooms || []) as unknown as (Room & { housekeeping_status?: string })[]
+  ).map((room) => {
     const booking = bookingMap.get(room.id);
     const isActive = room.is_active;
     let status: RoomBoardRoom["status"] = "available";
@@ -192,11 +233,10 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     } else if (booking) {
       bookingRef = booking.booking_ref;
       guestName = booking.guest_name;
-      if (booking.status === "completed" && booking.check_out === todayKey) {
-        status = "dirty";
-      } else {
-        status = "occupied";
-      }
+      status = "occupied";
+    } else if (room.housekeeping_status === "dirty") {
+      // Vacated but not yet cleaned (set on checkout, cleared by housekeeping).
+      status = "dirty";
     }
 
     return {
@@ -218,7 +258,7 @@ export async function searchFrontDesk(query: string): Promise<ArrivalRecord[]> {
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,room_type_id,room_types(name),check_in,status,payment_status",
+      "id,booking_ref,guest_name,guest_phone,room_type_id,room_types(name),rooms(unit_code),check_in,status,payment_status",
     )
     .or(
       `booking_ref.ilike.%${q}%,guest_name.ilike.%${q}%,guest_email.ilike.%${q}%,guest_phone.ilike.%${q}%`,
@@ -232,20 +272,28 @@ export async function searchFrontDesk(query: string): Promise<ArrivalRecord[]> {
   }
 
   return (
-    (data || []) as unknown as (Booking & { room_types?: RoomType })[]
-  ).map((booking) => ({
-    id: booking.id,
-    bookingRef: booking.booking_ref,
-    guestName: booking.guest_name,
-    roomType: normalizeRoomTypeName(booking.room_types),
-    checkIn: booking.check_in,
-    status: booking.status as ArrivalRecord["status"],
-    paymentStatus: booking.payment_status || "pending",
-    actionHref:
-      booking.status !== "cancelled"
-        ? `/reception/check-in/${booking.id}`
-        : null,
-  }));
+    (data || []) as unknown as (Booking & {
+      room_types?: RoomType;
+      rooms?: { unit_code: string } | { unit_code: string }[] | null;
+    })[]
+  ).map((booking) => {
+    const room = Array.isArray(booking.rooms) ? booking.rooms[0] : booking.rooms;
+    return {
+      id: booking.id,
+      bookingRef: booking.booking_ref,
+      guestName: booking.guest_name,
+      guestPhone: booking.guest_phone ?? null,
+      roomType: normalizeRoomTypeName(booking.room_types),
+      roomUnit: room?.unit_code ?? null,
+      checkIn: booking.check_in,
+      status: booking.status as ArrivalRecord["status"],
+      paymentStatus: booking.payment_status || "pending",
+      actionHref:
+        booking.status !== "cancelled"
+          ? `/reception/check-in/${booking.id}`
+          : null,
+    };
+  });
 }
 
 export async function getRecentTransactions(): Promise<TransactionRecord[]> {
@@ -288,6 +336,8 @@ export interface ActiveReservation {
   guestPhone: string | null;
   roomSlug: string;
   roomTypeName: string;
+  roomTypeId: string | null;
+  roomId: string | null;
   roomUnitCode: string | null;
   checkIn: string;
   checkOut: string;
@@ -319,7 +369,7 @@ export async function getActiveReservations(filters?: {
   let query = supabaseAdmin
     .from("bookings")
     .select(
-      "id,booking_ref,guest_name,guest_email,guest_phone,room_slug,room_types(name),rooms(unit_code),check_in,check_out,nights,guests,total_amount,payment_status,status,special_requests",
+      "id,booking_ref,guest_name,guest_email,guest_phone,room_slug,room_type_id,room_id,room_types(name),rooms(unit_code),check_in,check_out,nights,guests,total_amount,payment_status,status,special_requests",
     )
     .in("status", ["confirmed", "checked_in"])
     .order("check_in", { ascending: true });
@@ -345,6 +395,8 @@ export async function getActiveReservations(filters?: {
     guest_email: string;
     guest_phone: string | null;
     room_slug: string;
+    room_type_id: string | null;
+    room_id: string | null;
     room_types: Array<{ name: string }> | { name: string } | null;
     rooms: Array<{ unit_code: string }> | { unit_code: string } | null;
     check_in: string;
@@ -371,6 +423,8 @@ export async function getActiveReservations(filters?: {
       guestPhone: b.guest_phone,
       roomSlug: b.room_slug,
       roomTypeName: roomType?.name ?? b.room_slug,
+      roomTypeId: b.room_type_id,
+      roomId: b.room_id,
       roomUnitCode: room?.unit_code ?? null,
       checkIn: b.check_in,
       checkOut: b.check_out,

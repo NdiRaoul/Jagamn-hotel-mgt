@@ -94,9 +94,9 @@ export function StockMovementChart({
           <Line
             type="monotone"
             dataKey="outflow"
-            stroke="#F59E0B"
+            stroke="#d9822b"
             strokeWidth={2.5}
-            dot={{ fill: "#F59E0B", r: 4 }}
+            dot={{ fill: "#d9822b", r: 4 }}
             activeDot={{ r: 6 }}
           />
         </LineChart>

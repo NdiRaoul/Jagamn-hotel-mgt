@@ -88,6 +88,7 @@ function BookingContent() {
   const [fapshiTransId, setFapshiTransId] = useState<string | null>(null);
   const [fapshiPolling, setFapshiPolling] = useState(false);
   const [fapshiPhone, setFapshiPhone] = useState("");
+  const [fapshiBookingRef, setFapshiBookingRef] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -193,7 +194,7 @@ function BookingContent() {
           // Update booking payment status
           await fetch(`/api/bookings`, { method: "GET" }); // trigger refresh
           router.push(
-            `/booking/confirmed?ref=${data.externalId || ""}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
+            `/booking/confirmed?ref=${fapshiBookingRef || ""}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
           );
         } else if (data.status === "FAILED" || data.status === "EXPIRED") {
           clearInterval(interval);
@@ -206,7 +207,7 @@ function BookingContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [fapshiTransId, fapshiPolling]);
+  }, [fapshiTransId, fapshiPolling, fapshiBookingRef]);
 
   if (roomLoading) {
     return (
@@ -333,7 +334,11 @@ function BookingContent() {
             clientIdempotencyKey,
           }),
         });
-        const { clientSecret, error: piError } = await piRes.json();
+        const {
+          clientSecret,
+          paymentIntentId,
+          error: piError,
+        } = await piRes.json();
         if (piError) {
           setPaymentError(piError);
           setIsProcessing(false);
@@ -364,6 +369,22 @@ function BookingContent() {
           setPaymentError(confirmError.message || "Payment failed.");
           setIsProcessing(false);
           return;
+        }
+
+        // Reconcile server-side so the booking flips to paid even if the Stripe
+        // webhook never arrives (sandbox). Re-reads the PaymentIntent server-side
+        // and is idempotent, so a later webhook is a harmless no-op.
+        try {
+          await fetch("/api/payments/stripe/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bookingRef: bookingData.bookingRef,
+              paymentIntentId,
+            }),
+          });
+        } catch {
+          /* webhook / reconcile queue will still cover it */
         }
 
         await handleCreateAccount(bookingData.bookingId);
@@ -414,6 +435,7 @@ function BookingContent() {
 
         setFapshiTransId(fapshiData.transId);
         setFapshiPhone(phone);
+        setFapshiBookingRef(bookingData.bookingRef);
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
         setIsProcessing(false);

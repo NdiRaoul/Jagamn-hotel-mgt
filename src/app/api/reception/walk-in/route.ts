@@ -162,6 +162,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── Upsert users row (find-or-create by email) so walk-in guests appear on
+  // the admin / super-admin Users page, then link the booking. Mirrors the
+  // guest branch of POST /api/bookings.
+  const guestEmail = String(guest_email);
+  let appUserId: string | null = null;
+  const { data: existingGuest } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("email", guestEmail)
+    .maybeSingle();
+
+  if (existingGuest) {
+    appUserId = existingGuest.id;
+    await supabaseAdmin
+      .from("users")
+      .update({
+        full_name: String(guest_name),
+        phone: typeof guest_phone === "string" ? guest_phone : null,
+        country: typeof guest_country === "string" ? guest_country : null,
+        id_type: typeof guest_id_type === "string" ? guest_id_type : null,
+        id_number: typeof guest_id_number === "string" ? guest_id_number : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingGuest.id);
+  } else {
+    const { data: newGuest } = await supabaseAdmin
+      .from("users")
+      .insert({
+        auth_user_id: null,
+        full_name: String(guest_name),
+        email: guestEmail,
+        phone: typeof guest_phone === "string" ? guest_phone : null,
+        country: typeof guest_country === "string" ? guest_country : null,
+        id_type: typeof guest_id_type === "string" ? guest_id_type : null,
+        id_number: typeof guest_id_number === "string" ? guest_id_number : null,
+        role: "guest",
+        loyalty_tier: "standard",
+      })
+      .select("id")
+      .single();
+    appUserId = newGuest?.id ?? null;
+  }
+
+  if (appUserId) {
+    await supabaseAdmin
+      .from("bookings")
+      .update({ app_user_id: appUserId })
+      .eq("id", booking.id);
+  }
+
   const responsePayload: Record<string, unknown> = {
     bookingId: booking.id,
     bookingRef: booking.booking_ref,

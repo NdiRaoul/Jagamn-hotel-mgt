@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         .from("bookings")
         .select("room_id")
         .eq("room_slug", room_slug)
-        .neq("status", "cancelled")
+        .not("status", "in", "(cancelled,expired)")
         .lte("check_in", check_out)
         .gte("check_out", check_in);
 
@@ -192,7 +192,10 @@ export async function POST(request: NextRequest) {
         total_amount,
         payment_method: payment_method || null,
         payment_status: "pending",
-        status: "confirmed",
+        // Insert as "pending" — confirmBookingFromPayment() flips it to
+        // "confirmed" once payment settles. This lets expireBooking() /
+        // expire_stale_bookings reap abandoned holds (they only touch pending).
+        status: "pending",
         special_requests: special_requests || null,
       })
       .select("id, booking_ref")

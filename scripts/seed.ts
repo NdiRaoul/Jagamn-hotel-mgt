@@ -1002,6 +1002,16 @@ async function seed() {
     },
   ];
 
+  // Placeholder dish images — cycle the bundled food photos so every menu item
+  // renders an image across the admin/kitchen/superadmin/guest menu views.
+  const FOOD_IMAGES = [
+    "/images/food1.png",
+    "/images/food2.png",
+    "/images/food3.png",
+    "/images/food4.png",
+  ];
+
+  let menuIdx = 0;
   for (const item of MENU_ITEMS) {
     const cat_id = catMap.get(item.category) ?? null;
     const { error } = await supabase.from("menu_items").insert({
@@ -1012,7 +1022,9 @@ async function seed() {
       is_special: item.is_special,
       is_available: true,
       currency: "XAF",
+      image_url: FOOD_IMAGES[menuIdx % FOOD_IMAGES.length],
     });
+    menuIdx++;
     log(`menu_item: ${item.name}`, !error, error?.message);
     summary.push({
       step: `menu_item:${item.name}`,
@@ -1046,10 +1058,14 @@ async function seed() {
     },
   ];
 
+  let invIdx = 0;
   for (const item of INVENTORY_ITEMS) {
-    const { error } = await supabase
-      .from("inventory_items")
-      .insert({ ...item, is_active: true });
+    const { error } = await supabase.from("inventory_items").insert({
+      ...item,
+      is_active: true,
+      image_url: FOOD_IMAGES[invIdx % FOOD_IMAGES.length],
+    });
+    invIdx++;
     log(`inventory: ${item.name}`, !error, error?.message);
     summary.push({
       step: `inventory:${item.name}`,
@@ -1127,9 +1143,12 @@ async function seed() {
     { name: "Premium Coffee Beans", category: "F&B", unit: "kg", on_hand: 6, reorder_level: 10, max_stock: 50 },
   ];
   for (const it of MORE_ITEMS) {
-    const { error } = await supabase
-      .from("inventory_items")
-      .insert({ ...it, is_active: true });
+    const { error } = await supabase.from("inventory_items").insert({
+      ...it,
+      is_active: true,
+      image_url: FOOD_IMAGES[invIdx % FOOD_IMAGES.length],
+    });
+    invIdx++;
     log(`inventory: ${it.name}`, !error, error?.message);
     summary.push({
       step: `inventory:${it.name}`,

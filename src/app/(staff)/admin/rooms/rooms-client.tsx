@@ -144,9 +144,25 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
-  const handleStatusUpdate = (roomId: string, newStatus: string) => {
+  const handleStatusUpdate = async (roomId: string, newStatus: string) => {
     setStatusOverrides((prev) => ({ ...prev, [roomId]: newStatus }));
     setSelectedRoomId(null);
+
+    // Persist housekeeping changes. "available" clears the dirty flag (clean);
+    // "occupied" is booking-driven, so it isn't a housekeeping write.
+    const housekeepingStatus =
+      newStatus === "available"
+        ? "clean"
+        : newStatus === "dirty" || newStatus === "out_of_order"
+          ? newStatus
+          : null;
+    if (housekeepingStatus) {
+      await fetch(`/api/reception/rooms/${roomId}/housekeeping`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: housekeepingStatus }),
+      }).catch(() => {});
+    }
   };
 
   const floors = useMemo(() => {
@@ -265,14 +281,16 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
           const config =
             STATUS_CONFIG[effectiveStatus] ?? STATUS_CONFIG.available;
           const guestLabel =
-            room.guestName ||
+            (effectiveStatus === "occupied"
+              ? room.bookingRef || room.guestName
+              : null) ||
             (effectiveStatus === "available"
               ? "Ready for Check-in"
               : effectiveStatus === "dirty"
                 ? "Cleaning Required"
                 : effectiveStatus === "out_of_order"
                   ? "Out of Order"
-                  : "—");
+                  : room.guestName || "—");
 
           return (
             <div

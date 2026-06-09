@@ -655,7 +655,6 @@ export default function StaffClient({ staff, error }: Props) {
                       </Label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-xs">
-                          FCFA
                         </span>
                         <Input
                           type="number"

@@ -6,6 +6,10 @@ import {
   type DashboardKpi,
 } from "@/lib/data/admin";
 import { getProcurementKpis, type ProcurementKpis } from "@/lib/data/procurement";
+import {
+  getPredictiveStock,
+  type PredictiveStockItem,
+} from "@/lib/data/storekeeper";
 import AdminOverviewClient from "./admin-overview-client";
 import type { Staff } from "@/types/database";
 
@@ -22,15 +26,21 @@ export default async function OperationsDashboard() {
     deliveredThisMonth: 0,
     totalSpendMinor: 0,
   };
+  let predictive: { items: PredictiveStockItem[]; occupancyPct: number } = {
+    items: [],
+    occupancyPct: 0,
+  };
 
   try {
-    [kpis, revenue, roster, alerts, procurementKpis] = await Promise.all([
-      getDashboardKpis(),
-      getRevenueSummary(),
-      getStaffRoster(),
-      getProcurementAlerts(),
-      getProcurementKpis(),
-    ]);
+    [kpis, revenue, roster, alerts, procurementKpis, predictive] =
+      await Promise.all([
+        getDashboardKpis(),
+        getRevenueSummary(),
+        getStaffRoster(),
+        getProcurementAlerts(),
+        getProcurementKpis(),
+        getPredictiveStock(),
+      ]);
   } catch {
     // render empty state on DB error
   }
@@ -42,6 +52,7 @@ export default async function OperationsDashboard() {
       roster={roster}
       alerts={alerts}
       procurementKpis={procurementKpis}
+      predictive={predictive}
     />
   );
 }

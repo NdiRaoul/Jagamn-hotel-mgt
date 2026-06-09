@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { formatMoney } from "@/lib/currency";
+import { formatTxnId } from "@/lib/txn";
 import {
   Search,
   AlertCircle,
@@ -181,7 +182,7 @@ export default function TransactionsClient({
                           {tx.guestName ?? "—"}
                         </p>
                         <p className="text-[10px] text-gray-400 font-mono">
-                          {tx.bookingRef ?? tx.paymentId.slice(0, 8) + "…"}
+                          {tx.bookingRef ?? formatTxnId(tx.paymentId)}
                         </p>
                       </div>
                     </td>
@@ -246,7 +247,7 @@ export default function TransactionsClient({
                     {tx.guestName ?? "—"}
                   </p>
                   <p className="text-[10px] text-gray-400 font-mono">
-                    {tx.bookingRef ?? tx.paymentId.slice(0, 8) + "…"}
+                    {tx.bookingRef ?? formatTxnId(tx.paymentId)}
                   </p>
                 </div>
                 <Badge

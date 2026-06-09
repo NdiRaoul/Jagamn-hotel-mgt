@@ -47,6 +47,7 @@ interface StaffInfo {
 const SUPERADMIN_NAV = [
   { label: "Overview", icon: LayoutDashboard, href: "/superadmin" },
   { label: "Revenue", icon: TrendingUp, href: "/superadmin/revenue" },
+  { label: "Users", icon: UserCircle, href: "/superadmin/users" },
   { label: "Staff", icon: Users, href: "/superadmin/staff" },
   { label: "HR", icon: Landmark, href: "/superadmin/hr" },
   { label: "Deductions", icon: DollarSign, href: "/superadmin/hr/deductions" },
@@ -167,7 +168,7 @@ export default function SuperAdminLayoutClient({
             </button>
           </div>
 
-          <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar overflow-x-hidden">
+          <nav className="flex-1 min-h-0 px-0 space-y-1 mt-8 overflow-y-auto no-scrollbar overflow-x-hidden">
             <TooltipProvider delayDuration={0}>
               {SUPERADMIN_NAV.map((item) => {
                 const isActive =

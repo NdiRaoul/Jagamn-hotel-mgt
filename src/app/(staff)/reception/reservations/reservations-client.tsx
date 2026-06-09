@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ActiveReservation } from "@/lib/data/reception";
+import { formatMoney } from "@/lib/currency";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -47,6 +48,84 @@ export default function ReservationsClient({
 
   const selected =
     reservations.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
+
+  // ── Extend / modify stay ──────────────────────────────
+  const [showExtend, setShowExtend] = useState(false);
+  const [extendIn, setExtendIn] = useState("");
+  const [extendOut, setExtendOut] = useState("");
+  const [extending, setExtending] = useState(false);
+  const [reassignRooms, setReassignRooms] = useState<
+    { id: string; unit_code: string; floor: number | null }[] | null
+  >(null);
+  const [reassignRoomId, setReassignRoomId] = useState("");
+
+  const openExtend = () => {
+    if (!selected) return;
+    setExtendIn(selected.checkIn?.slice(0, 10) ?? "");
+    setExtendOut(selected.checkOut?.slice(0, 10) ?? "");
+    setReassignRooms(null);
+    setReassignRoomId("");
+    setShowExtend(true);
+  };
+
+  const loadReassignRooms = async () => {
+    if (!selected?.roomTypeId) {
+      toast.error("This reservation has no room type to reassign within.");
+      return;
+    }
+    const params = new URLSearchParams({
+      roomTypeId: selected.roomTypeId,
+      checkIn: extendIn,
+      checkOut: extendOut,
+      exclude: selected.id,
+    });
+    const res = await fetch(`/api/reception/available-rooms?${params}`);
+    const data = await res.json();
+    if (res.ok) {
+      setReassignRooms(data.rooms || []);
+      if ((data.rooms || []).length === 0) {
+        toast.error("No other rooms of this type are free for those dates.");
+      }
+    } else {
+      toast.error(data.error || "Could not load rooms");
+    }
+  };
+
+  const handleExtend = async () => {
+    if (!selected) return;
+    setExtending(true);
+    try {
+      const res = await fetch(`/api/reception/extend/${selected.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          check_in: extendIn,
+          check_out: extendOut,
+          ...(reassignRoomId ? { roomId: reassignRoomId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === "ROOM_CONFLICT") {
+          // Surface the reassignment picker so the user can pick another room.
+          await loadReassignRooms();
+        }
+        throw new Error(data.error ?? "Could not modify stay");
+      }
+      const delta = data.deltaAmount ?? 0;
+      toast.success(
+        delta > 0
+          ? `Stay extended — ${formatMoney(delta)} added${data.folioCharged ? " to the folio" : ""}.`
+          : "Stay dates updated.",
+      );
+      setShowExtend(false);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not modify stay");
+    } finally {
+      setExtending(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!selected) return;
@@ -258,7 +337,7 @@ export default function ReservationsClient({
                     </p>
                   </div>
                   <p className="text-sm text-gray-500">
-                    Total: ${(selected.totalAmount / 100).toFixed(2)}
+                    Total: {formatMoney(selected.totalAmount)}
                   </p>
                 </div>
               </div>
@@ -279,9 +358,12 @@ export default function ReservationsClient({
                   Actions
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <Button className="h-16 bg-[#00152A] hover:bg-[#0A2038] text-white font-medium rounded-lg flex flex-col items-center justify-center gap-1 shadow-md">
+                  <Button
+                    onClick={openExtend}
+                    className="h-16 bg-[#00152A] hover:bg-[#0A2038] text-white font-medium rounded-lg flex flex-col items-center justify-center gap-1 shadow-md"
+                  >
                     <Calendar className="w-4 h-4" />
-                    <span className="text-xs">Modify Dates</span>
+                    <span className="text-xs">Modify / Extend Stay</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -309,6 +391,82 @@ export default function ReservationsClient({
                     </span>
                   </Button>
                 </div>
+
+                {showExtend && (
+                  <div className="mt-2 p-5 bg-gray-50 border border-gray-100 rounded-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-[#00152A]">
+                        Modify / Extend Stay
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowExtend(false)}
+                        className="text-gray-400 hover:text-[#00152A]"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                          Check-in
+                        </label>
+                        <Input
+                          type="date"
+                          value={extendIn}
+                          onChange={(e) => setExtendIn(e.target.value)}
+                          className="mt-1 h-11"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                          Check-out
+                        </label>
+                        <Input
+                          type="date"
+                          value={extendOut}
+                          onChange={(e) => setExtendOut(e.target.value)}
+                          className="mt-1 h-11"
+                        />
+                      </div>
+                    </div>
+
+                    {reassignRooms !== null && (
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                          Reassign room (current room is booked for those dates)
+                        </label>
+                        <select
+                          value={reassignRoomId}
+                          onChange={(e) => setReassignRoomId(e.target.value)}
+                          className="mt-1 h-11 w-full rounded-md border border-gray-200 bg-white px-3 text-sm"
+                        >
+                          <option value="">Select a room…</option>
+                          {reassignRooms.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.unit_code}
+                              {r.floor ? ` (Floor ${r.floor})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={handleExtend}
+                        disabled={extending || !extendIn || !extendOut}
+                        className="bg-[#00152A] hover:bg-[#0A2038] text-white"
+                      >
+                        {extending ? "Saving…" : "Save changes"}
+                      </Button>
+                      <p className="text-xs text-gray-400">
+                        Extra nights are charged at the room rate and posted to
+                        the folio when unpaid.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

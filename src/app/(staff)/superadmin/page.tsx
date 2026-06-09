@@ -7,6 +7,7 @@ import {
   getProcurementAlerts,
 } from "@/lib/data/admin";
 import { getProcurementKpis } from "@/lib/data/procurement";
+import { getPredictiveStock } from "@/lib/data/storekeeper";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import SuperadminOverviewClient from "./superadmin-overview-client";
 import { requireOwner } from "@/lib/auth/guard";
@@ -30,6 +31,7 @@ export default async function SuperadminPage() {
     staffRes,
     activeStaffCount,
     latestSyncData,
+    predictive,
   ] = await Promise.all([
     getDashboardKpis(),
     getRevenueMonthly(),
@@ -73,6 +75,7 @@ export default async function SuperadminPage() {
         .order("updated_at", { ascending: false })
         .limit(1),
     ]),
+    getPredictiveStock(),
   ]);
 
   // Calculate occupancy rate from dashboard KPIs
@@ -137,6 +140,7 @@ export default async function SuperadminPage() {
       procurementKpis={procurementKpis}
       procurementAlerts={procurementAlerts}
       latestSync={latestSync}
+      predictive={predictive}
     />
   );
 }

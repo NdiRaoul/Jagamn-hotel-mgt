@@ -11,12 +11,12 @@ import {
   Zap,
   CheckCircle2,
   Users,
-  Clock,
   UtensilsCrossed,
   Timer,
   X,
   User,
   Package,
+  PackageCheck,
 } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import {
@@ -49,9 +49,11 @@ const EFFICIENCY_DATA = [
 function OrderCard({
   order,
   onClick,
+  onMarkDelivered,
 }: {
   order: KitchenOrder;
   onClick: (order: KitchenOrder) => void;
+  onMarkDelivered: (orderId: string) => void;
 }) {
   if (order.status === "new") {
     return (
@@ -187,6 +189,96 @@ function OrderCard({
     );
   }
 
+  if (order.status === "ready") {
+    return (
+      <div
+        onClick={() => onClick(order)}
+        className="bg-white rounded-xl border border-[#1B7F34]/20 border-l-4 border-l-[#1B7F34] shadow-sm p-5 space-y-4 cursor-pointer hover:shadow-md transition-all"
+      >
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            ID: {order.displayId}
+          </span>
+          <Badge className="bg-[#E6F4EA] text-[#1B7F34] border-0 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 px-2 py-0.5">
+            <CheckCircle2 className="w-3 h-3" />
+            Ready
+          </Badge>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#00152A] text-lg leading-tight">
+            {order.dish}
+          </h3>
+          {order.modifiers && (
+            <p className="text-sm text-gray-500 mt-1">{order.modifiers}</p>
+          )}
+        </div>
+        {(order.guestRoom || order.location) && (
+          <div className="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                Delivery
+              </p>
+              <p className="font-bold text-sm text-[#00152A] truncate">
+                {order.guestRoom ? `Room ${order.guestRoom}` : order.location}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Users className="w-3.5 h-3.5" />
+          <span>
+            {order.location && `${order.location} • `}Server: {order.server}
+          </span>
+        </div>
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMarkDelivered(order.id);
+          }}
+          className="w-full h-10 rounded-lg font-bold bg-[#1B7F34] hover:bg-[#156329] text-white flex items-center justify-center gap-2"
+        >
+          <PackageCheck className="w-4 h-4" />
+          Delivered
+        </Button>
+      </div>
+    );
+  }
+
+  if (order.status === "delivered") {
+    return (
+      <div
+        onClick={() => onClick(order)}
+        className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3 cursor-pointer hover:shadow-md transition-all opacity-90"
+      >
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            ID: {order.displayId}
+          </span>
+          <Badge className="bg-gray-100 text-gray-500 border-0 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 px-2 py-0.5">
+            <PackageCheck className="w-3 h-3" />
+            Delivered
+          </Badge>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#00152A] text-base leading-tight">
+            {order.dish}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <User className="w-3.5 h-3.5" />
+          <span className="truncate">
+            {order.guestRoom
+              ? `Room ${order.guestRoom}`
+              : order.location || "Dining Hall"}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -216,6 +308,21 @@ export default function KitchenOrdersClient({
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("all");
+
+  // Open the most relevant order's detail modal — used by the "new order" alert
+  // and by clicking a kitchen notification in the bell (which dispatches the
+  // `jagamn-open-order` event). Prefers a still-new order, else the latest.
+  const openLatestOrder = React.useCallback(() => {
+    setOrders((current) => {
+      const target = current.find((o) => o.status === "new") ?? current[0];
+      if (target) {
+        setSelectedOrder(target);
+        setIsModalOpen(true);
+      }
+      return current;
+    });
+  }, []);
 
   // Realtime subscription for dining_orders and notifications
   useEffect(() => {
@@ -230,7 +337,8 @@ export default function KitchenOrdersClient({
           event: "*",
           schema: "public",
           table: "dining_orders",
-          filter: "status=in.(placed,preparing,ready)",
+          filter:
+            "status=in.(placed,preparing,ready,out_for_delivery,delivered)",
         },
         async () => {
           // Refetch orders when any change occurs
@@ -272,6 +380,13 @@ export default function KitchenOrdersClient({
       supabase.removeChannel(notificationsChannel);
     };
   }, []);
+
+  // Clicking a kitchen notification in the bell opens the latest order's detail.
+  useEffect(() => {
+    const handler = () => openLatestOrder();
+    window.addEventListener("jagamn-open-order", handler);
+    return () => window.removeEventListener("jagamn-open-order", handler);
+  }, [openLatestOrder]);
 
   const handleOrderClick = (order: KitchenOrder) => {
     setSelectedOrder(order);
@@ -329,8 +444,71 @@ export default function KitchenOrdersClient({
     }
   };
 
+  // Advance a ready order to delivered. This is a one-click delivery flow.
+  const updateOrderStatus = async (
+    orderId: string,
+    dbStatus: "delivered",
+    boardStatus: KitchenOrder["status"],
+    closeModal = false,
+  ) => {
+    try {
+      const res = await fetch(`/api/kitchen/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: dbStatus }),
+      });
+
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId ? { ...o, status: boardStatus } : o,
+          ),
+        );
+        setSelectedOrder((prev) =>
+          prev && prev.id === orderId ? { ...prev, status: boardStatus } : prev,
+        );
+        if (closeModal) setIsModalOpen(false);
+      }
+    } catch (error) {
+      console.error(`Failed to set order ${dbStatus}:`, error);
+    }
+  };
+
+  const handleMarkDelivered = (orderId: string) =>
+    updateOrderStatus(orderId, "delivered", "delivered", true);
+
+  const TABS = [
+    { id: "all", label: "All" },
+    { id: "new", label: "New" },
+    { id: "pending_stock", label: "Pending Stock" },
+    { id: "in_preparation", label: "Preparing" },
+    { id: "ready", label: "Ready" },
+  ];
+
+  const filterByTab = (order: KitchenOrder, tabId: string) => {
+    if (tabId === "all") return true;
+    if (tabId === "ready") {
+      return order.status === "ready" || order.status === "out_for_delivery";
+    }
+    return order.status === tabId;
+  };
+
+  const visibleOrders = orders.filter((o) => filterByTab(o, activeTab));
+
   const getColumnOrders = (status: string) =>
-    orders.filter((o) => o.status === status);
+    visibleOrders.filter(
+      (o) =>
+        o.status === status ||
+        (status === "ready" && o.status === "out_for_delivery"),
+    );
+
+  const visibleColumns =
+    activeTab === "all" ? COLUMNS : COLUMNS.filter((c) => c.id === activeTab);
+
+  // The alert is driven by orders that are genuinely still "new" (unacknowledged),
+  // so it disappears on its own once every new order has been picked up.
+  const newOrders = orders.filter((o) => o.status === "new");
+  const latestNewOrder = newOrders[0];
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
@@ -343,20 +521,33 @@ export default function KitchenOrdersClient({
           </p>
         </div>
 
-        {/* New Order Alert Toast */}
-        {showAlert && orders.length > 0 && (
+        {/* New Order Alert Toast — only while unacknowledged orders exist */}
+        {showAlert && latestNewOrder && (
           <div className="flex items-center gap-3 bg-[#FFF4E8] border border-[#BA722E]/30 rounded-xl px-5 py-3 shadow-sm animate-in slide-in-from-right-4 duration-300">
-            <div className="w-7 h-7 rounded-md bg-[#BA722E] flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-[#BA722E] uppercase tracking-widest">
-                New Order Alert
-              </p>
-              <p className="text-sm font-bold text-[#00152A]">
-                Order {orders[0]?.displayId} Received
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={openLatestOrder}
+              className="flex items-center gap-3 text-left"
+            >
+              <div className="relative w-7 h-7 rounded-md bg-[#BA722E] flex items-center justify-center flex-shrink-0">
+                <Zap className="w-4 h-4 text-white" />
+                {newOrders.length > 1 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {newOrders.length}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-[#BA722E] uppercase tracking-widest">
+                  {newOrders.length > 1
+                    ? `${newOrders.length} New Orders`
+                    : "New Order Alert"}
+                </p>
+                <p className="text-sm font-bold text-[#00152A]">
+                  Order {latestNewOrder.displayId} Received
+                </p>
+              </div>
+            </button>
             <button
               onClick={() => setShowAlert(false)}
               className="ml-2 text-gray-300 hover:text-gray-500 text-xs"
@@ -367,12 +558,64 @@ export default function KitchenOrdersClient({
         )}
       </div>
 
+      {/* ── Status Filter Tabs ──────────────── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {TABS.map((tab) => {
+          const count =
+            tab.id === "all"
+              ? orders.length
+              : tab.id === "ready"
+                ? orders.filter(
+                    (o) =>
+                      o.status === "ready" || o.status === "out_for_delivery",
+                  ).length
+                : orders.filter((o) => o.status === tab.id).length;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                activeTab === tab.id
+                  ? "bg-[#00152A] text-white shadow-sm"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  "px-1.5 rounded-full text-[10px]",
+                  activeTab === tab.id
+                    ? "bg-white/20 text-white"
+                    : "bg-white text-gray-400",
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Kanban Board ────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {COLUMNS.map((col) => {
+      <div
+        className={cn(
+          "flex gap-6 pb-2",
+          activeTab === "all"
+            ? "overflow-x-auto"
+            : "flex-col md:flex-row md:flex-wrap",
+        )}
+      >
+        {visibleColumns.map((col) => {
           const colOrders = getColumnOrders(col.id);
           return (
-            <div key={col.id} className="space-y-4">
+            <div
+              key={col.id}
+              className={cn(
+                "space-y-4 flex-shrink-0",
+                activeTab === "all" ? "w-[300px]" : "w-full md:w-[320px]",
+              )}
+            >
               {/* Column Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -403,6 +646,7 @@ export default function KitchenOrdersClient({
                       key={order.id}
                       order={order}
                       onClick={handleOrderClick}
+                      onMarkDelivered={handleMarkDelivered}
                     />
                   ))
                 ) : (
@@ -503,7 +747,78 @@ export default function KitchenOrdersClient({
         onClose={() => setIsModalOpen(false)}
         onAcknowledgeOrder={handleAcknowledgeOrder}
         onMarkReady={handleMarkReady}
+        onMarkDelivered={handleMarkDelivered}
       />
+    </div>
+  );
+}
+
+// ── Order Progress Stepper ────────────────────────────────────────────────────
+// Visualises an order's journey through the kitchen flow. The active step is
+// derived from the same status the Kanban columns use, so the modal and the
+// board always tell the same story.
+const PROGRESS_STEPS = [
+  { key: "new", label: "Received" },
+  { key: "in_preparation", label: "Preparing" },
+  { key: "ready", label: "Ready" },
+  { key: "delivered", label: "Delivered" },
+] as const;
+
+function OrderProgress({ status }: { status: KitchenOrder["status"] }) {
+  // pending_stock is a side-state of a "received" order, so it maps to step 0.
+  const activeIndex =
+    status === "in_preparation"
+      ? 1
+      : status === "ready" || status === "out_for_delivery"
+        ? 2
+        : status === "delivered"
+          ? 3
+          : 0;
+
+  return (
+    <div className="flex items-center">
+      {PROGRESS_STEPS.map((step, i) => {
+        const isDone = i < activeIndex;
+        const isCurrent = i === activeIndex;
+        return (
+          <React.Fragment key={step.key}>
+            <div className="flex flex-col items-center gap-1.5">
+              <div
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors",
+                  isDone
+                    ? "bg-[#1B7F34] text-white"
+                    : isCurrent
+                      ? "bg-[#00152A] text-white ring-4 ring-[#00152A]/10"
+                      : "bg-gray-100 text-gray-400",
+                )}
+              >
+                {isDone ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+              </div>
+              <span
+                className={cn(
+                  "text-[9px] font-bold uppercase tracking-widest whitespace-nowrap",
+                  isCurrent
+                    ? "text-[#00152A]"
+                    : isDone
+                      ? "text-[#1B7F34]"
+                      : "text-gray-400",
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+            {i < PROGRESS_STEPS.length - 1 && (
+              <div
+                className={cn(
+                  "flex-1 h-0.5 mx-1.5 mb-5 rounded-full transition-colors",
+                  i < activeIndex ? "bg-[#1B7F34]" : "bg-gray-100",
+                )}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -515,12 +830,14 @@ function OrderDetailModal({
   onClose,
   onAcknowledgeOrder,
   onMarkReady,
+  onMarkDelivered,
 }: {
   order: KitchenOrder | null;
   isOpen: boolean;
   onClose: () => void;
   onAcknowledgeOrder: (orderId: string) => void;
   onMarkReady: (orderId: string) => void;
+  onMarkDelivered: (orderId: string) => void;
 }) {
   const [showStockRequest, setShowStockRequest] = useState(false);
   const [stockItemName, setStockItemName] = useState("");
@@ -580,7 +897,16 @@ function OrderDetailModal({
             <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
               <div className="flex items-center gap-3">
                 <span className="bg-[#FFF4E8] text-[#EA580C] text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase">
-                  {order.status === "new" ? "New" : "In Progress"}
+                  {order.status === "new"
+                    ? "New"
+                    : order.status === "in_preparation"
+                      ? "Preparing"
+                      : order.status === "ready" ||
+                          order.status === "out_for_delivery"
+                        ? "Ready"
+                        : order.status === "delivered"
+                          ? "Delivered"
+                          : "In Progress"}
                 </span>
                 <span className="text-gray-400 text-sm font-medium">
                   {order.timeAgo}
@@ -594,27 +920,37 @@ function OrderDetailModal({
                 Detailed view for order #{order.displayId}
               </DialogDescription>
 
-              {/* Guest Card */}
-              {order.guestName && (
-                <div className="flex items-center gap-4 py-6 border-y border-gray-50">
+              {/* Order progress flow: Received → Preparing → Ready → Delivered */}
+              <OrderProgress status={order.status} />
+
+              {/* Guest Card — name + room resolved from the order's booking */}
+              <div className="flex items-center justify-between gap-4 py-6 border-y border-gray-50">
+                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center overflow-hidden">
                     <User className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
-                      Guest Detail
+                      Delivery Detail
                     </p>
                     <h3 className="manrope-bold text-xl text-[#00152A]">
-                      {order.guestName}
+                      {order.guestRoom
+                        ? `Room ${order.guestRoom}`
+                        : order.location || "Dining Hall"}
                     </h3>
-                    {order.guestRoom && (
-                      <p className="text-xs text-gray-500">
-                        Room {order.guestRoom}
-                      </p>
-                    )}
                   </div>
                 </div>
-              )}
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+                    {order.guestRoom ? "Room" : "Location"}
+                  </p>
+                  <h3 className="manrope-bold text-xl text-[#00152A]">
+                    {order.guestRoom
+                      ? `Room ${order.guestRoom}`
+                      : order.location || "Dining Hall"}
+                  </h3>
+                </div>
+              </div>
 
               {/* Items List */}
               <div className="space-y-6 pt-4">
@@ -743,6 +1079,15 @@ function OrderDetailModal({
                 >
                   <CheckCircle2 className="w-5 h-5" />
                   Acknowledge Order
+                </Button>
+              ) : order.status === "ready" ||
+                order.status === "out_for_delivery" ? (
+                <Button
+                  onClick={() => onMarkDelivered(order.id)}
+                  className="w-full bg-[#1B7F34] hover:bg-[#156329] text-white h-14 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                >
+                  <PackageCheck className="w-5 h-5" />
+                  Delivered
                 </Button>
               ) : (
                 <Button

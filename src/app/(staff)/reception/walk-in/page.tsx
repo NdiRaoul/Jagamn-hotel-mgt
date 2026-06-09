@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { formatMoney } from "@/lib/currency";
 import {
   User,
   Mail,
@@ -397,13 +398,13 @@ export default function WalkInBookingPage() {
                 </p>
               </div>
               <p className="manrope-bold text-lg text-[#00152A]">
-                ${roomTotal.toFixed(2)}
+                {formatMoney(roomTotal)}
               </p>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-gray-50">
               <p className="text-sm font-medium text-gray-600">Tax (10%)</p>
               <p className="manrope-bold text-lg text-[#00152A]">
-                ${tax.toFixed(2)}
+                {formatMoney(tax)}
               </p>
             </div>
             {/* Resort fee removed per pricing changes */}
@@ -412,7 +413,7 @@ export default function WalkInBookingPage() {
                 Total Due
               </p>
               <p className="manrope-bold text-4xl text-[#00152A]">
-                ${totalDue.toFixed(2)}
+                {formatMoney(totalDue)}
               </p>
             </div>
           </div>

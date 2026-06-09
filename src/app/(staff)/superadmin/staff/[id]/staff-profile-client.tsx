@@ -382,11 +382,12 @@ export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
         </div>
       </div>
 
-      {/* Edit Staff Modal */}
+      {/* Edit Staff Modal — owner may only assign admin/manager roles */}
       <StaffEditModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         staff={staff}
+        allowedRoles={["admin", "manager"]}
       />
     </div>
   );

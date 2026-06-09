@@ -27,7 +27,7 @@ async function requireAdmin(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return null;
+  return { role: profile.role as string };
 }
 
 export async function GET(
@@ -35,7 +35,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const p = await params;
 
@@ -67,7 +67,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const p = await params;
 
@@ -76,6 +76,18 @@ export async function PATCH(
     string,
     unknown
   >;
+
+  // The owner (superadmin flow) may only assign admin or manager roles.
+  if (
+    role &&
+    guard.role === "owner" &&
+    !["admin", "manager"].includes(String(role))
+  ) {
+    return NextResponse.json(
+      { error: "Owner may only assign the admin or manager role." },
+      { status: 403 },
+    );
+  }
 
   const updatePayload: Record<string, unknown> = {};
   if (full_name) updatePayload.full_name = String(full_name);
@@ -123,7 +135,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const guard = await requireAdmin(request);
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const p = await params;
 

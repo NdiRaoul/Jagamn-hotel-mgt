@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { ROOMS } from "@/lib/data/rooms";
+import { drainReconcileQueue } from "@/lib/redis/reconcile";
 
 export async function GET(request: NextRequest) {
+  // Opportunistically drain the reconcile queue on organic traffic so missed
+  // webhooks / abandoned tabs still settle. Fire-and-forget — never blocks.
+  drainReconcileQueue().catch(() => {});
+
   const { searchParams } = new URL(request.url);
   const checkIn = searchParams.get("checkIn");
   const checkOut = searchParams.get("checkOut");

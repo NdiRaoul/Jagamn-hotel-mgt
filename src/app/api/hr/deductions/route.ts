@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
+import { supabaseAdmin } from "@/lib/supabase-server";
 import { createDeduction } from "@/lib/data/deductions";
 
 export async function POST(request: NextRequest) {
@@ -18,6 +19,24 @@ export async function POST(request: NextRequest) {
         { error: "Missing required fields" },
         { status: 400 },
       );
+    }
+
+    // The owner may only apply deductions to admin/manager staff.
+    if (session.role === "owner") {
+      const { data: target } = await supabaseAdmin
+        .from("staff")
+        .select("role")
+        .eq("id", staff_id)
+        .single();
+      if (!target || !["admin", "manager"].includes(target.role)) {
+        return NextResponse.json(
+          {
+            error:
+              "Owner may only apply deductions to admin or manager staff.",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const deduction = await createDeduction(

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { items, notes, payment_method } = body;
+    const { items, notes, payment_method, room_type, room_unit } = body;
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "No items in order" }, { status: 400 });
@@ -107,7 +107,11 @@ export async function POST(req: NextRequest) {
     // Fan-out notification to kitchen staff
     const roomsRel = activeBooking?.rooms;
     const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
-    const unitCode = room?.unit_code || "Dining Hall";
+    const roomLabel = room_unit || room?.unit_code;
+    const roomTitle = roomLabel ? `Room ${roomLabel}` : "Dining Hall";
+    const titlePrefix = room_type
+      ? `New ${room_type} order —`
+      : "New room order —";
     const itemSummary = orderItems
       .map((i) => `${i.quantity}x ${i.item_name}`)
       .join(", ");
@@ -115,7 +119,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.rpc("notify_role", {
       p_role: "kitchen",
       p_type: "dining",
-      p_title: `New room order — Room ${unitCode}`,
+      p_title: `${titlePrefix} ${roomTitle}`,
       p_body: itemSummary,
     });
 

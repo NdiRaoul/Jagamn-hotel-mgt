@@ -95,12 +95,15 @@ export function NewPurchaseOrderDrawer({ onClose, onSaveDraft, onSubmit }: NewPu
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-      {/* Drawer */}
-      <div className="w-full sm:max-w-md bg-white h-full flex flex-col shadow-2xl">
+      {/* Modal */}
+      <div className="relative w-full max-w-lg bg-white rounded-xl flex flex-col shadow-2xl max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 shrink-0">
           <div className="flex items-center justify-between">

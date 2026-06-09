@@ -84,7 +84,7 @@ export function ConsumptionTrendsChart({
               wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
             />
             <Bar dataKey="purchased" fill="#111827" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="consumed" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="consumed" fill="#d9822b" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

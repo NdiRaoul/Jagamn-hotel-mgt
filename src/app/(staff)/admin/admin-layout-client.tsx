@@ -18,7 +18,11 @@ import {
   Search,
   Building2,
   TrendingUp,
+  TrendingDown,
   UserCircle,
+  Bell,
+  History,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,12 +40,17 @@ import {
 const ADMIN_NAV = [
   { label: "Overview", icon: LayoutDashboard, href: "/admin" },
   { label: "Revenue", icon: TrendingUp, href: "/admin/revenue" },
+  { label: "Users", icon: UserCircle, href: "/admin/users" },
   { label: "Staff", icon: Users, href: "/admin/staff" },
+  { label: "Arrivals", icon: CalendarDays, href: "/admin/arrivals" },
   { label: "HR", icon: Landmark, href: "/admin/hr" },
+  { label: "Deductions", icon: TrendingDown, href: "/admin/hr/deductions" },
   { label: "Payroll", icon: Wallet, href: "/admin/payroll" },
   { label: "Rooms", icon: Bed, href: "/admin/rooms" },
   { label: "F&B", icon: Utensils, href: "/admin/fb" },
   { label: "Procurement", icon: ShoppingCart, href: "/admin/procurement" },
+  { label: "Alerts", icon: Bell, href: "/admin/alerts" },
+  { label: "Audit Logs", icon: History, href: "/admin/audit" },
 ];
 
 export default function AdminLayout({
@@ -134,7 +143,7 @@ export default function AdminLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-0 space-y-1 mt-8 overflow-y-auto custom-scrollbar overflow-x-hidden">
+          <nav className="flex-1 min-h-0 px-0 space-y-1 mt-8 overflow-y-auto no-scrollbar overflow-x-hidden">
             <TooltipProvider delayDuration={0}>
               {ADMIN_NAV.map((item) => {
                 const isActive =

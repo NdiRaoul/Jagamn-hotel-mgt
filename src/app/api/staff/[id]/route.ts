@@ -47,6 +47,20 @@ export async function PATCH(
     return NextResponse.json({ error: "Staff not found" }, { status: 404 });
   }
 
+  // The owner (acting through the superadmin flow) may only assign admin or
+  // manager roles. Promoting an existing staffer to admin/manager is allowed;
+  // assigning any other role is not.
+  if (
+    typeof role === "string" &&
+    session.role === "owner" &&
+    !["admin", "manager"].includes(role)
+  ) {
+    return NextResponse.json(
+      { error: "Owner may only assign the admin or manager role." },
+      { status: 403 },
+    );
+  }
+
   const patch: Record<string, unknown> = {};
   if (typeof full_name === "string") patch.full_name = full_name;
   if (typeof phone === "string") patch.phone = phone;

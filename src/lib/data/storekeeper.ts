@@ -80,6 +80,113 @@ export async function getStoreInventory(): Promise<StoreInventoryItem[]> {
   });
 }
 
+export type PredictiveStatus =
+  | "HIGH RISK OF DEPLETION"
+  | "STABLE"
+  | "MONITOR";
+
+export interface PredictiveStockItem {
+  id: string;
+  name: string;
+  status: PredictiveStatus;
+}
+
+/**
+ * Real predictive stock analysis (replaces the old mock list).
+ *
+ * Depletion risk is derived from live on-hand vs reorder/max thresholds, then
+ * amplified by outstanding (requested/approved) inventory requests that will
+ * draw the item down further, and by next-week occupancy pressure. Items are
+ * returned worst-risk-first so the dashboard panel highlights what to reorder.
+ */
+export async function getPredictiveStock(limit = 6): Promise<{
+  items: PredictiveStockItem[];
+  occupancyPct: number;
+}> {
+  const [{ data: inv }, { data: openRequests }, occupancyPct] =
+    await Promise.all([
+      supabaseAdmin
+        .from("inventory_items")
+        .select("id,name,on_hand,reorder_level,max_stock")
+        .eq("is_active", true),
+      supabaseAdmin
+        .from("inventory_requests")
+        .select("item_id,quantity")
+        .in("status", ["requested", "approved"]),
+      getOccupancyPct(),
+    ]);
+
+  // Sum outstanding demand per item.
+  const demandByItem = new Map<string, number>();
+  for (const r of openRequests ?? []) {
+    if (!r.item_id) continue;
+    demandByItem.set(
+      r.item_id,
+      (demandByItem.get(r.item_id) ?? 0) + (r.quantity ?? 0),
+    );
+  }
+
+  // Occupancy raises projected consumption (more guests → faster depletion).
+  const occupancyFactor = 1 + occupancyPct / 100;
+
+  const scored = (inv ?? []).map((r: any) => {
+    const reorder = r.reorder_level ?? 0;
+    const max = r.max_stock ?? Math.max(reorder * 4, r.on_hand);
+    const projectedOut = (demandByItem.get(r.id) ?? 0) * occupancyFactor;
+    const projectedOnHand = r.on_hand - projectedOut;
+
+    let status: PredictiveStatus = "STABLE";
+    if (projectedOnHand <= reorder) {
+      status = "HIGH RISK OF DEPLETION";
+    } else if (projectedOnHand <= reorder * 2 || projectedOnHand <= max * 0.4) {
+      status = "MONITOR";
+    }
+
+    // Lower headroom ratio = higher risk (used only for sorting).
+    const headroom = max > 0 ? projectedOnHand / max : 0;
+    return { id: r.id, name: r.name, status, headroom };
+  });
+
+  const rank: Record<PredictiveStatus, number> = {
+    "HIGH RISK OF DEPLETION": 0,
+    MONITOR: 1,
+    STABLE: 2,
+  };
+  scored.sort(
+    (a, b) => rank[a.status] - rank[b.status] || a.headroom - b.headroom,
+  );
+
+  return {
+    items: scored
+      .slice(0, limit)
+      .map(({ id, name, status }) => ({ id, name, status })),
+    occupancyPct,
+  };
+}
+
+/** Rough hotel occupancy %: active rooms with a booking spanning today. */
+async function getOccupancyPct(): Promise<number> {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [{ count: totalRooms }, { data: occupied }] = await Promise.all([
+    supabaseAdmin
+      .from("rooms")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabaseAdmin
+      .from("bookings")
+      .select("room_id")
+      .not("status", "in", "(cancelled,expired,checked_out,completed,pending)")
+      .lte("check_in", todayKey)
+      .gt("check_out", todayKey),
+  ]);
+
+  const occupiedCount = new Set(
+    (occupied ?? []).map((b: any) => b.room_id).filter(Boolean),
+  ).size;
+  if (!totalRooms || totalRooms === 0) return 0;
+  return Math.round((occupiedCount / totalRooms) * 100);
+}
+
 export async function getInventoryRequests(
   statuses: string[] = ["requested", "approved"],
 ): Promise<StoreInventoryRequest[]> {
@@ -176,6 +283,7 @@ export interface StoreReports {
     on_hand: number;
     reorder_level: number;
     unit: string;
+    image_url: string | null;
   }>;
   poHistory: StorePurchaseOrder[];
   consumption: Array<{ item_name: string; total_qty: number }>;
@@ -190,7 +298,7 @@ export async function getStoreReports(): Promise<StoreReports> {
         .select("description,unit_price_minor"),
       supabaseAdmin
         .from("inventory_low_stock")
-        .select("id,name,category,on_hand,reorder_level,unit"),
+        .select("id,name,category,on_hand,reorder_level,unit,image_url"),
       getStorePurchaseOrders(),
       supabaseAdmin
         .from("inventory_requests")
@@ -284,6 +392,7 @@ export async function getStoreReports(): Promise<StoreReports> {
       on_hand: r.on_hand,
       reorder_level: r.reorder_level,
       unit: r.unit,
+      image_url: r.image_url ?? null,
     })),
     poHistory,
     consumption,

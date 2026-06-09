@@ -9,6 +9,7 @@ import {
   confirmBookingFromPayment,
   expireBooking,
 } from "@/lib/payments/confirm-booking";
+import { enqueueReconcile } from "@/lib/redis/reconcile";
 
 const FAPSHI_BASE_URL =
   process.env.FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
@@ -108,6 +109,22 @@ export async function POST(request: NextRequest) {
       source: "server",
       payload: data,
     });
+
+    // Backstop: enqueue for reconciliation so a closed tab / missed webhook
+    // still settles (or expires) the booking. No-op when Redis is absent.
+    const { data: bookingRow } = await supabaseAdmin
+      .from("bookings")
+      .select("id")
+      .eq("booking_ref", bookingRef)
+      .maybeSingle();
+    if (bookingRow?.id) {
+      await enqueueReconcile({
+        bookingId: bookingRow.id,
+        bookingRef,
+        provider: "fapshi",
+        transactionId: transId,
+      });
+    }
 
     return NextResponse.json({
       ...data,

@@ -8,7 +8,13 @@ export interface KitchenOrder {
   modifiers: string;
   location: string;
   server: string;
-  status: "new" | "pending_stock" | "in_preparation" | "ready";
+  status:
+    | "new"
+    | "pending_stock"
+    | "in_preparation"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered";
   actionRequired?: boolean;
   stockAlert?: string;
   currentStock?: number;
@@ -17,6 +23,8 @@ export interface KitchenOrder {
   stockConfirmed?: boolean;
   guestName?: string;
   guestRoom?: string;
+  roomType?: string;
+  totalAmount?: number;
   items?: Array<{ name: string; quantity: number; unit_price: number }>;
   created_at: string;
   updated_at: string;
@@ -76,6 +84,8 @@ export interface DiningReporting {
  * Get active dining orders with guest/room info for the kitchen Orders board
  */
 export async function getKitchenOrders(): Promise<KitchenOrder[]> {
+  // Only active orders live on the board. Once an order is delivered it leaves
+  // the board entirely and is surfaced on the Order History page instead.
   const { data, error } = await supabaseAdmin
     .from("dining_orders")
     .select(
@@ -83,6 +93,7 @@ export async function getKitchenOrders(): Promise<KitchenOrder[]> {
       id,
       status,
       notes,
+      total_amount,
       created_at,
       updated_at,
       app_user_id,
@@ -98,11 +109,14 @@ export async function getKitchenOrders(): Promise<KitchenOrder[]> {
         guest_name,
         rooms (
           unit_code
+        ),
+        room_types (
+          name
         )
       )
     `,
     )
-    .in("status", ["placed", "preparing", "ready"])
+    .in("status", ["placed", "preparing", "ready", "out_for_delivery"])
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -113,15 +127,26 @@ export async function getKitchenOrders(): Promise<KitchenOrder[]> {
       items.map((i: any) => `${i.quantity}x ${i.item_name}`).join(", ") ||
       "Order";
     const modifiers = order.notes || "";
-    const booking = order.bookings;
+    // Supabase can return embedded relations as either an object or a
+    // single-element array depending on how it infers the relationship, so
+    // unwrap the booking, its room, and its room type before reading fields.
+    const bookingRel = order.bookings;
+    const booking = Array.isArray(bookingRel) ? bookingRel[0] : bookingRel;
+    const roomsRel = booking?.rooms;
+    const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
+    const roomTypeRel = booking?.room_types;
+    const roomType = Array.isArray(roomTypeRel) ? roomTypeRel[0] : roomTypeRel;
     const guestName = booking?.guest_name || "Guest";
-    const guestRoom = booking?.rooms?.unit_code || "";
+    const guestRoom = room?.unit_code || "";
 
     // Map DB status to kitchen board status
     let boardStatus: KitchenOrder["status"] = "new";
     if (order.status === "placed") boardStatus = "new";
     else if (order.status === "preparing") boardStatus = "in_preparation";
     else if (order.status === "ready") boardStatus = "ready";
+    else if (order.status === "out_for_delivery")
+      boardStatus = "out_for_delivery";
+    else if (order.status === "delivered") boardStatus = "delivered";
 
     const now = new Date();
     const created = new Date(order.created_at);
@@ -145,6 +170,8 @@ export async function getKitchenOrders(): Promise<KitchenOrder[]> {
       status: boardStatus,
       guestName,
       guestRoom: guestRoom || undefined,
+      roomType: roomType?.name || undefined,
+      totalAmount: order.total_amount ?? undefined,
       items: items.map((i: any) => ({
         name: i.item_name,
         quantity: i.quantity,
@@ -154,6 +181,109 @@ export async function getKitchenOrders(): Promise<KitchenOrder[]> {
       updated_at: order.updated_at,
     };
   });
+}
+
+// ── Order History ─────────────────────────────────────────────────────────────
+export interface OrderHistoryEntry {
+  id: string;
+  displayId: string;
+  guestName: string;
+  guestRoom: string | null;
+  roomType: string | null;
+  totalAmount: number;
+  itemCount: number;
+  items: Array<{ name: string; quantity: number; unit_price: number }>;
+  deliveredAt: string;
+  created_at: string;
+}
+
+/**
+ * Get delivered dining orders for the Order History page, with optional
+ * date-range and room-type filtering. Date filters apply to delivery time
+ * (updated_at); room-type filtering happens in JS because it lives on a
+ * nested relation.
+ */
+export async function getOrderHistory(filters?: {
+  from?: string;
+  to?: string;
+  roomType?: string;
+}): Promise<OrderHistoryEntry[]> {
+  let query = supabaseAdmin
+    .from("dining_orders")
+    .select(
+      `
+      id,
+      status,
+      total_amount,
+      created_at,
+      updated_at,
+      dining_order_items (
+        item_name,
+        quantity,
+        unit_price
+      ),
+      bookings (
+        guest_name,
+        rooms (
+          unit_code
+        ),
+        room_types (
+          name
+        )
+      )
+    `,
+    )
+    .in("status", ["delivered", "out_for_delivery"])
+    .order("updated_at", { ascending: false })
+    .limit(300);
+
+  if (filters?.from) query = query.gte("updated_at", filters.from);
+  if (filters?.to) query = query.lte("updated_at", filters.to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  let rows: OrderHistoryEntry[] = (data || []).map((order: any) => {
+    const items = order.dining_order_items || [];
+    const bookingRel = order.bookings;
+    const booking = Array.isArray(bookingRel) ? bookingRel[0] : bookingRel;
+    const roomsRel = booking?.rooms;
+    const room = Array.isArray(roomsRel) ? roomsRel[0] : roomsRel;
+    const roomTypeRel = booking?.room_types;
+    const roomType = Array.isArray(roomTypeRel) ? roomTypeRel[0] : roomTypeRel;
+
+    return {
+      id: order.id,
+      displayId: `JGM-${order.id.slice(0, 4).toUpperCase()}`,
+      guestName: booking?.guest_name || "Walk-in Guest",
+      guestRoom: room?.unit_code || null,
+      roomType: roomType?.name || null,
+      totalAmount: order.total_amount ?? 0,
+      itemCount: items.reduce((n: number, i: any) => n + (i.quantity || 0), 0),
+      items: items.map((i: any) => ({
+        name: i.item_name,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+      })),
+      deliveredAt: order.updated_at,
+      created_at: order.created_at,
+    };
+  });
+
+  if (filters?.roomType && filters.roomType !== "all") {
+    rows = rows.filter((r) => r.roomType === filters.roomType);
+  }
+
+  return rows;
+}
+
+/** Distinct room-type names for the Order History filter dropdown. */
+export async function getRoomTypeNames(): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("room_types")
+    .select("name")
+    .order("name");
+  return (data || []).map((r: any) => r.name);
 }
 
 /**

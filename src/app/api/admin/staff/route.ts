@@ -27,12 +27,12 @@ async function requireAdmin(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return null;
+  return { role: profile.role as string };
 }
 
 export async function GET(request: NextRequest) {
   const guard = await requireAdmin(request);
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const { data, error } = await supabaseAdmin
     .from("staff")
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin(request);
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const body = await request.json().catch(() => ({}));
   const { full_name, email, role, status, auth_user_id, avatar_url } =
@@ -64,6 +64,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "full_name, email and role are required" },
       { status: 400 },
+    );
+  }
+
+  // The owner (superadmin flow) may only create admin or manager accounts.
+  if (guard.role === "owner" && !["admin", "manager"].includes(String(role))) {
+    return NextResponse.json(
+      { error: "Owner may only create admin or manager accounts." },
+      { status: 403 },
     );
   }
 

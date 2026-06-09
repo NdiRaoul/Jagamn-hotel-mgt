@@ -6,11 +6,15 @@ export const dynamic = "force-dynamic";
 
 export default async function DeparturesPage() {
   const today = new Date().toISOString().slice(0, 10);
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = tomorrowDate.toISOString().slice(0, 10);
   let departures: Awaited<ReturnType<typeof getDepartures>> = [];
   let error: string | null = null;
 
   try {
-    departures = await getDepartures(today);
+    // Today + next-day check-outs.
+    departures = await getDepartures(today, tomorrow);
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load departures";
   }

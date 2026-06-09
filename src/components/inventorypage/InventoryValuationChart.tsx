@@ -120,7 +120,7 @@ export function InventoryValuationChart({
                   <p className="text-[10px] text-gray-500">{cat.sub}</p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-amber-400 whitespace-nowrap">
+              <span className="text-xs font-bold text-jagamn-tertiary whitespace-nowrap">
                 {cat.turnover} Turnover
               </span>
             </div>
@@ -130,8 +130,8 @@ export function InventoryValuationChart({
         {/* Predictive insight */}
         <div className="mt-4 pt-4 border-t border-gray-700">
           <div className="flex items-center gap-1.5 mb-2">
-            <Zap className="w-3 h-3 text-amber-400" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
+            <Zap className="w-3 h-3 text-jagamn-tertiary" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-jagamn-tertiary">
               Predictive Insight
             </span>
           </div>

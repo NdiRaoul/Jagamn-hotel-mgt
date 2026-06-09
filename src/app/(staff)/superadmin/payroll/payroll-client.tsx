@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Download, Filter, Search } from "lucide-react";
+import { Download, Filter, Search, Send } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -56,8 +57,47 @@ export default function PayrollClient({
   payrollMonthly,
   payrollSummary,
 }: PayrollClientProps) {
+  const { toast } = useToast();
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sendingPayslipFor, setSendingPayslipFor] = useState<string | null>(
+    null,
+  );
+
+  const handleSendPayslip = async (staff: any) => {
+    if (!staff?.id) return;
+    setSendingPayslipFor(staff.id);
+    try {
+      const res = await fetch("/api/admin/payroll/payslip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId: staff.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          title: "Payslip sent",
+          description: `${staff.name ?? "Staff"} was notified${
+            data.emailSent ? " by email" : ""
+          } and can view it in their account.`,
+        });
+      } else {
+        toast({
+          title: "Could not send payslip",
+          description: data.error || "Unknown error",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Could not send payslip",
+        description: e?.message || "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingPayslipFor(null);
+    }
+  };
 
   // Global Search Integration
   useEffect(() => {
@@ -70,40 +110,31 @@ export default function PayrollClient({
   }, []);
 
   const payrollData = useMemo(() => {
-    return (payrollMonthly || []).filter((staff: any) => {
+    const rows = payrollSummary?.rows || [];
+    return rows.filter((staff: any) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
         (staff.name && staff.name.toLowerCase().includes(q)) ||
-        (staff.staff_id && staff.staff_id.toLowerCase().includes(q)) ||
-        (staff.role && staff.role.toLowerCase().includes(q)) ||
-        (staff.gross_salary && staff.gross_salary.toString().includes(q)) ||
-        (staff.net_salary && staff.net_salary.toString().includes(q));
+        (staff.role && staff.role.toLowerCase().includes(q));
 
       const matchesRole = roleFilter === "all" || staff.role === roleFilter;
 
       return matchesSearch && matchesRole;
     });
-  }, [payrollMonthly, roleFilter, searchQuery]);
+  }, [payrollSummary, roleFilter, searchQuery]);
 
   const handleExportCSV = () => {
-    const headers = [
-      "Staff Name",
-      "Role",
-      "Gross Salary",
-      "Deductions",
-      "Net Pay",
-    ];
+    const headers = ["Staff Name", "Role", "Gross Salary", "Net Pay"];
     const rows = payrollData.map((staff: any) => [
       staff.name || "",
       staff.role || "",
-      (staff.gross_salary || 0).toFixed(2),
-      (staff.deductions || 0).toFixed(2),
-      (staff.net_salary || 0).toFixed(2),
+      String(staff.gross || 0),
+      String(staff.net || 0),
     ]);
     const csvContent = [
       headers.join(","),
-      ...rows.map((row) => row.join(",")),
+      ...rows.map((row: string[]) => row.join(",")),
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -145,7 +176,7 @@ export default function PayrollClient({
           />
           <StatCard
             title="Staff Count"
-            value={payrollSummary?.staff_count || 0}
+            value={payrollSummary?.staffCount || 0}
             subtext="Active Employees"
             accentColor="border-l-[#E8924A]"
           />
@@ -262,17 +293,17 @@ export default function PayrollClient({
                     Gross Salary
                   </th>
                   <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
-                    Deductions
-                  </th>
-                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-right">
                     Net Pay
+                  </th>
+                  <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#43474D] uppercase tracking-widest text-center">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {payrollData.map((staff: any) => (
                   <tr
-                    key={staff.staff_id}
+                    key={staff.id}
                     className="group hover:bg-gray-50/50 transition-colors"
                   >
                     <td className="px-6 md:px-8 py-5 md:py-6">
@@ -293,8 +324,8 @@ export default function PayrollClient({
                           <span className="manrope-bold text-sm md:text-base text-[#0D2137] block">
                             {staff.name || "N/A"}
                           </span>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            {staff.staff_id || "N/A"}
+                          <span className="text-[10px] font-medium text-slate-400 lowercase tracking-wide">
+                            {staff.email || "—"}
                           </span>
                         </div>
                       </div>
@@ -306,18 +337,26 @@ export default function PayrollClient({
                     </td>
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        {formatMoney(staff.gross_salary || 0)}
-                      </span>
-                    </td>
-                    <td className="px-6 md:px-8 py-5 md:py-6 text-right">
-                      <span className="manrope-bold text-sm md:text-base text-red-500">
-                        ({formatMoney(staff.deductions || 0)})
+                        {formatMoney(staff.gross || 0)}
                       </span>
                     </td>
                     <td className="px-6 md:px-8 py-5 md:py-6 text-right">
                       <span className="manrope-bold text-sm md:text-base text-[#0D2137]">
-                        {formatMoney(staff.net_salary || 0)}
+                        {formatMoney(staff.net || 0)}
                       </span>
+                    </td>
+                    <td className="px-6 md:px-8 py-5 md:py-6 text-center">
+                      <Button
+                        onClick={() => handleSendPayslip(staff)}
+                        disabled={sendingPayslipFor === staff.id}
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-lg text-[#0D2137] hover:text-[#E8924A]"
+                        title="Send payslip"
+                      >
+                        <Send className="w-4 h-4 mr-1.5" />
+                        Send
+                      </Button>
                     </td>
                   </tr>
                 ))}

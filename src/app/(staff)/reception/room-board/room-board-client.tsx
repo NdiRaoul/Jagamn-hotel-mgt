@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   BedDouble,
@@ -9,6 +10,7 @@ import {
   Wrench,
   Info,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,9 +56,28 @@ export default function RoomBoardClient({
   rooms: RoomBoardRoom[];
   error: string | null;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [floorFilter, setFloorFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Reception-only: occupied rooms show the booking ID by default; toggle to
+  // reveal guest names instead.
+  const [showGuestNames, setShowGuestNames] = useState(false);
+  const [cleaningRoomId, setCleaningRoomId] = useState<string | null>(null);
+
+  async function markClean(roomId: string) {
+    setCleaningRoomId(roomId);
+    try {
+      await fetch(`/api/reception/rooms/${roomId}/housekeeping`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "clean" }),
+      });
+      router.refresh();
+    } finally {
+      setCleaningRoomId(null);
+    }
+  }
 
   const floors = useMemo(() => {
     const set = new Set(rooms.map((r) => r.floor).filter(Boolean));
@@ -118,6 +139,13 @@ export default function RoomBoardClient({
             <option value="dirty">Needs Cleaning</option>
             <option value="out_of_order">Out of Order</option>
           </select>
+          <Button
+            variant="outline"
+            onClick={() => setShowGuestNames((v) => !v)}
+            className="h-11 px-4 border-gray-200 text-[10px] font-bold uppercase tracking-widest text-gray-600"
+          >
+            {showGuestNames ? "Show Booking IDs" : "Show Guest Names"}
+          </Button>
         </div>
       </div>
 
@@ -204,17 +232,34 @@ export default function RoomBoardClient({
               </div>
 
               <div className="pt-3 border-t border-gray-50">
-                {room.status === "occupied" && room.guestName ? (
+                {room.status === "occupied" ? (
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-[#00152A] line-clamp-1">
-                      {room.guestName}
+                    {/* Default: booking ID. Toggle reveals the guest name. */}
+                    <p className="text-sm font-bold text-[#00152A] line-clamp-1 font-mono">
+                      {showGuestNames
+                        ? room.guestName || room.bookingRef || "Occupied"
+                        : room.bookingRef || room.guestName || "Occupied"}
                     </p>
-                    {room.bookingRef && (
-                      <p className="text-[9px] text-gray-400 font-mono">
-                        {room.bookingRef}
+                    {(showGuestNames ? room.bookingRef : room.guestName) && (
+                      <p
+                        className={cn(
+                          "text-[15px] text-gray-400 line-clamp-1",
+                          !showGuestNames && "font-mono",
+                        )}
+                      >
+                        {showGuestNames ? room.bookingRef : room.guestName}
                       </p>
                     )}
                   </div>
+                ) : room.status === "dirty" ? (
+                  <Button
+                    onClick={() => markClean(room.id)}
+                    disabled={cleaningRoomId === room.id}
+                    className="h-8 w-full bg-[#BA722E] hover:bg-[#A35F24] text-white text-[9px] font-bold uppercase tracking-widest gap-1.5"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {cleaningRoomId === room.id ? "Marking..." : "Mark Clean"}
+                  </Button>
                 ) : (
                   <Badge
                     className={cn(

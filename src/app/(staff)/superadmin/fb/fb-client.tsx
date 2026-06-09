@@ -51,6 +51,7 @@ interface FBClientProps {
 export default function FBClient({ menu }: FBClientProps) {
   const [activeCategory, setActiveCategory] = useState("All Items");
   const [searchQuery, setSearchQuery] = useState("");
+  const [items] = useState<any[]>(menu || []);
 
   // Global Search Integration
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function FBClient({ menu }: FBClientProps) {
   }, []);
 
   const filteredItems = useMemo(() => {
-    return (menu || []).filter((item: any) => {
+    return (items || []).filter((item: any) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -77,12 +78,12 @@ export default function FBClient({ menu }: FBClientProps) {
 
       return matchesSearch && matchesCategory;
     });
-  }, [menu, searchQuery, activeCategory]);
+  }, [items, searchQuery, activeCategory]);
 
-  const availableCount = (menu || []).filter(
+  const availableCount = (items || []).filter(
     (item: any) => item.is_available,
   ).length;
-  const unavailableCount = (menu || []).length - availableCount;
+  const unavailableCount = (items || []).length - availableCount;
 
   return (
     <div className="space-y-12 pb-20 animate-in fade-in duration-700">
@@ -106,7 +107,7 @@ export default function FBClient({ menu }: FBClientProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <StatCard
           title="Total Items"
-          value={(menu || []).length.toString()}
+          value={(items || []).length.toString()}
           change={`${availableCount} available`}
           accentColor="border-l-[#0D2137]"
           changeColor="text-emerald-600"

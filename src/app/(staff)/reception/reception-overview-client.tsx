@@ -214,6 +214,7 @@ export default function ReceptionOverviewClient({
                   <Badge
                     className={cn(
                       "border-0 text-[8px] font-bold uppercase tracking-widest px-3 py-1",
+                      dep.status === "checked_out" ||
                       dep.status === "completed"
                         ? "bg-[#00152A] text-white"
                         : "bg-gray-100 text-gray-500",

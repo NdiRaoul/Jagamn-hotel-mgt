@@ -73,7 +73,9 @@ export async function POST(request: NextRequest) {
           eventKey,
           bookingRef,
           transactionId: pi.id,
-          amount: pi.amount ? pi.amount / 100 : undefined,
+          // Stripe XAF is zero-decimal: pi.amount is already whole francs.
+          // Store whole XAF so payments.amount matches bookings.total_amount.
+          amount: pi.amount ?? undefined,
           currency: pi.currency?.toUpperCase(),
           paymentMethod: "card",
         });

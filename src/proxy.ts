@@ -92,9 +92,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(timeoutUrl);
     }
 
-    // Role-based access per portal. The owner can access everything;
-    // each other role is confined to its own portal (admins/managers also
-    // oversee reception, kitchen and store). Order matters — most specific
+    // Role-based access per portal. Every role is confined strictly to its own
+    // portal — including the owner, who can only access /superadmin. Admin/manager
+    // do NOT get into reception/kitchen/storekeeper by URL — they have their own
+    // read-only views inside /admin instead. Order matters — most specific
     // prefix first.
     const portalFor = (role: string) =>
       role === "owner"
@@ -109,10 +110,10 @@ export async function proxy(request: NextRequest) {
 
     const ACCESS: { prefix: string; roles: string[] }[] = [
       { prefix: "/superadmin", roles: ["owner"] },
-      { prefix: "/storekeeper", roles: ["storekeeper", "admin", "manager", "owner"] },
-      { prefix: "/admin", roles: ["admin", "manager", "owner"] },
-      { prefix: "/kitchen", roles: ["kitchen", "admin", "manager", "owner"] },
-      { prefix: "/reception", roles: ["reception", "admin", "manager", "owner"] },
+      { prefix: "/storekeeper", roles: ["storekeeper"] },
+      { prefix: "/admin", roles: ["admin", "manager"] },
+      { prefix: "/kitchen", roles: ["kitchen"] },
+      { prefix: "/reception", roles: ["reception"] },
     ];
 
     const rule = ACCESS.find((r) => pathname.startsWith(r.prefix));

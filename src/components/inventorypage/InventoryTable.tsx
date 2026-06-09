@@ -28,7 +28,7 @@ const SORT_OPTIONS: SortOption[] = [
   "Stock Level (High to Low)",
   "Name (A-Z)",
 ];
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 
 // ─── Stock bar ────────────────────────────────────────────────────────────────
 function StockBar({ current, max }: { current: number; max: number }) {

@@ -44,16 +44,31 @@ import {
 import { cn } from "@/lib/utils";
 import type { Staff } from "@/types/database";
 
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "reception", label: "Reception" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "storekeeper", label: "Store Keeper" },
+];
+
 interface StaffEditModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   staff: Staff;
+  /**
+   * Restrict the assignable roles (e.g. the superadmin Staff page may only
+   * create/assign `admin` or `manager`). Defaults to the full role set.
+   */
+  allowedRoles?: string[];
 }
 
 export function StaffEditModal({
   open,
   onOpenChange,
   staff,
+  allowedRoles,
 }: StaffEditModalProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -429,12 +444,18 @@ export function StaffEditModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="owner">Owner</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="reception">Reception</SelectItem>
-                      <SelectItem value="kitchen">Kitchen</SelectItem>
-                      <SelectItem value="storekeeper">Store Keeper</SelectItem>
+                      {ROLE_OPTIONS.filter(
+                        (opt) =>
+                          !allowedRoles ||
+                          allowedRoles.includes(opt.value) ||
+                          // Always show the staffer's current role so it
+                          // renders even if it's outside the allowed set.
+                          opt.value === staff.role,
+                      ).map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

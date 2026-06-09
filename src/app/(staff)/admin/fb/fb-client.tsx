@@ -56,6 +56,7 @@ export default function FBClient({ summary, error }: Props) {
   const [items, setItems] = useState<LocalMenuItem[]>(summary.items);
   const [activeCategory, setActiveCategory] = useState("All Items");
   const [searchQuery, setSearchQuery] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   // Sync if server-pushed new items
   useEffect(() => {
@@ -128,13 +129,16 @@ export default function FBClient({ summary, error }: Props) {
           </p>
           {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
         </div>
-        <Dialog>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button className="h-16 px-10 bg-[#E8924A] hover:bg-[#E8924A]/90 text-white manrope-bold rounded-2xl flex items-center gap-3 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02]">
               <Plus className="w-5 h-5" /> Add Menu Item
             </Button>
           </DialogTrigger>
-          <AddMenuModal onAdd={(item) => setItems((prev) => [...prev, item])} />
+          <AddMenuModal
+            onAdd={(item) => setItems((prev) => [...prev, item])}
+            onClose={() => setAddOpen(false)}
+          />
         </Dialog>
       </div>
 
@@ -347,32 +351,65 @@ export default function FBClient({ summary, error }: Props) {
   );
 }
 
-function AddMenuModal({ onAdd }: { onAdd: (item: LocalMenuItem) => void }) {
+function AddMenuModal({
+  onAdd,
+  onClose,
+}: {
+  onAdd: (item: LocalMenuItem) => void;
+  onClose: () => void;
+}) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Main Course");
   const [price, setPrice] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !price) return;
-    onAdd({
-      id: `LOCAL-${Date.now()}`,
-      name,
-      category,
-      price: parseFloat(price),
-      status: "available",
-      image: previewUrl ?? undefined,
-    });
-    setName("");
-    setPrice("");
-    setCategory("Main Course");
-    setPreviewUrl(null);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/admin/menu/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          category,
+          price: parseFloat(price),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveError(data.error || "Could not save item.");
+        return;
+      }
+      const created = data.item;
+      onAdd({
+        id: created?.id ?? `LOCAL-${Date.now()}`,
+        name: created?.name ?? name,
+        category:
+          created?.menu_categories?.name ?? category,
+        price: created?.price ?? parseFloat(price),
+        status: created?.is_available === false ? "out_of_stock" : "available",
+        image: previewUrl ?? undefined,
+      });
+      setName("");
+      setPrice("");
+      setCategory("Main Course");
+      setPreviewUrl(null);
+      onClose();
+    } catch {
+      setSaveError("Could not save item. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -489,12 +526,15 @@ function AddMenuModal({ onAdd }: { onAdd: (item: LocalMenuItem) => void }) {
         </div>
       </div>
       <div className="p-8 md:p-12 border-t border-gray-100 bg-[#F8FAFC] flex flex-col sm:flex-row items-center justify-end gap-6">
+        {saveError && (
+          <p className="text-sm text-red-500 font-medium mr-auto">{saveError}</p>
+        )}
         <Button
           onClick={handleSave}
-          disabled={!name || !price}
+          disabled={!name || !price || saving}
           className="h-16 px-12 bg-[#E8924A] text-white manrope-bold rounded-2xl shadow-xl hover:scale-[1.02] disabled:opacity-50"
         >
-          SAVE TO MENU
+          {saving ? "SAVING..." : "SAVE TO MENU"}
         </Button>
       </div>
     </DialogContent>

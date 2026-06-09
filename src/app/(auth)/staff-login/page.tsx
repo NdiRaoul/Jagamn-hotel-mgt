@@ -41,13 +41,10 @@ function StaffLoginForm() {
   const canVisit = (role: string, path: string) => {
     if (role === "owner") return true;
     if (path.startsWith("/superadmin")) return false;
-    if (path.startsWith("/storekeeper"))
-      return ["storekeeper", "admin", "manager"].includes(role);
+    if (path.startsWith("/storekeeper")) return role === "storekeeper";
     if (path.startsWith("/admin")) return ["admin", "manager"].includes(role);
-    if (path.startsWith("/kitchen"))
-      return ["kitchen", "admin", "manager"].includes(role);
-    if (path.startsWith("/reception"))
-      return ["reception", "admin", "manager"].includes(role);
+    if (path.startsWith("/kitchen")) return role === "kitchen";
+    if (path.startsWith("/reception")) return role === "reception";
     return false;
   };
 
@@ -78,6 +75,9 @@ function StaffLoginForm() {
       setIsSubmitting(false);
       return;
     }
+
+    // Record the login for the audit "Logins" tab (device + location).
+    fetch("/api/staff/login-event", { method: "POST" }).catch(() => {});
 
     if (staffData.must_reset_pw) {
       router.push("/reset-password");

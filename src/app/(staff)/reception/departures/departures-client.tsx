@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { formatMoney } from "@/lib/currency";
 import type { DepartureRecord } from "@/lib/data/reception";
 
 export default function DeparturesClient({
@@ -137,7 +138,7 @@ export default function DeparturesClient({
                         )}
                       >
                         {dep.balanceDue > 0
-                          ? `$${(dep.balanceDue / 100).toFixed(2)}`
+                          ? formatMoney(Math.round(dep.balanceDue))
                           : "Settled"}
                       </p>
                     </td>
@@ -145,6 +146,7 @@ export default function DeparturesClient({
                       <Badge
                         className={cn(
                           "border-0 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5",
+                          dep.status === "checked_out" ||
                           dep.status === "completed"
                             ? "bg-gray-50 text-gray-400"
                             : dep.status === "confirmed"

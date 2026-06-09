@@ -150,9 +150,20 @@ export default function ArrivalsClient({
                         <div className="w-10 h-10 rounded-full bg-[#00152A]/5 flex items-center justify-center text-[#00152A] font-bold text-xs">
                           {arrival.guestName.charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-sm font-bold text-[#00152A] group-hover:text-[#BA722E] transition-colors">
-                          {arrival.guestName}
-                        </p>
+                        <div>
+                          <p className="text-sm font-bold text-[#00152A] group-hover:text-[#BA722E] transition-colors">
+                            {arrival.guestName}
+                          </p>
+                          {arrival.guestPhone && (
+                            <a
+                              href={`tel:${arrival.guestPhone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] text-gray-400 hover:text-[#BA722E]"
+                            >
+                              {arrival.guestPhone}
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6 text-xs text-gray-500 font-medium font-mono">
@@ -160,6 +171,11 @@ export default function ArrivalsClient({
                     </td>
                     <td className="px-8 py-6 text-xs text-gray-500 font-medium">
                       {arrival.roomType}
+                      {arrival.roomUnit && (
+                        <span className="block text-[11px] text-gray-400 font-mono">
+                          Unit {arrival.roomUnit}
+                        </span>
+                      )}
                     </td>
                     <td className="px-8 py-6">
                       <div className="space-y-2">
@@ -193,6 +209,7 @@ export default function ArrivalsClient({
                       <div className="flex items-center gap-3">
                         {arrival.actionHref &&
                         arrival.status !== "checked_in" &&
+                        arrival.status !== "checked_out" &&
                         arrival.status !== "completed" ? (
                           <Link href={arrival.actionHref}>
                             <Button

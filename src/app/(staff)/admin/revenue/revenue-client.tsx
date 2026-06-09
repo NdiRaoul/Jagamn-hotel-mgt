@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/currency";
+import { formatTxnId } from "@/lib/txn";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import type { TransactionRecord2 } from "@/lib/data/reception";
 import type { RevenuePoint, RoomTypeRevenue } from "@/lib/data/admin";
+import { useRouter } from "next/navigation";
+import { RefundModal, type RefundTarget } from "@/components/payments/RefundModal";
 
 // Fallback sparkline when no data yet
 const EMPTY_SPARKLINE: { day: string; revenue: number }[] = [
@@ -65,9 +68,11 @@ export default function RevenueClient({
   revenueByRoomType,
   error,
 }: Props) {
+  const router = useRouter();
   const [timeframe, setTimeframe] = useState("weekly");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [refundTarget, setRefundTarget] = useState<RefundTarget | null>(null);
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
     to: "",
@@ -449,6 +454,9 @@ export default function RevenueClient({
                   <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
                     Date
                   </th>
+                  <th className="px-10 py-6 text-right text-[10px] font-black text-[#43474D] uppercase tracking-widest">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -459,7 +467,7 @@ export default function RevenueClient({
                   >
                     <td className="px-10 py-6">
                       <span className="manrope-bold text-xs text-[#0D2137]">
-                        {tx.paymentId.slice(0, 8)}…
+                        {formatTxnId(tx.paymentId)}
                       </span>
                     </td>
                     <td className="px-10 py-6">
@@ -514,12 +522,28 @@ export default function RevenueClient({
                         {new Date(tx.eventAt).toLocaleDateString()}
                       </span>
                     </td>
+                    <td className="px-10 py-6 text-right">
+                      {tx.derivedStatus === "paid" && (
+                        <button
+                          onClick={() =>
+                            setRefundTarget({
+                              paymentId: tx.paymentId,
+                              bookingRef: tx.bookingRef,
+                              amountXaf: Math.round(tx.amountMinor / 100),
+                            })
+                          }
+                          className="text-[10px] font-black uppercase tracking-widest text-jagamn-tertiary hover:underline"
+                        >
+                          Refund
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {filteredTransactions.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-10 py-20 text-center text-slate-400 manrope-bold italic"
                     >
                       No fiscal records found matching your current parameters.
@@ -531,6 +555,14 @@ export default function RevenueClient({
           </div>
         </div>
       </div>
+
+      {refundTarget && (
+        <RefundModal
+          target={refundTarget}
+          onClose={() => setRefundTarget(null)}
+          onRefunded={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

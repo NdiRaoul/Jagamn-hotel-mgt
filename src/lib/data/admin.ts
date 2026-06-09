@@ -139,9 +139,11 @@ export async function getProcurementAlerts(): Promise<
 export interface PayrollRow {
   id: string;
   name: string;
+  email: string | null;
   role: string;
   department: string | null;
   gross: number;
+  deductions: number;
   net: number;
   avatarUrl: string | null;
 }
@@ -150,18 +152,52 @@ export interface PayrollRow {
 export async function getPayrollSummary(): Promise<{
   rows: PayrollRow[];
   staffCount: number;
+  total_gross: number; // whole XAF — forecast across all active staff
+  total_deductions: number;
+  total_net: number;
 }> {
   const staff = await getStaffRoster();
-  const rows: PayrollRow[] = staff.map((s) => ({
-    id: s.id,
-    name: s.full_name,
-    role: s.role,
-    department: s.department,
-    gross: s.salary ?? 0,
-    net: s.salary ? Math.round(s.salary * 0.85) : 0,
-    avatarUrl: s.avatar_url,
-  }));
-  return { rows, staffCount: staff.length };
+
+  // Itemised deductions per staff (for an accurate forecast).
+  const { data: deductions } = await supabaseAdmin
+    .from("staff_deductions")
+    .select("staff_id, amount_minor");
+  const deductionByStaff = new Map<string, number>();
+  for (const d of deductions ?? []) {
+    const francs = Math.round((d.amount_minor ?? 0) / 100);
+    deductionByStaff.set(
+      d.staff_id,
+      (deductionByStaff.get(d.staff_id) ?? 0) + francs,
+    );
+  }
+
+  const rows: PayrollRow[] = staff.map((s) => {
+    const gross = s.salary ?? 0;
+    const ded = deductionByStaff.get(s.id) ?? 0;
+    return {
+      id: s.id,
+      name: s.full_name,
+      email: s.email,
+      role: s.role,
+      department: s.department,
+      gross,
+      deductions: ded,
+      net: Math.max(0, gross - ded),
+      avatarUrl: s.avatar_url,
+    };
+  });
+
+  const total_gross = rows.reduce((sum, r) => sum + r.gross, 0);
+  const total_deductions = rows.reduce((sum, r) => sum + (r.deductions ?? 0), 0);
+  const total_net = rows.reduce((sum, r) => sum + r.net, 0);
+
+  return {
+    rows,
+    staffCount: staff.length,
+    total_gross,
+    total_deductions,
+    total_net,
+  };
 }
 
 export interface FBSummaryItem {

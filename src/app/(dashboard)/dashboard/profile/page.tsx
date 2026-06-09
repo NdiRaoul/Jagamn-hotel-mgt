@@ -44,31 +44,60 @@ export default function ProfilePage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [isOAuthUser, setIsOAuthUser] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    setSaveError(null);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await fetch("/api/account/guest-avatar", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveError(data.error || "Failed to upload photo.");
+        return;
+      }
+      setAvatarUrl(data.avatar_url);
+      setSaveMsg("Profile photo updated.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  // Load the guest's saved profile (including phone) from the users table.
+  async function load() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    setUserId(user.id);
+    setIsOAuthUser(user?.app_metadata?.provider === "google");
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .single();
+
+    setForm({
+      fullName: profile?.full_name || user.user_metadata?.full_name || "",
+      email: user.email || "",
+      phone: profile?.phone || "",
+      country: profile?.country || "",
+      idType: profile?.id_type || "passport",
+      idNumber: profile?.id_number || "",
+    });
+    setAvatarUrl(profile?.avatar_url || user.user_metadata?.avatar_url || null);
+  }
 
   useEffect(() => {
-    async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-      setIsOAuthUser(user?.app_metadata?.provider === "google");
-
-      const { data: profile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      setForm({
-        fullName: profile?.full_name || user.user_metadata?.full_name || "",
-        email: user.email || "",
-        phone: profile?.phone || "",
-        country: profile?.country || "",
-        idType: profile?.id_type || "passport",
-        idNumber: profile?.id_number || "",
-      });
-    }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,6 +124,9 @@ export default function ProfilePage() {
       setSaveError("Failed to save profile. Please try again.");
     } else {
       setSaveMsg("Profile saved successfully.");
+      // Re-fetch so the form reflects the value actually persisted to the DB
+      // (confirms the phone round-trip rather than just the optimistic state).
+      await load();
     }
     setIsSaving(false);
   }
@@ -174,6 +206,39 @@ export default function ProfilePage() {
               <h2 className="manrope-bold text-xl text-jagamn-primary">
                 Personal Details
               </h2>
+            </div>
+
+            {/* Profile photo */}
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-jagamn-primary/10 flex items-center justify-center shrink-0">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="manrope-bold text-2xl text-jagamn-primary">
+                    {(form.fullName || "G").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="inline-block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                  <span className="inline-flex items-center h-10 px-5 rounded-md border border-gray-200 text-sm font-bold text-jagamn-primary hover:bg-gray-50 cursor-pointer">
+                    {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                  </span>
+                </label>
+                <p className="text-[11px] text-gray-400">JPG or PNG, max 2MB.</p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

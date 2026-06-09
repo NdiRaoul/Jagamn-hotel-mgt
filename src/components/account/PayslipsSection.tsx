@@ -19,6 +19,11 @@ interface Payslip {
   run_period_start: string;
   run_period_end: string;
   run_status: string;
+  deduction_lines?: {
+    type: string;
+    reason: string | null;
+    amount_minor: number;
+  }[];
 }
 
 interface StaffInfo {
@@ -125,6 +130,26 @@ export function PayslipsSection() {
       );
     }
 
+    // Deduction breakdown (reason + amount)
+    if (payslip.deduction_lines && payslip.deduction_lines.length > 0) {
+      let dy = 156;
+      doc.setFont("helvetica", "bold");
+      doc.text("Deduction Breakdown", 20, dy);
+      doc.setFont("helvetica", "normal");
+      dy += 7;
+      payslip.deduction_lines.forEach((d) => {
+        const label = `${d.type}${d.reason ? ` — ${d.reason}` : ""}`;
+        doc.text(label.slice(0, 70), 20, dy);
+        doc.text(
+          `-${formatMoney(Math.round(d.amount_minor / 100))}`,
+          pageWidth - 20,
+          dy,
+          { align: "right" },
+        );
+        dy += 7;
+      });
+    }
+
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
@@ -211,6 +236,30 @@ export function PayslipsSection() {
                       </p>
                     </div>
                   </div>
+                  {payslip.deduction_lines &&
+                    payslip.deduction_lines.length > 0 && (
+                      <div className="mt-3 rounded-lg bg-red-50/60 border border-red-100 p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-red-600 mb-1.5">
+                          Deduction breakdown
+                        </p>
+                        <ul className="space-y-1">
+                          {payslip.deduction_lines.map((d, i) => (
+                            <li
+                              key={i}
+                              className="flex items-center justify-between text-xs text-gray-600"
+                            >
+                              <span className="capitalize">
+                                {d.type}
+                                {d.reason ? ` — ${d.reason}` : ""}
+                              </span>
+                              <span className="font-semibold text-red-600">
+                                -{formatMoney(Math.round(d.amount_minor / 100))}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   {payslip.paid_at && (
                     <p className="text-xs text-gray-500 mt-2">
                       Paid on {new Date(payslip.paid_at).toLocaleDateString()}

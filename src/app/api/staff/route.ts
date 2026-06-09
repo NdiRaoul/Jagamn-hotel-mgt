@@ -81,6 +81,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // The owner (superadmin flow) may only create admin or manager accounts.
+  if (
+    session.role === "owner" &&
+    !["admin", "manager"].includes(String(role))
+  ) {
+    return NextResponse.json(
+      { error: "Owner may only create admin or manager accounts." },
+      { status: 403 },
+    );
+  }
+
   // Generate a temp password if none provided
   const tempPassword =
     typeof providedPassword === "string" && providedPassword.length >= 8

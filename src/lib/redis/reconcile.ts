@@ -131,6 +131,11 @@ export async function drainReconcileQueue(maxItems = 5): Promise<void> {
       console.error("[reconcile] sweep_old_webhook_events error:", error);
   });
 
+  // Emit day-before check-in/check-out reminders (deduped). Fire-and-forget.
+  void import("@/lib/data/reminders").then(({ sendStayReminders }) =>
+    sendStayReminders(),
+  );
+
   for (const rawMember of raw as string[]) {
     let entry: QueueEntry;
     try {
@@ -246,7 +251,8 @@ async function reconcileStripe(entry: QueueEntry): Promise<void> {
       eventKey: pi.id,
       bookingRef: entry.bookingRef,
       transactionId: pi.id,
-      amount: pi.amount / 100,
+      // Stripe XAF is zero-decimal — pi.amount is already whole francs.
+      amount: pi.amount,
       currency: pi.currency.toUpperCase(),
       paymentMethod: "card",
     });

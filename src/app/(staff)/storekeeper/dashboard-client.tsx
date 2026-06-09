@@ -54,11 +54,13 @@ export default function StorekeeperDashboardClient({
   requests,
   orders,
   inventory,
+  totalValuationXaf,
 }: {
   kpis: StoreKpis;
   requests: StoreInventoryRequest[];
   orders: StorePurchaseOrder[];
   inventory: StoreInventoryItem[];
+  totalValuationXaf: number;
 }) {
   const router = useRouter();
 
@@ -106,6 +108,41 @@ export default function StorekeeperDashboardClient({
         stockInChange={`${kpis.pendingReceipt} awaiting receipt`}
         stockOutNote={`${kpis.criticalAlerts} critical alerts`}
       />
+
+      {/* ── KPI cards ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-jagamn-secondary mb-1">
+            Total Inventory Value
+          </p>
+          <p className="manrope-bold text-2xl text-jagamn-primary">
+            {formatMoney(totalValuationXaf)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1">
+            {kpis.activeSkus} active SKUs
+          </p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-jagamn-secondary mb-1">
+            Critical Alerts
+          </p>
+          <p className="manrope-bold text-2xl text-jagamn-primary">
+            {kpis.criticalAlerts}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1">Items below threshold</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-jagamn-secondary mb-1">
+            Open Orders
+          </p>
+          <p className="manrope-bold text-2xl text-jagamn-primary">
+            {kpis.openOrders}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1">
+            {kpis.pendingReceipt} awaiting receipt
+          </p>
+        </div>
+      </div>
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
         <PendingKitchenConfirmations

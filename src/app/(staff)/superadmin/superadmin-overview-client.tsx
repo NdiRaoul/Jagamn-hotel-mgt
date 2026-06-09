@@ -19,6 +19,7 @@ import {
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { formatMoney } from "@/lib/currency";
+import { PredictiveStockAnalysis } from "@/components/inventorypage/PredictiveStockAnalysis";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -111,6 +112,10 @@ interface SuperadminOverviewClientProps {
     totalSpendMinor: number;
   };
   procurementAlerts?: { item: string; priority: string; status: string }[];
+  predictive?: {
+    items: { id: string; name: string; status: string }[];
+    occupancyPct: number;
+  };
   latestSync: string;
 }
 
@@ -121,6 +126,7 @@ export default function SuperadminOverviewClient({
   procurementKpis,
   procurementAlerts = [],
   latestSync,
+  predictive = { items: [], occupancyPct: 0 },
 }: SuperadminOverviewClientProps) {
   const router = useRouter();
 
@@ -353,7 +359,12 @@ export default function SuperadminOverviewClient({
             {/* Real Revenue Chart */}
             <div className="relative w-full h-64 md:h-80 lg:h-[320px]">
               {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  minHeight={200}
+                >
                   <AreaChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
@@ -434,6 +445,16 @@ export default function SuperadminOverviewClient({
             </div>
           </div>
 
+          {/* ── Predictive Stock Analysis (below the financial chart) ── */}
+          {predictive.items.length > 0 && (
+            <div className="flex">
+              <PredictiveStockAnalysis
+                items={predictive.items}
+                occupancyPct={predictive.occupancyPct}
+              />
+            </div>
+          )}
+
           {/* Bottom Cards Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Image Card */}
@@ -442,6 +463,7 @@ export default function SuperadminOverviewClient({
                 src="/images/lobby.png"
                 alt="Heritage Suite"
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-110"
                 onError={(e) => {
                   e.currentTarget.src =

@@ -31,7 +31,7 @@ export async function POST(
   const bookingId = p.id;
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from("bookings")
-    .select("id,total_amount,payment_status,status")
+    .select("id,total_amount,payment_status,status,room_id")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -54,7 +54,7 @@ export async function POST(
     );
   }
 
-  if (booking.status === "completed") {
+  if (booking.status === "checked_out" || booking.status === "completed") {
     return NextResponse.json(
       { error: "Booking is already checked out" },
       { status: 400 },
@@ -83,7 +83,7 @@ export async function POST(
   const { data: updatedBooking, error: updateError } = await supabaseAdmin
     .from("bookings")
     .update({
-      status: "completed",
+      status: "checked_out",
       payment_status: paymentStatus,
     })
     .eq("id", bookingId)
@@ -96,6 +96,18 @@ export async function POST(
       { error: "Could not complete checkout" },
       { status: 500 },
     );
+  }
+
+  // Mark the vacated room as needing housekeeping. The admin dashboard reads
+  // dirty rooms (getDirtyRooms) and reception/admin can flip it back to clean.
+  if (booking.room_id) {
+    const { error: roomError } = await supabaseAdmin
+      .from("rooms")
+      .update({ housekeeping_status: "dirty" })
+      .eq("id", booking.room_id);
+    if (roomError) {
+      console.error("[checkout] housekeeping update error:", roomError);
+    }
   }
 
   await supabaseAdmin.from("audit_log").insert({

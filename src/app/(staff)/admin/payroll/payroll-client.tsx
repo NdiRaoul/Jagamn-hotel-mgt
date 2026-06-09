@@ -11,8 +11,10 @@ import {
   Banknote,
   Calendar,
   Plus,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,10 @@ export default function PayrollClient({
   error,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [sendingPayslipFor, setSendingPayslipFor] = useState<string | null>(
+    null,
+  );
   const [selectedRunId, setSelectedRunId] = useState(runs[0]?.id || "");
   const [items, setItems] = useState(initialItems);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -194,6 +200,44 @@ export default function PayrollClient({
       }
     } finally {
       setIsPaying(false);
+    }
+  };
+
+  const handleSendPayslip = async (item: PayrollItem) => {
+    if (!item.staff_id) return;
+    setSendingPayslipFor(item.id);
+    try {
+      const res = await fetch("/api/admin/payroll/payslip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: item.staff_id,
+          periodLabel: selectedRun?.period_label,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          title: "Payslip sent",
+          description: `${item.staff?.full_name ?? "Staff"} was notified${
+            data.emailSent ? " by email" : ""
+          } and can view it in their account.`,
+        });
+      } else {
+        toast({
+          title: "Could not send payslip",
+          description: data.error || "Unknown error",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Could not send payslip",
+        description: e?.message || "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingPayslipFor(null);
     }
   };
 
@@ -482,14 +526,27 @@ export default function PayrollClient({
                         {getPaymentStatusBadge(item.payment_status)}
                       </td>
                       <td className="px-6 md:px-8 py-5 text-center">
-                        <Button
-                          onClick={() => handleEditItem(item)}
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8 rounded-lg"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            onClick={() => handleEditItem(item)}
+                            variant="ghost"
+                            size="icon"
+                            className="w-8 h-8 rounded-lg"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleSendPayslip(item)}
+                            disabled={sendingPayslipFor === item.id}
+                            variant="ghost"
+                            size="icon"
+                            className="w-8 h-8 rounded-lg text-[#0D2137] hover:text-[#E8924A]"
+                            title="Send payslip"
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

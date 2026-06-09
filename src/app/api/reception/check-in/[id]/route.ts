@@ -55,14 +55,60 @@ export async function POST(
     );
   }
 
-  if (booking.status === "completed") {
+  if (booking.status === "checked_out" || booking.status === "completed") {
     return NextResponse.json(
-      { error: "Booking is already completed" },
+      { error: "Booking is already checked out" },
       { status: 400 },
     );
   }
 
+  // Helper: is `roomId` free for this booking's stay? (no other active booking
+  // on that room overlapping [check_in, check_out)).
+  async function roomHasConflict(roomId: string): Promise<boolean> {
+    const { data: clashes } = await supabaseAdmin
+      .from("bookings")
+      .select("id")
+      .eq("room_id", roomId)
+      .neq("id", bookingId)
+      .not("status", "in", "(cancelled,expired,checked_out,completed)")
+      .lt("check_in", booking!.check_out)
+      .gt("check_out", booking!.check_in);
+    return (clashes || []).length > 0;
+  }
+
   let assignedRoomId = booking.room_id || null;
+
+  // A specific physical room chosen at the desk takes priority — validate it
+  // exists, is active, and isn't double-booked for these dates.
+  if (roomId) {
+    const { data: chosen, error: chosenErr } = await supabaseAdmin
+      .from("rooms")
+      .select("id,is_active")
+      .eq("id", roomId)
+      .maybeSingle();
+    if (chosenErr || !chosen) {
+      return NextResponse.json(
+        { error: "Selected room not found" },
+        { status: 404 },
+      );
+    }
+    if (!chosen.is_active) {
+      return NextResponse.json(
+        { error: "Selected room is out of order" },
+        { status: 409 },
+      );
+    }
+    if (await roomHasConflict(roomId)) {
+      return NextResponse.json(
+        {
+          error:
+            "Selected room is already booked for these dates. Choose another room.",
+        },
+        { status: 409 },
+      );
+    }
+    assignedRoomId = roomId;
+  }
 
   if (!assignedRoomId) {
     if (!booking.room_type_id) {
@@ -72,12 +118,14 @@ export async function POST(
       );
     }
 
+    // Rooms occupied by an active booking that overlaps this stay.
     const { data: occupied } = await supabaseAdmin
       .from("bookings")
       .select("room_id")
-      .neq("room_id", null)
-      .neq("status", "cancelled")
-      .eq("status", "confirmed");
+      .not("room_id", "is", null)
+      .not("status", "in", "(cancelled,expired,checked_out,completed)")
+      .lt("check_in", booking.check_out)
+      .gt("check_out", booking.check_in);
 
     const occupiedRoomIds = (occupied || [])
       .map((row) => row.room_id as string | null)
@@ -113,9 +161,12 @@ export async function POST(
     assignedRoomId = availableRoom.id;
   }
 
+  // Persist the room and flip the booking to checked-in. The room board derives
+  // occupancy from bookings that carry a room_id and span today, so this is what
+  // makes the guest appear on the assigned room immediately.
   const { data: updatedBooking, error: updateError } = await supabaseAdmin
     .from("bookings")
-    .update({ room_id: assignedRoomId })
+    .update({ room_id: assignedRoomId, status: "checked_in" })
     .eq("id", bookingId)
     .select("id,room_id,room_slug,status,check_in,check_out")
     .maybeSingle();
@@ -127,6 +178,12 @@ export async function POST(
       { status: 500 },
     );
   }
+
+  // The room is now occupied, so it shouldn't read as "dirty" on the board.
+  await supabaseAdmin
+    .from("rooms")
+    .update({ housekeeping_status: "clean" })
+    .eq("id", assignedRoomId);
 
   await supabaseAdmin.from("audit_log").insert({
     actor_id: session.auth_user_id,

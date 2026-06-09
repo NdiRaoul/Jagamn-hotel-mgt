@@ -41,9 +41,7 @@ const NAV_ITEMS = [
   { label: "Payment Methods", icon: CreditCard, href: "/dashboard/payments" },
 ];
 
-const BOTTOM_NAV = [
-  { label: "Help", icon: HelpCircle, href: "/dashboard/help" },
-];
+const BOTTOM_NAV: Array<{ label: string; icon: any; href: string }> = [];
 
 export default function DashboardLayout({
   children,

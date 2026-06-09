@@ -42,7 +42,13 @@ export async function POST(
     const { status } = await req.json();
 
     // Validate status transition
-    const validStatuses = ["placed", "preparing", "ready", "delivered"];
+    const validStatuses = [
+      "placed",
+      "preparing",
+      "ready",
+      "out_for_delivery",
+      "delivered",
+    ];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }

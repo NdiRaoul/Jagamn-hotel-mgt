@@ -17,14 +17,30 @@ import {
 interface HrClientProps {
   leaveSummary: any;
   staff: any[];
+  leaveRequests?: any[];
 }
 
-export default function HrClient({ leaveSummary, staff }: HrClientProps) {
+export default function HrClient({
+  leaveSummary,
+  staff,
+  leaveRequests = [],
+}: HrClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
     to: "",
   });
+  // Read-only: owner can inspect a leave request but cannot approve/decline.
+  const [selectedLeave, setSelectedLeave] = useState<any | null>(null);
+
+  // Show pending + accepted requests (view-only oversight).
+  const visibleLeaves = useMemo(
+    () =>
+      (leaveRequests || []).filter((r: any) =>
+        ["pending", "approved", "accepted"].includes(r.status),
+      ),
+    [leaveRequests],
+  );
 
   // Global Search Integration
   useEffect(() => {
@@ -41,7 +57,7 @@ export default function HrClient({ leaveSummary, staff }: HrClientProps) {
       const q = searchQuery.toLowerCase();
       return (
         !searchQuery ||
-        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.full_name && s.full_name.toLowerCase().includes(q)) ||
         (s.email && s.email.toLowerCase().includes(q)) ||
         (s.role && s.role.toLowerCase().includes(q)) ||
         (s.department && s.department.toLowerCase().includes(q))
@@ -52,7 +68,7 @@ export default function HrClient({ leaveSummary, staff }: HrClientProps) {
   const handleExport = () => {
     const headers = ["Name", "Email", "Role", "Department", "Status"];
     const rows = filteredStaff.map((s: any) => [
-      s.name || "",
+      s.full_name || "",
       s.email || "",
       s.role || "",
       s.department || "",
@@ -166,6 +182,132 @@ export default function HrClient({ leaveSummary, staff }: HrClientProps) {
         </div>
       </div>
 
+      {/* ── Leave Requests (view-only cards) ───────── */}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="manrope-bold text-xl text-[#0D2137]">
+            Leave Requests
+          </h2>
+          <Badge
+            variant="outline"
+            className="text-[9px] font-black uppercase tracking-widest border-gray-200 text-slate-400"
+          >
+            View only
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {visibleLeaves.map((r: any) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setSelectedLeave(r)}
+              className="text-left bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="manrope-bold text-sm text-[#0D2137]">
+                  {r.staff?.full_name || "Unknown"}
+                </span>
+                <Badge
+                  className={cn(
+                    "border-0 text-[8px] font-black px-2.5 py-1 rounded-md tracking-widest uppercase",
+                    r.status === "pending"
+                      ? "bg-amber-50 text-amber-600"
+                      : "bg-green-50 text-green-600",
+                  )}
+                >
+                  {r.status}
+                </Badge>
+              </div>
+              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">
+                {r.leave_types?.name || "Leave"}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Calendar className="w-3.5 h-3.5" />
+                {new Date(r.start_date).toLocaleDateString()}
+                <ArrowRight className="w-3 h-3" />
+                {new Date(r.end_date).toLocaleDateString()}
+                <span className="text-slate-300">·</span>
+                {r.days} day{r.days !== 1 ? "s" : ""}
+              </div>
+            </button>
+          ))}
+          {visibleLeaves.length === 0 && (
+            <div className="col-span-full py-14 text-center text-slate-400 manrope-bold italic border border-dashed border-gray-200 rounded-3xl">
+              No leave requests to review.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Read-only leave detail modal */}
+      {selectedLeave && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setSelectedLeave(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="manrope-bold text-xl text-[#0D2137]">
+                  {selectedLeave.staff?.full_name || "Unknown"}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {selectedLeave.staff?.email || ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLeave(null)}
+                className="text-slate-400 hover:text-[#0D2137]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Leave type</dt>
+                <dd className="font-semibold text-[#0D2137]">
+                  {selectedLeave.leave_types?.name || "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Status</dt>
+                <dd className="font-semibold text-[#0D2137] capitalize">
+                  {selectedLeave.status}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Start</dt>
+                <dd className="font-semibold text-[#0D2137]">
+                  {new Date(selectedLeave.start_date).toLocaleDateString()}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">End</dt>
+                <dd className="font-semibold text-[#0D2137]">
+                  {new Date(selectedLeave.end_date).toLocaleDateString()}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Days</dt>
+                <dd className="font-semibold text-[#0D2137]">
+                  {selectedLeave.days}
+                </dd>
+              </div>
+              {selectedLeave.reason && (
+                <div className="pt-2 border-t border-gray-100">
+                  <dt className="text-slate-400 mb-1">Reason</dt>
+                  <dd className="text-[#0D2137]">{selectedLeave.reason}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        </div>
+      )}
+
       {/* ── Staff Table ────────────────────────────── */}
       <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -197,7 +339,7 @@ export default function HrClient({ leaveSummary, staff }: HrClientProps) {
                 >
                   <td className="px-10 py-6">
                     <span className="manrope-bold text-sm text-[#0D2137]">
-                      {s.name || "N/A"}
+                      {s.full_name || "N/A"}
                     </span>
                   </td>
                   <td className="px-10 py-6">

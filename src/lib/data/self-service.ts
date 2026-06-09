@@ -192,26 +192,25 @@ export async function cancelLeaveRequest(
   return true;
 }
 
+export interface PayslipDeductionLine {
+  type: string;
+  reason: string | null;
+  amount_minor: number;
+}
+
 export interface Payslip {
   id: string;
-  run_id: string;
+  payroll_run_id: string;
   staff_id: string;
-  gross_minor: number;
+  base_salary_minor: number;
   deductions_minor: number;
-  net_minor: number;
-  payment_status: string;
-  payment_method: string | null;
-  payment_ref: string | null;
+  net_pay_minor: number;
+  status: string; // payment status: unpaid | processing | paid | failed
   paid_at: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  run?: {
-    period_label: string;
-    period_start: string;
-    period_end: string;
-    status: string;
-  };
+  run_period_start: string;
+  run_period_end: string;
+  run_status: string;
+  deduction_lines: PayslipDeductionLine[];
 }
 
 export async function getStaffPayslips(staffId: string): Promise<Payslip[]> {
@@ -219,7 +218,8 @@ export async function getStaffPayslips(staffId: string): Promise<Payslip[]> {
     .from("payroll_items")
     .select(
       `
-      *,
+      id, run_id, staff_id, gross_minor, deductions_minor, net_minor,
+      payment_status, paid_at, created_at,
       run:run_id(period_label,period_start,period_end,status)
     `,
     )
@@ -227,5 +227,43 @@ export async function getStaffPayslips(staffId: string): Promise<Payslip[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return (data || []) as Payslip[];
+
+  // Pull the staff member's itemised deductions once, then attach the ones
+  // that fall within each payslip's pay period (so reasons + amounts show).
+  const { data: deductions } = await supabaseAdmin
+    .from("staff_deductions")
+    .select("type, reason, amount_minor, applied_date")
+    .eq("staff_id", staffId);
+
+  return (data || []).map((row: any) => {
+    const run = Array.isArray(row.run) ? row.run[0] : row.run;
+    const start = run?.period_start ? new Date(run.period_start).getTime() : null;
+    const end = run?.period_end ? new Date(run.period_end).getTime() : null;
+    const lines: PayslipDeductionLine[] = (deductions || [])
+      .filter((d: any) => {
+        if (start === null || end === null || !d.applied_date) return false;
+        const t = new Date(d.applied_date).getTime();
+        return t >= start && t <= end;
+      })
+      .map((d: any) => ({
+        type: d.type,
+        reason: d.reason,
+        amount_minor: d.amount_minor,
+      }));
+
+    return {
+      id: row.id,
+      payroll_run_id: row.run_id,
+      staff_id: row.staff_id,
+      base_salary_minor: row.gross_minor,
+      deductions_minor: row.deductions_minor,
+      net_pay_minor: row.net_minor,
+      status: row.payment_status,
+      paid_at: row.paid_at,
+      run_period_start: run?.period_start ?? row.created_at,
+      run_period_end: run?.period_end ?? row.created_at,
+      run_status: run?.status ?? "draft",
+      deduction_lines: lines,
+    } as Payslip;
+  });
 }

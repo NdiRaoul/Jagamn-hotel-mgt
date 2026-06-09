@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { notify } from "@/lib/data/notifications";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager"];
 
@@ -85,6 +86,22 @@ export async function PATCH(
       .single();
 
     if (updateError) throw updateError;
+
+    // On approval, notify each staff member that their payslip is available.
+    if (action === "approve") {
+      const { data: items } = await supabaseAdmin
+        .from("payroll_items")
+        .select("staff_id, net_minor")
+        .eq("run_id", id);
+      for (const it of items ?? []) {
+        await notify({
+          staffId: it.staff_id,
+          type: "payroll",
+          title: "Payslip available",
+          body: `Your payslip for ${run.period_label} has been approved and is available in your account.`,
+        });
+      }
+    }
 
     // Audit log
     await supabaseAdmin.from("audit_log").insert({

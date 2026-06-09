@@ -9,10 +9,10 @@ import {
   Info,
   ArrowRight,
   Smartphone,
-  ChevronDown,
   Minus,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -28,13 +28,32 @@ interface CartItem {
   quantity: number;
 }
 
+type MenuItemPayload = {
+  id: string;
+  name: string;
+  price: number;
+  image_url?: string | null;
+};
+
 interface DiningClientProps {
   menu: MenuCategoryWithItems[];
   orders: DiningOrder[];
+  isAuthenticated?: boolean;
+  roomInfo?: {
+    roomId?: string;
+    roomUnit?: string;
+    roomType?: string;
+  } | null;
 }
 
-export default function DiningClient({ menu, orders }: DiningClientProps) {
+export default function DiningClient({
+  menu,
+  orders,
+  roomInfo,
+  isAuthenticated = true,
+}: DiningClientProps) {
   const [view, setView] = useState<"overview" | "menu">("overview");
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(
     menu[0]?.name || "Breakfast",
   );
@@ -47,21 +66,26 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
     [cart],
   );
 
-  const addToCart = (item: any) => {
+  const addToCart = (item: MenuItemPayload | CartItem) => {
+    const itemId = item.id;
+    const itemTitle = "name" in item ? item.name : item.title;
+    const itemPrice = item.price;
+    const itemImage = "image" in item ? item.image : item.image_url;
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.id === itemId);
       if (existing) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i,
+          i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i,
         );
       }
       return [
         ...prev,
         {
-          id: item.id,
-          title: item.name,
-          price: item.price,
-          image: item.image_url || "/images/food1.png",
+          id: itemId,
+          title: itemTitle,
+          price: itemPrice,
+          image: itemImage || "/images/food1.png",
           quantity: 1,
         },
       ];
@@ -83,16 +107,29 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
   const handleConfirmOrder = async () => {
     if (cart.length === 0) return;
 
+    // Gate only the order action — guests can browse freely, but must sign in
+    // to charge an in-room dining order to their stay.
+    if (!isAuthenticated) {
+      setShowSignInPrompt(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        items: cart,
+        notes,
+        payment_method: "charge_to_room",
+      };
+
+      if (roomInfo?.roomType) payload.room_type = roomInfo.roomType;
+      if (roomInfo?.roomUnit) payload.room_unit = roomInfo.roomUnit;
+      if (roomInfo?.roomId) payload.room_id = roomInfo.roomId;
+
       const res = await fetch("/api/dining/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: cart,
-          notes,
-          payment_method: "charge_to_room",
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -160,6 +197,39 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
   if (view === "menu") {
     return (
       <div className="space-y-10 max-w-6xl pb-20 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Inline sign-in prompt — shown when a guest tries to order */}
+        {showSignInPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center space-y-4">
+              <h3 className="manrope-bold text-2xl text-jagamn-primary">
+                Sign in to order
+              </h3>
+              <p className="text-sm text-gray-500">
+                Browsing is open to everyone. To charge in-room dining to your
+                stay, please sign in or create an account.
+              </p>
+              <div className="flex flex-col gap-3 pt-2">
+                <Link href="/login?redirect=/dashboard/dining">
+                  <Button className="w-full h-12 bg-jagamn-primary text-white font-bold">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button variant="outline" className="w-full h-12 font-bold">
+                    Create Account
+                  </Button>
+                </Link>
+                <button
+                  onClick={() => setShowSignInPrompt(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Keep browsing
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Menu Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
@@ -345,7 +415,9 @@ export default function DiningClient({ menu, orders }: DiningClientProps) {
                             {item.title}
                           </h5>
                           <span className="text-[11px] font-bold text-jagamn-primary">
-                            {(item.price * item.quantity).toLocaleString("en-US")}
+                            {(item.price * item.quantity).toLocaleString(
+                              "en-US",
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">

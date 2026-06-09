@@ -35,12 +35,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { formatTxnId } from "@/lib/txn";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { PaymentMethod, Payment } from "@/types/database";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+);
 
 export default function PaymentsPage() {
+  return (
+    <Elements stripe={stripePromise}>
+      <PaymentsContent />
+    </Elements>
+  );
+}
+
+function PaymentsContent() {
   const supabase = createSupabaseBrowserClient();
+  const stripe = useStripe();
+  const elements = useElements();
 
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [transactions, setTransactions] = useState<Payment[]>([]);
@@ -48,12 +70,8 @@ export default function PaymentsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addType, setAddType] = useState<"card" | "mobile" | "google" | "apple">("card");
 
-  // Add card form
-  const [cardLabel, setCardLabel] = useState("");
+  // Add card form (Stripe SetupIntent collects the card itself)
   const [cardHolder, setCardHolder] = useState("");
-  const [cardLast4, setCardLast4] = useState("");
-  const [cardBrand, setCardBrand] = useState("Visa");
-  const [cardExpiry, setCardExpiry] = useState("");
   const [mobilePhone, setMobilePhone] = useState("");
   const [mobileLabel, setMobileLabel] = useState("");
   const [mobileType, setMobileType] = useState<"mobile_money" | "orange_money">("mobile_money");
@@ -95,11 +113,70 @@ export default function PaymentsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
+    // ── Card: real Stripe SetupIntent flow ──────────────────────────────
+    // Saves a reusable payment method (off_session) that can be charged for
+    // future bookings AND used to receive refunds.
+    if (addType === "card") {
+      if (!stripe || !elements) {
+        setSaveError("Stripe is still loading. Please try again.");
+        setSaving(false);
+        return;
+      }
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        setSaveError("Card field not found.");
+        setSaving(false);
+        return;
+      }
+      try {
+        const siRes = await fetch("/api/payments/stripe/setup-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const { clientSecret, error: siError } = await siRes.json();
+        if (siError || !clientSecret) {
+          setSaveError(siError || "Could not start card setup.");
+          setSaving(false);
+          return;
+        }
+        const { error: confirmError, setupIntent } =
+          await stripe.confirmCardSetup(clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: { name: cardHolder || undefined },
+            },
+          });
+        if (confirmError) {
+          setSaveError(confirmError.message || "Card could not be saved.");
+          setSaving(false);
+          return;
+        }
+        const saveRes = await fetch("/api/payments/stripe/save-method", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ setupIntentId: setupIntent?.id }),
+        });
+        const saveData = await saveRes.json();
+        if (!saveRes.ok) {
+          setSaveError(saveData.error || "Could not save card.");
+          setSaving(false);
+          return;
+        }
+        setAddModalOpen(false);
+        setCardHolder("");
+        loadData();
+      } catch {
+        setSaveError("Card setup failed. Please try again.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     let row: any = { user_id: user.id, is_default: methods.length === 0 };
 
-    if (addType === "card") {
-      row = { ...row, method_type: "card", label: cardLabel || `${cardBrand} Card`, card_last4: cardLast4.slice(-4), card_brand: cardBrand, card_expiry: cardExpiry, card_holder_name: cardHolder };
-    } else if (addType === "mobile") {
+    if (addType === "mobile") {
       row = { ...row, method_type: mobileType, label: mobileLabel || (mobileType === "mobile_money" ? "MTN MoMo" : "Orange Money"), phone: mobilePhone };
     } else if (addType === "google") {
       row = { ...row, method_type: "google_pay", label: "Google Pay" };
@@ -112,7 +189,7 @@ export default function PaymentsPage() {
       setSaveError(error.message);
     } else {
       setAddModalOpen(false);
-      setCardLabel(""); setCardHolder(""); setCardLast4(""); setCardExpiry(""); setMobilePhone(""); setMobileLabel("");
+      setCardHolder(""); setMobilePhone(""); setMobileLabel("");
       loadData();
     }
     setSaving(false);
@@ -257,7 +334,7 @@ export default function PaymentsPage() {
                         {tx.booking_ref ? `Booking ${tx.booking_ref}` : "Payment"}
                       </h4>
                       <p className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mt-1">
-                        {format(new Date(tx.created_at), "MMM d, yyyy")} • {tx.payment_method || tx.provider || "—"}
+                        {formatTxnId(tx.id)} • {format(new Date(tx.created_at), "MMM d, yyyy")} • {tx.payment_method || tx.provider || "—"}
                       </p>
                     </div>
                   </div>
@@ -346,26 +423,30 @@ export default function PaymentsPage() {
           {addType === "card" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Card Brand</Label>
-                <select value={cardBrand} onChange={(e) => setCardBrand(e.target.value)} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-jagamn-primary">
-                  <option>Visa</option><option>Mastercard</option><option>Amex</option>
-                </select>
-              </div>
-              <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Cardholder Name</Label>
                 <Input value={cardHolder} onChange={(e) => setCardHolder(e.target.value)} placeholder="John Doe" className="bg-gray-50 border-none h-11" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Last 4 Digits</Label>
-                <Input value={cardLast4} onChange={(e) => setCardLast4(e.target.value)} placeholder="4242" maxLength={4} className="bg-gray-50 border-none h-11" />
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Card Details</Label>
+                <div className="bg-gray-50 h-12 px-4 rounded-md flex items-center">
+                  <CardElement
+                    className="w-full"
+                    options={{
+                      style: {
+                        base: {
+                          fontSize: "16px",
+                          color: "#00152A",
+                          "::placeholder": { color: "#A0AEC0" },
+                        },
+                      },
+                    }}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Expiry (MM/YY)</Label>
-                <Input value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} placeholder="12/26" className="bg-gray-50 border-none h-11" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Label (optional)</Label>
-                <Input value={cardLabel} onChange={(e) => setCardLabel(e.target.value)} placeholder="Work Card" className="bg-gray-50 border-none h-11" />
+              <div className="flex items-start gap-2 text-[11px] text-gray-400">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-jagamn-tertiary" />
+                Your card is securely saved with Stripe for future bookings and
+                refunds. We never store full card numbers.
               </div>
             </div>
           )}

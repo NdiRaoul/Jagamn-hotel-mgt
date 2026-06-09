@@ -15,6 +15,7 @@ import {
   LogOut,
   Zap,
   UserCircle,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const KITCHEN_NAV = [
   { label: "Orders", icon: LayoutGrid, href: "/kitchen" },
+  { label: "Order History", icon: History, href: "/kitchen/order-history" },
   { label: "Menu Management", icon: UtensilsCrossed, href: "/kitchen/menu" },
   {
     label: "Inventory Requests",

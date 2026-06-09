@@ -1,7 +1,12 @@
 "use client";
 
 import { TrendingUp } from "lucide-react";
-import { PredictiveItem } from "./inventorydata";
+
+export interface PredictiveStockDisplayItem {
+  id: string;
+  name: string;
+  status: string;
+}
 
 const statusStyles: Record<string, { pill: string; label: string }> = {
   "HIGH RISK OF DEPLETION": {
@@ -19,7 +24,7 @@ const statusStyles: Record<string, { pill: string; label: string }> = {
 };
 
 interface PredictiveStockAnalysisProps {
-  items: PredictiveItem[];
+  items: PredictiveStockDisplayItem[];
   occupancyPct: number;
 }
 
@@ -38,7 +43,7 @@ export function PredictiveStockAnalysis({ items, occupancyPct }: PredictiveStock
 
       <div className="mt-5 flex flex-col gap-3">
         {items.map((item) => {
-          const style = statusStyles[item.status];
+          const style = statusStyles[item.status] ?? statusStyles.MONITOR;
           return (
             <div
               key={item.id}

@@ -103,6 +103,17 @@ export function NotificationBell({ audience }: { audience: "guest" | "staff" }) 
     }
   };
 
+  // Clicking a notification marks it read and, for dining/order notifications,
+  // asks the kitchen board (if mounted) to open the related order's detail.
+  const handleItemClick = (n: { id: string; type: string; is_read: boolean }) => {
+    if (!n.is_read) markOne(n.id);
+    if (n.type === "dining" || n.type === "order") {
+      window.dispatchEvent(
+        new CustomEvent("jagamn-open-order", { detail: { id: n.id } }),
+      );
+    }
+  };
+
   const markAll = async () => {
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnread(0);
@@ -155,7 +166,7 @@ export function NotificationBell({ audience }: { audience: "guest" | "staff" }) 
             items.map((n) => (
               <button
                 key={n.id}
-                onClick={() => !n.is_read && markOne(n.id)}
+                onClick={() => handleItemClick(n)}
                 className={cn(
                   "w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors flex gap-3",
                   !n.is_read && "bg-[#FFF8F0]",

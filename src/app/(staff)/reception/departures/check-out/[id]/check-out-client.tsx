@@ -142,12 +142,14 @@ export default function CheckOutClient({ booking }: { booking: Booking }) {
             <Badge
               className={cn(
                 "border-0 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5",
+                booking.status === "checked_out" ||
                 booking.status === "completed"
                   ? "bg-green-50 text-green-600"
                   : "bg-red-50 text-red-500",
               )}
             >
-              {booking.status === "completed"
+              {booking.status === "checked_out" ||
+              booking.status === "completed"
                 ? "Checked Out"
                 : "Departing Today"}
             </Badge>
@@ -323,7 +325,8 @@ export default function CheckOutClient({ booking }: { booking: Booking }) {
           </div>
 
           {/* Confirm check-out */}
-          {booking.status !== "completed" && (
+          {booking.status !== "checked_out" &&
+            booking.status !== "completed" && (
             <div className="bg-white rounded-lg p-8 border border-gray-100 shadow-sm space-y-6">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 Confirm Check-Out

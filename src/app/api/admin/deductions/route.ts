@@ -82,6 +82,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // The owner may only apply deductions to admin/manager staff.
+    if (session.role === "owner") {
+      const { data: target } = await supabaseAdmin
+        .from("staff")
+        .select("role")
+        .eq("id", staff_id)
+        .single();
+      if (!target || !["admin", "manager"].includes(target.role)) {
+        return NextResponse.json(
+          {
+            error:
+              "Owner may only apply deductions to admin or manager staff.",
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     // Insert deduction
     const { data: deduction, error: insertError } = await supabaseAdmin
       .from("staff_deductions")

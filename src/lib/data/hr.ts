@@ -74,7 +74,10 @@ export async function getLeaveTypes(): Promise<LeaveType[]> {
     .eq("is_active", true)
     .order("name", { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error("[getLeaveTypes]", error.message);
+    return [];
+  }
   return (data || []) as LeaveType[];
 }
 
@@ -102,7 +105,10 @@ export async function getLeaveRequests(filters?: {
   }
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error("[getLeaveRequests]", error.message);
+    return [];
+  }
 
   return (data || []) as LeaveRequest[];
 }
@@ -157,7 +163,10 @@ export async function getDeductions(filters?: {
   }
 
   const { data, error } = await query.limit(100);
-  if (error) throw error;
+  if (error) {
+    console.error("[getDeductions]", error.message);
+    return [];
+  }
 
   return (data || []) as Deduction[];
 }

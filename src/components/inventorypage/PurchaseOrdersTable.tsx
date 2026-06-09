@@ -6,7 +6,7 @@ import { PurchaseOrder, POStatus, TabFilter } from "./purchaseData";
 import { POActionMenu } from "./POActionMenu";
 
 const TABS: TabFilter[] = ["All Orders", "Drafts", "Submitted", "Approved", "Received", "Reconciled"];
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 const TAB_TO_STATUS: Record<TabFilter, POStatus | null> = {
   "All Orders": null,
