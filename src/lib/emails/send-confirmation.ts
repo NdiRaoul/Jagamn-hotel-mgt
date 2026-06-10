@@ -9,12 +9,22 @@
  * caller can retry later (receipt_sent_at stays NULL).
  */
 import { supabaseAdmin } from "@/lib/supabase-server";
-import { resend } from "@/lib/resend";
+import { resend, EMAIL_FROM } from "@/lib/resend";
 import { buildReceiptEmailHtml } from "@/lib/emails/booking-receipt";
 
 export async function sendConfirmationEmail(
   bookingRef: string,
 ): Promise<boolean> {
+  // Without an API key Resend can never deliver. Return false (not "sent") so
+  // receipt_sent_at stays NULL and a later poll/reconcile retries once it's set.
+  if (!process.env.RESEND_API_KEY) {
+    console.error(
+      "[sendConfirmationEmail] RESEND_API_KEY is not set — cannot send receipt for",
+      bookingRef,
+    );
+    return false;
+  }
+
   // Load the full booking row so we always use the stored guest_email
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
@@ -104,8 +114,8 @@ async function sendEmailAndMark(
   const roomName = roomType?.name || booking.room_slug;
 
   try {
-    const { error: sendError } = await resend.emails.send({
-      from: "Jagamn Palace <reservations@jagamnpalace.com>",
+    const { data: sendData, error: sendError } = await resend.emails.send({
+      from: EMAIL_FROM,
       // Always send to the email the guest typed — never the auth account email
       to: [booking.guest_email],
       subject: `Booking Confirmed — ${booking.booking_ref} | Jagamn Palace`,
@@ -133,6 +143,15 @@ async function sendEmailAndMark(
       // Leave receipt_sent_at NULL so a later reconcile can retry
       return false;
     }
+
+    console.log(
+      "[sendConfirmationEmail] receipt sent for",
+      bookingRef,
+      "to",
+      booking.guest_email,
+      "id:",
+      sendData?.id,
+    );
   } catch (emailErr) {
     console.error(
       "[sendConfirmationEmail] email send failed for",

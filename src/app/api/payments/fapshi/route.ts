@@ -10,6 +10,7 @@ import {
   expireBooking,
 } from "@/lib/payments/confirm-booking";
 import { enqueueReconcile } from "@/lib/redis/reconcile";
+import { paymentLimiter } from "@/lib/redis/rate-limit";
 
 const FAPSHI_BASE_URL =
   process.env.FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
@@ -25,29 +26,53 @@ const fapshiHeaders = {
 // POST /api/payments/fapshi — initiate direct-pay
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      amount,
-      phone,
-      medium,
-      bookingRef,
-      email,
-      name,
-      clientIdempotencyKey,
-    } = body;
+    // Rate limiting — distributed, prevents payment-initiation abuse.
+    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    const { success: withinLimit } = await paymentLimiter.limit(`pay:${ip}`);
+    if (!withinLimit) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 },
+      );
+    }
 
-    if (!amount || !phone || !medium || !bookingRef || !clientIdempotencyKey) {
+    const body = await request.json();
+    const { phone, medium, bookingRef, email, name, clientIdempotencyKey } =
+      body;
+
+    if (!phone || !medium || !bookingRef || !clientIdempotencyKey) {
       return NextResponse.json(
         {
           error:
-            "amount, phone, medium, bookingRef and clientIdempotencyKey are required",
+            "phone, medium, bookingRef and clientIdempotencyKey are required",
         },
         { status: 400 },
       );
     }
 
-    // Fapshi is XAF-native. `amount` from the client is whole XAF.
-    const amountXaf = Math.max(100, Math.round(amount));
+    // ── Server-authoritative amount ──────────────────────────────────────────
+    // Charge the booking's stored total, never a client-supplied amount.
+    const { data: booking } = await supabaseAdmin
+      .from("bookings")
+      .select("id, total_amount, payment_status")
+      .eq("booking_ref", bookingRef)
+      .maybeSingle();
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Booking not found" },
+        { status: 404 },
+      );
+    }
+    if (booking.payment_status === "paid") {
+      return NextResponse.json(
+        { error: "Booking is already paid" },
+        { status: 409 },
+      );
+    }
+
+    // Fapshi is XAF-native. The booking total is stored in whole XAF.
+    const amountXaf = Math.max(100, Math.round(booking.total_amount));
     const amountMinor = amountXaf * 100;
 
     const ledger = await getOrCreateLedger({
@@ -112,19 +137,12 @@ export async function POST(request: NextRequest) {
 
     // Backstop: enqueue for reconciliation so a closed tab / missed webhook
     // still settles (or expires) the booking. No-op when Redis is absent.
-    const { data: bookingRow } = await supabaseAdmin
-      .from("bookings")
-      .select("id")
-      .eq("booking_ref", bookingRef)
-      .maybeSingle();
-    if (bookingRow?.id) {
-      await enqueueReconcile({
-        bookingId: bookingRow.id,
-        bookingRef,
-        provider: "fapshi",
-        transactionId: transId,
-      });
-    }
+    await enqueueReconcile({
+      bookingId: booking.id,
+      bookingRef,
+      provider: "fapshi",
+      transactionId: transId,
+    });
 
     return NextResponse.json({
       ...data,

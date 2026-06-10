@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getOrCreateLedger, appendEvent } from "@/lib/payments/ledger";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { enqueueReconcile } from "@/lib/redis/reconcile";
+import { paymentLimiter } from "@/lib/redis/rate-limit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-05-27.dahlia",
@@ -11,29 +12,54 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 // POST /api/payments/stripe — create PaymentIntent
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      bookingRef,
-      totalAmount,
-      currency = "xaf",
-      clientIdempotencyKey,
-    } = body;
-
-    if (!bookingRef || !totalAmount || !clientIdempotencyKey) {
+    // Rate limiting — distributed, prevents PaymentIntent-creation abuse.
+    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    const { success: withinLimit } = await paymentLimiter.limit(`pay:${ip}`);
+    if (!withinLimit) {
       return NextResponse.json(
-        {
-          error:
-            "bookingRef, totalAmount and clientIdempotencyKey are required",
-        },
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 },
+      );
+    }
+
+    const body = await request.json();
+    const { bookingRef, clientIdempotencyKey } = body;
+
+    if (!bookingRef || !clientIdempotencyKey) {
+      return NextResponse.json(
+        { error: "bookingRef and clientIdempotencyKey are required" },
         { status: 400 },
+      );
+    }
+
+    // ── Server-authoritative amount ──────────────────────────────────────────
+    // The amount to charge is read from the booking row, never trusted from the
+    // client. This prevents a tampered request from paying less than the booking
+    // total. confirmBookingFromPayment then settles against this same figure.
+    const { data: booking } = await supabaseAdmin
+      .from("bookings")
+      .select("id, total_amount, payment_status")
+      .eq("booking_ref", bookingRef)
+      .maybeSingle();
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Booking not found" },
+        { status: 404 },
+      );
+    }
+    if (booking.payment_status === "paid") {
+      return NextResponse.json(
+        { error: "Booking is already paid" },
+        { status: 409 },
       );
     }
 
     // Compute explicit units:
     // - `amountForStripe` is the whole-franc integer Stripe expects for XAF (zero-decimal)
     // - `amountMinor` is XAF ×100 used by our internal ledger/folio fields
-    const amountForStripe = Math.round(totalAmount);
-    const amountMinor = Math.round(totalAmount * 100);
+    const amountForStripe = Math.round(booking.total_amount);
+    const amountMinor = Math.round(booking.total_amount * 100);
     const ledger = await getOrCreateLedger({
       bookingRef,
       provider: "stripe",
@@ -75,19 +101,12 @@ export async function POST(request: NextRequest) {
 
     // Backstop: enqueue for reconciliation so the booking still settles if the
     // webhook is missed and the guest closes the tab. No-op when Redis is absent.
-    const { data: bookingRow } = await supabaseAdmin
-      .from("bookings")
-      .select("id")
-      .eq("booking_ref", bookingRef)
-      .maybeSingle();
-    if (bookingRow?.id) {
-      await enqueueReconcile({
-        bookingId: bookingRow.id,
-        bookingRef,
-        provider: "stripe",
-        transactionId: paymentIntent.id,
-      });
-    }
+    await enqueueReconcile({
+      bookingId: booking.id,
+      bookingRef,
+      provider: "stripe",
+      transactionId: paymentIntent.id,
+    });
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,

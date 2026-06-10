@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -18,9 +18,14 @@ import {
   Phone,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
+import type {
+  PaymentRequest,
+  PaymentRequestPaymentMethodEvent,
+} from "@stripe/stripe-js";
 import {
   Elements,
   CardElement,
+  PaymentRequestButtonElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
@@ -89,6 +94,15 @@ function BookingContent() {
   const [fapshiPolling, setFapshiPolling] = useState(false);
   const [fapshiPhone, setFapshiPhone] = useState("");
   const [fapshiBookingRef, setFapshiBookingRef] = useState<string | null>(null);
+
+  // Wallet (Apple Pay / Google Pay) state. The Stripe PaymentRequest drives the
+  // native wallet sheet; `walletAvail` reflects device/browser support.
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(
+    null,
+  );
+  const [walletAvail, setWalletAvail] = useState<
+    "checking" | "available" | "unavailable"
+  >("checking");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -208,6 +222,169 @@ function BookingContent() {
 
     return () => clearInterval(interval);
   }, [fapshiTransId, fapshiPolling, fapshiBookingRef]);
+
+  // ── Apple Pay / Google Pay ────────────────────────────────────────────────
+  // The wallet settles the SAME Stripe PaymentIntent as the card flow, so a
+  // wallet booking moves pending → paid through the identical confirm path.
+  // The listener is attached once; it reads the latest handler from a ref to
+  // avoid stale form state.
+  const walletCtxRef = useRef<
+    ((ev: PaymentRequestPaymentMethodEvent) => void) | null
+  >(null);
+
+  // Settle a wallet (Apple/Google Pay) payment via the same booking →
+  // PaymentIntent → confirm pipeline used by cards. The booking only flips
+  // pending → paid through /api/payments/stripe/confirm.
+  const handleWalletPayment = async (
+    ev: PaymentRequestPaymentMethodEvent,
+  ) => {
+    if (!stripe) {
+      ev.complete("fail");
+      return;
+    }
+    if (!termsAccepted) {
+      ev.complete("fail");
+      setPaymentError("Please accept the terms and conditions.");
+      return;
+    }
+    if (!formData.fullName || !formData.email) {
+      ev.complete("fail");
+      setPaymentError("Please complete your guest details first.");
+      return;
+    }
+
+    setIsProcessing(true);
+    let walletClosed = false;
+    try {
+      // 1. Create the booking (status pending) → returns the booking code.
+      const bookingData = await createBooking(paymentMethod);
+      if (bookingData.error) {
+        ev.complete("fail");
+        setPaymentError(bookingData.error);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2. Create the PaymentIntent (amount resolved server-side from booking).
+      const piRes = await fetch("/api/payments/stripe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingRef: bookingData.bookingRef,
+          clientIdempotencyKey,
+        }),
+      });
+      const {
+        clientSecret,
+        paymentIntentId,
+        error: piError,
+      } = await piRes.json();
+      if (piError || !clientSecret) {
+        ev.complete("fail");
+        setPaymentError(piError || "Could not start payment.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // 3. Confirm with the wallet's payment method. handleActions:false lets us
+      //    close the sheet before resolving any 3-D Secure step.
+      const { error: confirmError, paymentIntent } =
+        await stripe.confirmCardPayment(
+          clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false },
+        );
+
+      if (confirmError) {
+        ev.complete("fail");
+        setPaymentError(confirmError.message || "Wallet payment failed.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Close the native sheet, then finish any required action (3DS).
+      ev.complete("success");
+      walletClosed = true;
+      if (paymentIntent && paymentIntent.status === "requires_action") {
+        const { error: actionError } =
+          await stripe.confirmCardPayment(clientSecret);
+        if (actionError) {
+          setPaymentError(actionError.message || "Authentication failed.");
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      // 4. Server-verify + settle (pending → paid); idempotent with the webhook.
+      try {
+        await fetch("/api/payments/stripe/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingRef: bookingData.bookingRef,
+            paymentIntentId,
+          }),
+        });
+      } catch {
+        /* webhook / reconcile queue will still settle it */
+      }
+
+      await handleCreateAccount(bookingData.bookingId);
+      router.push(
+        `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
+      );
+    } catch (err: unknown) {
+      if (!walletClosed) ev.complete("fail");
+      const message =
+        err instanceof Error ? err.message : "Wallet payment failed.";
+      setPaymentError(message);
+      setIsProcessing(false);
+    }
+  };
+
+  // Keep the listener pointed at the latest handler (fresh form state) without
+  // re-creating the PaymentRequest on every keystroke.
+  useEffect(() => {
+    walletCtxRef.current = handleWalletPayment;
+  });
+
+  useEffect(() => {
+    if (!stripe || !room || totalPrice <= 0) return;
+
+    const pr = stripe.paymentRequest({
+      country: process.env.NEXT_PUBLIC_STRIPE_MERCHANT_COUNTRY || "CM",
+      currency: "xaf",
+      total: {
+        label: "Jagamn Palace Booking",
+        // XAF is zero-decimal — the amount is the whole-franc integer.
+        amount: Math.round(totalPrice),
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    });
+
+    pr.on("paymentmethod", (ev) => walletCtxRef.current?.(ev));
+
+    let cancelled = false;
+    pr.canMakePayment()
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          // Only expose the request once a wallet is actually usable.
+          setPaymentRequest(pr);
+          setWalletAvail("available");
+        } else {
+          setWalletAvail("unavailable");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWalletAvail("unavailable");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stripe, room, totalPrice]);
 
   if (roomLoading) {
     return (
@@ -439,21 +616,11 @@ function BookingContent() {
         setFapshiPolling(true);
         await handleCreateAccount(bookingData.bookingId);
         setIsProcessing(false);
-      } else {
-        // Google Pay / Apple Pay — create booking and redirect
-        const bookingData = await createBooking(paymentMethod);
-        if (bookingData.error) {
-          setPaymentError(bookingData.error);
-          setIsProcessing(false);
-          return;
-        }
-        await handleCreateAccount(bookingData.bookingId);
-        router.push(
-          `/booking/confirmed?ref=${bookingData.bookingRef}&room=${roomSlug}&checkIn=${checkInStr}&checkOut=${checkOutStr}&guests=${guestsStr}`,
-        );
       }
-    } catch (err: any) {
-      setPaymentError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred.";
+      setPaymentError(message);
       setIsProcessing(false);
     }
   };
@@ -830,14 +997,52 @@ function BookingContent() {
               )}
 
               {(paymentMethod === "google" || paymentMethod === "apple") && (
-                <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                  <p className="text-sm text-gray-500">
-                    You will be redirected to complete payment with{" "}
-                    {paymentMethod === "google" ? "Google Pay" : "Apple Pay"}.
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Click &quot;Confirm &amp; Pay&quot; below to proceed.
-                  </p>
+                <div className="space-y-4 py-2">
+                  {walletAvail === "checking" && (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      Checking wallet availability…
+                    </p>
+                  )}
+
+                  {walletAvail === "available" && paymentRequest && (
+                    <>
+                      <p className="text-xs text-gray-500 text-center">
+                        Approve the payment in the{" "}
+                        {paymentMethod === "apple" ? "Apple Pay" : "Google Pay"}{" "}
+                        sheet to confirm your booking.
+                      </p>
+                      {!termsAccepted && (
+                        <p className="text-xs text-amber-600 text-center font-semibold">
+                          Accept the terms below to enable the wallet button.
+                        </p>
+                      )}
+                      <div
+                        className={cn(
+                          !termsAccepted && "opacity-50 pointer-events-none",
+                        )}
+                      >
+                        <PaymentRequestButtonElement
+                          options={{
+                            paymentRequest,
+                            style: {
+                              paymentRequestButton: {
+                                theme: "dark",
+                                height: "48px",
+                              },
+                            },
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {walletAvail === "unavailable" && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800 text-center">
+                      {paymentMethod === "apple" ? "Apple Pay" : "Google Pay"}{" "}
+                      isn&apos;t available on this device or browser. Please
+                      choose Card or Mobile Money instead.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -883,15 +1088,23 @@ function BookingContent() {
                 256-bit Secure Encrypted Payment
               </span>
             </div>
-            <Button
-              onClick={handlePayment}
-              disabled={isProcessing || !termsAccepted}
-              className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20 disabled:opacity-50"
-            >
-              {isProcessing
-                ? "Processing..."
-                : `Confirm & Pay ${formatMoney(totalPrice)}`}
-            </Button>
+            {paymentMethod === "google" || paymentMethod === "apple" ? (
+              <p className="text-xs text-gray-400 text-center md:text-right">
+                {walletAvail === "available"
+                  ? `Use the wallet button above to pay ${formatMoney(totalPrice)}.`
+                  : `Select Card or Mobile Money to pay ${formatMoney(totalPrice)}.`}
+              </p>
+            ) : (
+              <Button
+                onClick={handlePayment}
+                disabled={isProcessing || !termsAccepted}
+                className="bg-[#BA722E] hover:bg-[#A35F24] text-white h-14 px-16 rounded-md text-sm font-bold w-full md:w-auto shadow-lg shadow-[#BA722E]/20 disabled:opacity-50"
+              >
+                {isProcessing
+                  ? "Processing..."
+                  : `Confirm & Pay ${formatMoney(totalPrice)}`}
+              </Button>
+            )}
           </div>
         </div>
       </div>

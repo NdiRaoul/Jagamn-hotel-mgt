@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { rateLimit } from "@/lib/rate-limit";
+import { bookingLimiter } from "@/lib/redis/rate-limit";
 import { getCache, setCache } from "@/lib/cache";
+import {
+  acquireLock,
+  roomHoldKey,
+  registerBookingSession,
+} from "@/lib/redis/locks";
 
 // POST /api/bookings — create a booking
 export async function POST(request: NextRequest) {
@@ -18,10 +23,7 @@ export async function POST(request: NextRequest) {
       room_slug,
       check_in,
       check_out,
-      nights,
       guests,
-      room_price_per_night,
-      tax_amount,
       total_amount,
       special_requests,
       payment_method,
@@ -30,9 +32,12 @@ export async function POST(request: NextRequest) {
       password,
     } = body;
 
-    // Rate limiting
+    // Rate limiting — distributed (Upstash), shared across all instances.
     const ip = request.headers.get("x-forwarded-for") || "unknown";
-    if (!rateLimit(`booking:${ip}`, 5, 60_000)) {
+    const { success: withinLimit } = await bookingLimiter.limit(
+      `booking:${ip}`,
+    );
+    if (!withinLimit) {
       return NextResponse.json(
         { error: "Too many requests. Please wait a moment." },
         { status: 429 },
@@ -95,12 +100,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get room type id — use cache to avoid repeated DB lookups
-    let roomType = getCache<{ id: string }>(`room_type:${room_slug}`);
+    // Get room type — use cache to avoid repeated DB lookups
+    let roomType = getCache<{ id: string; price_per_night: number }>(
+      `room_type:${room_slug}`,
+    );
     if (!roomType) {
       const { data } = await supabaseAdmin
         .from("room_types")
-        .select("id, name")
+        .select("id, name, price_per_night")
         .eq("slug", room_slug)
         .single();
       if (data) {
@@ -109,9 +116,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Find an available physical room unit
+    // Pricing depends on the room type — refuse rather than trust client prices.
+    if (!roomType) {
+      return NextResponse.json(
+        { error: "Room type not found" },
+        { status: 404 },
+      );
+    }
+
+    // ── Server-authoritative pricing ─────────────────────────────────────────
+    // Never trust client-sent prices. Recompute from the room type's nightly
+    // rate × nights and the same 10% tax shown on the booking page.
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const nightsCount = Math.max(
+      1,
+      Math.round(
+        (checkOutDate.getTime() - checkInDate.getTime()) / msPerDay,
+      ),
+    );
+    const pricePerNight = roomType.price_per_night;
+    const roomTotal = pricePerNight * nightsCount;
+    const taxServer = Math.round(roomTotal * 0.1);
+    const totalServer = roomTotal + taxServer;
+
+    // ── Find + hold an available physical room unit ──────────────────────────
+    // Lock-walk the candidates: the first room we can take a Redis hold on is
+    // assigned, so two concurrent bookings can't grab the same unit (the NX
+    // lock lets only one win, the other moves to the next candidate). If no
+    // hold can be taken (all contended OR Redis down) we fail-open to the first
+    // candidate and let the overlap guard decide — matches the lock philosophy
+    // documented in lib/redis/locks.ts.
     let assignedRoomId: string | null = null;
-    if (roomType) {
+    let roomHoldToken: string | null = null;
+    {
       const { data: activeBookings } = await supabaseAdmin
         .from("bookings")
         .select("room_id")
@@ -129,15 +166,27 @@ export async function POST(request: NextRequest) {
         .select("id")
         .eq("room_type_id", roomType.id)
         .eq("is_active", true)
-        .limit(1);
+        .limit(5);
 
       if (bookedRoomIds.length > 0) {
         query.not("id", "in", `(${bookedRoomIds.join(",")})`);
       }
 
-      const { data: availableRoom } = await query.single();
-      if (availableRoom) {
-        assignedRoomId = availableRoom.id;
+      const { data: candidateRooms } = await query;
+
+      for (const candidate of candidateRooms ?? []) {
+        const token = await acquireLock(
+          roomHoldKey(candidate.id, check_in, check_out),
+        );
+        if (token) {
+          assignedRoomId = candidate.id;
+          roomHoldToken = token;
+          break;
+        }
+      }
+
+      if (!assignedRoomId && (candidateRooms?.length ?? 0) > 0) {
+        assignedRoomId = candidateRooms![0].id;
       }
     }
 
@@ -185,11 +234,11 @@ export async function POST(request: NextRequest) {
         room_slug,
         check_in,
         check_out,
-        nights: nights || 1,
+        nights: nightsCount,
         guests: guests || 1,
-        room_price_per_night,
-        tax_amount: tax_amount || null,
-        total_amount,
+        room_price_per_night: pricePerNight,
+        tax_amount: taxServer,
+        total_amount: totalServer,
         payment_method: payment_method || null,
         payment_status: "pending",
         // Insert as "pending" — confirmBookingFromPayment() flips it to
@@ -205,6 +254,10 @@ export async function POST(request: NextRequest) {
       console.error("[POST /api/bookings] insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Register the payment-window session so the room hold is released if the
+    // guest cancels, and expires with the booking otherwise (TTL-based).
+    await registerBookingSession(booking.id, roomHoldToken);
 
     // ── Upsert users row ─────────────────────────────────────────────────────
     let appUserId: string | null = null;
@@ -324,48 +377,41 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/bookings — fetch bookings for authenticated user or by email
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const email = searchParams.get("email");
-
+// GET /api/bookings — fetch bookings for the authenticated user only.
+//
+// Lookup is always scoped to the caller's session. An unauthenticated
+// `?email=` lookup previously returned every booking for any address (IDOR);
+// that path has been removed. Guests without an account should retrieve a
+// booking via its reference, not by email enumeration.
+export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (user) {
-      const { data: userRow } = await supabaseAdmin
-        .from("users")
-        .select("id")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-
-      if (userRow) {
-        const { data, error } = await supabaseAdmin
-          .from("bookings")
-          .select("*, room_types(*)")
-          .eq("app_user_id", userRow.id)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        return NextResponse.json({ bookings: data || [] });
-      }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (email) {
-      const { data, error } = await supabaseAdmin
-        .from("bookings")
-        .select("*, room_types(*)")
-        .eq("guest_email", email)
-        .order("created_at", { ascending: false });
+    const { data: userRow } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
 
-      if (error) throw error;
-      return NextResponse.json({ bookings: data || [] });
+    if (!userRow) {
+      return NextResponse.json({ bookings: [] });
     }
 
-    return NextResponse.json({ bookings: [] });
+    const { data, error } = await supabaseAdmin
+      .from("bookings")
+      .select("*, room_types(*)")
+      .eq("app_user_id", userRow.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return NextResponse.json({ bookings: data || [] });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[GET /api/bookings] error:", err);

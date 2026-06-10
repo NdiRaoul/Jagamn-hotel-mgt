@@ -31,9 +31,18 @@ export async function POST(request: NextRequest) {
       console.warn("[fapshi-webhook] rejected: invalid or missing x-wh-secret");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  } else if (process.env.NODE_ENV === "production") {
+    // Never accept unauthenticated webhooks in production.
+    console.error(
+      "[fapshi-webhook] FAPSHI_WEBHOOK_SECRET is not set in production — rejecting",
+    );
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 500 },
+    );
   } else {
     console.warn(
-      "[fapshi-webhook] FAPSHI_WEBHOOK_SECRET is not set — webhook is unauthenticated",
+      "[fapshi-webhook] FAPSHI_WEBHOOK_SECRET is not set — webhook is unauthenticated (dev only)",
     );
   }
 

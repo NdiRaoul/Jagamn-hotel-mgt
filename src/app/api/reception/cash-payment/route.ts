@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 
+const ALLOWED_ROLES = ["reception", "manager", "admin", "owner"];
+
 export async function POST(request: NextRequest) {
   const session = await getStaffSession();
-  if (!session || session.status !== "active") {
+  if (
+    !session ||
+    session.status !== "active" ||
+    !ALLOWED_ROLES.includes(session.role)
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
