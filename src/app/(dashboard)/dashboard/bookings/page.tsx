@@ -449,7 +449,7 @@ export default function MyBookingsPage() {
 
       {/* FAB */}
       <Link href="/rooms">
-        <button className="fixed bottom-10 right-10 w-16 h-16 bg-jagamn-tertiary text-white rounded-xl shadow-2xl shadow-jagamn-tertiary/40 flex items-center justify-center hover:bg-jagamn-tertiary/90 hover:scale-110 transition-all z-50">
+        <button className="fixed bottom-24 sm:bottom-10 right-10 w-16 h-16 bg-jagamn-tertiary text-white rounded-xl shadow-2xl shadow-jagamn-tertiary/40 flex items-center justify-center hover:bg-jagamn-tertiary/90 hover:scale-110 transition-all z-50">
           <Plus className="w-8 h-8" />
         </button>
       </Link>
