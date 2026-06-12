@@ -49,7 +49,7 @@ import {
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatMoney } from "@/lib/currency";
-import { resolveBookingSearch } from "@/lib/booking-search";
+import { resolveBookingSearch, BOOKING_SEARCH_KEY } from "@/lib/booking-search";
 
 // MON–SUN column headers matching the design
 const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -61,13 +61,28 @@ type AuthUser = {
   avatar: string | null;
 };
 
+const mapGuestsParam = (val: string | undefined): string => {
+  if (!val) return "3";
+  if (val === "1a" || val === "1") return "1";
+  if (val === "2a" || val === "2") return "2";
+  if (val === "2a1c" || val === "3") return "3";
+  if (val === "2a2c" || val === "4") return "4";
+  return val;
+};
+
 export function RoomBookingWidget({ room }: Props) {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
 
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
-  const [guests, setGuests] = useState("2a1c");
+  const [guests, setGuests] = useState("3");
   const [conflict, setConflict] = useState(false);
   const [conflictRange, setConflictRange] =
     useState<UnavailableDateRange | null>(null);
@@ -81,26 +96,30 @@ export function RoomBookingWidget({ room }: Props) {
   // over when they open any room.
   useEffect(() => {
     function hydrateFromSearch() {
-      const resolved = resolveBookingSearch(
-        new URLSearchParams(window.location.search),
-      );
-      if (resolved.checkIn) {
+      const params = new URLSearchParams(window.location.search);
+      const urlCheckIn = params.get("checkIn");
+      const urlCheckOut = params.get("checkOut");
+
+      if (urlCheckIn && urlCheckOut) {
         try {
-          const d = parseISO(resolved.checkIn);
+          const d = parseISO(urlCheckIn);
           setCheckIn(d);
           setCalMonth(d);
+          setCheckOut(parseISO(urlCheckOut));
         } catch {
           /* ignore bad date */
         }
-      }
-      if (resolved.checkOut) {
+      } else {
+        // If not in URL, clear the state to avoid stale pre-fills
+        setCheckIn(undefined);
+        setCheckOut(undefined);
         try {
-          setCheckOut(parseISO(resolved.checkOut));
-        } catch {
-          /* ignore bad date */
-        }
+          sessionStorage.removeItem(BOOKING_SEARCH_KEY);
+        } catch {}
       }
-      if (resolved.guests) setGuests(resolved.guests);
+
+      const resolved = resolveBookingSearch(params);
+      if (resolved.guests) setGuests(mapGuestsParam(resolved.guests));
     }
     hydrateFromSearch();
     // Run once on mount.
@@ -259,7 +278,9 @@ export function RoomBookingWidget({ room }: Props) {
                   setConflict(false);
                   setConflictRange(null);
                   if (d) setCalMonth(d);
+                  if (d && checkOut && checkOut <= d) setCheckOut(undefined);
                 }}
+                disabled={(date) => date < today}
                 initialFocus
               />
             </PopoverContent>
@@ -294,6 +315,9 @@ export function RoomBookingWidget({ room }: Props) {
                   setConflict(false);
                   setConflictRange(null);
                 }}
+                disabled={(date) =>
+                  date < today || (checkIn ? date <= checkIn : false)
+                }
                 initialFocus
               />
             </PopoverContent>
@@ -313,10 +337,10 @@ export function RoomBookingWidget({ room }: Props) {
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1a">1 Adult</SelectItem>
-              <SelectItem value="2a">2 Adults</SelectItem>
-              <SelectItem value="2a1c">2 Adults, 1 Child</SelectItem>
-              <SelectItem value="2a2c">2 Adults, 2 Children</SelectItem>
+              <SelectItem value="1">1 Adult</SelectItem>
+              <SelectItem value="2">2 Adults</SelectItem>
+              <SelectItem value="3">2 Adults, 1 Child</SelectItem>
+              <SelectItem value="4">2 Adults, 2 Children</SelectItem>
             </SelectContent>
           </Select>
         </div>

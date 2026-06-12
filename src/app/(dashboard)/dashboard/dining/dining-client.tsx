@@ -11,6 +11,7 @@ import {
   Smartphone,
   Minus,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export default function DiningClient({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"charge_to_room" | "momo" | "card">("charge_to_room");
 
   const subtotal = useMemo(
     () => cart.reduce((acc, item) => acc + item.price * item.quantity, 0),
@@ -119,7 +121,7 @@ export default function DiningClient({
       const payload: Record<string, unknown> = {
         items: cart,
         notes,
-        payment_method: "charge_to_room",
+        payment_method: paymentMethod,
       };
 
       if (roomInfo?.roomType) payload.room_type = roomInfo.roomType;
@@ -158,8 +160,15 @@ export default function DiningClient({
       : `${recentOrder.items[0].item_name} and ${recentOrder.items.length - 1} more items`
     : "Your recent order";
 
-  const categories = menu.map((c) => c.name);
-  const selectedCategoryData = menu.find((c) => c.name === selectedCategory);
+  const categories = useMemo(() => Array.from(new Set(menu.map((c) => c.name))), [menu]);
+  const selectedCategoryData = useMemo(() => {
+    const matchedCategories = menu.filter((c) => c.name === selectedCategory);
+    if (matchedCategories.length === 0) return null;
+    return {
+      name: selectedCategory,
+      items: matchedCategories.flatMap((c) => c.items),
+    };
+  }, [menu, selectedCategory]);
   const specialItems = menu
     .flatMap((c) => c.items)
     .filter((item) => item.is_special);
@@ -245,7 +254,7 @@ export default function DiningClient({
             </p>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-lg flex-wrap">
+          <div className="flex bg-gray-100 p-1 rounded-lg flex-wrap gap-2 md:gap-1 items-center">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -424,7 +433,7 @@ export default function DiningClient({
                           <p className="text-[9px] text-gray-400 uppercase tracking-widest">
                             Qty: {item.quantity}
                           </p>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => removeFromCart(item.id)}
                               className="w-5 h-5 rounded border border-gray-100 flex items-center justify-center hover:bg-gray-50"
@@ -463,14 +472,69 @@ export default function DiningClient({
                 <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                   Payment Method
                 </label>
-                <div className="border-2 border-jagamn-tertiary bg-orange-50/30 rounded-md p-3 flex flex-col items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-jagamn-tertiary bg-white flex items-center justify-center self-end">
-                    <div className="w-2 h-2 rounded-full bg-jagamn-tertiary" />
-                  </div>
-                  <Smartphone className="w-4 h-4 text-jagamn-tertiary" />
-                  <span className="text-[9px] font-bold text-jagamn-primary uppercase">
-                    Charge to Room
-                  </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Charge to Room */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("charge_to_room")}
+                    className={cn(
+                      "border-2 rounded-md p-2 flex flex-col items-center justify-between gap-2 transition-all text-center h-24",
+                      paymentMethod === "charge_to_room"
+                        ? "border-jagamn-tertiary bg-orange-50/30"
+                        : "border-gray-100 bg-white hover:bg-gray-50"
+                    )}
+                  >
+                    <div className={cn("w-3 h-3 rounded-full border border-gray-300 flex items-center justify-center self-end", paymentMethod === "charge_to_room" && "border-jagamn-tertiary")}>
+                      {paymentMethod === "charge_to_room" && <div className="w-1.5 h-1.5 rounded-full bg-jagamn-tertiary" />}
+                    </div>
+                    <Smartphone className={cn("w-4 h-4", paymentMethod === "charge_to_room" ? "text-jagamn-tertiary" : "text-gray-400")} />
+                    <span className="text-[8px] font-bold text-jagamn-primary uppercase leading-tight">
+                      Charge to Room
+                    </span>
+                  </button>
+
+                  {/* Mobile Money */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("momo")}
+                    className={cn(
+                      "border-2 rounded-md p-2 flex flex-col items-center justify-between gap-2 transition-all text-center h-24",
+                      paymentMethod === "momo"
+                        ? "border-jagamn-tertiary bg-orange-50/30"
+                        : "border-gray-100 bg-white hover:bg-gray-50"
+                    )}
+                  >
+                    <div className={cn("w-3 h-3 rounded-full border border-gray-300 flex items-center justify-center self-end", paymentMethod === "momo" && "border-jagamn-tertiary")}>
+                      {paymentMethod === "momo" && <div className="w-1.5 h-1.5 rounded-full bg-jagamn-tertiary" />}
+                    </div>
+                    <div className="flex gap-0.5">
+                      <span className="text-[7px] px-0.5 bg-yellow-400 text-black font-bold rounded-sm scale-90">MTN</span>
+                      <span className="text-[7px] px-0.5 bg-orange-500 text-white font-bold rounded-sm scale-90">OM</span>
+                    </div>
+                    <span className="text-[8px] font-bold text-jagamn-primary uppercase leading-tight">
+                      Mobile Money
+                    </span>
+                  </button>
+
+                  {/* Credit Card */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("card")}
+                    className={cn(
+                      "border-2 rounded-md p-2 flex flex-col items-center justify-between gap-2 transition-all text-center h-24",
+                      paymentMethod === "card"
+                        ? "border-jagamn-tertiary bg-orange-50/30"
+                        : "border-gray-100 bg-white hover:bg-gray-50"
+                    )}
+                  >
+                    <div className={cn("w-3 h-3 rounded-full border border-gray-300 flex items-center justify-center self-end", paymentMethod === "card" && "border-jagamn-tertiary")}>
+                      {paymentMethod === "card" && <div className="w-1.5 h-1.5 rounded-full bg-jagamn-tertiary" />}
+                    </div>
+                    <CreditCard className={cn("w-4 h-4", paymentMethod === "card" ? "text-jagamn-tertiary" : "text-gray-400")} />
+                    <span className="text-[8px] font-bold text-jagamn-primary uppercase leading-tight">
+                      Credit Card
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -696,7 +760,7 @@ export default function DiningClient({
       {/* Floating Action Button */}
       <button
         onClick={() => setView("menu")}
-        className="fixed bottom-10 right-10 flex items-center gap-3 bg-jagamn-primary text-white rounded-xl shadow-2xl px-6 h-16 hover:scale-110 transition-all z-50 group"
+        className="fixed bottom-24 md:bottom-10 right-6 md:right-10 flex items-center gap-3 bg-jagamn-primary text-white rounded-xl shadow-2xl px-6 h-16 hover:scale-110 transition-all z-40 group"
       >
         <Plus className="w-6 h-6" />
         <span className="manrope-bold text-sm uppercase tracking-widest pr-2">
