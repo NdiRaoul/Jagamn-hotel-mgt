@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -10,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle } from "lucide-react";
+import { UserCircle, X } from "lucide-react";
 import { ProfileSection } from "./ProfileSection";
 import { LeaveSection } from "./LeaveSection";
 import { PayslipsSection } from "./PayslipsSection";
@@ -39,15 +40,20 @@ export function AccountButton({
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-[95vw] lg:max-w-[90vw] xl:max-w-[85vw] max-h-[95vh] overflow-y-auto bg-[#F8F9FA] p-0 rounded-3xl">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-6 z-10 rounded-t-3xl">
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 sm:px-8 py-5 sm:py-6 z-10 rounded-t-3xl flex items-start justify-between gap-4">
           <DialogHeader>
-            <DialogTitle className="text-3xl font-bold text-jagamn-primary">
+            <DialogTitle className="text-2xl sm:text-3xl font-bold text-jagamn-primary">
               My Account
             </DialogTitle>
-            <DialogDescription className="text-gray-500 text-sm mt-2">
+            <DialogDescription className="text-gray-500 text-sm mt-1">
               Manage your profile, leave requests, and payslips
             </DialogDescription>
           </DialogHeader>
+          <DialogClose asChild>
+            <button className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-[#00152A] transition-colors shrink-0 mt-0.5">
+              <X className="w-4 h-4" />
+            </button>
+          </DialogClose>
         </div>
 
         <div className="px-8 py-6">

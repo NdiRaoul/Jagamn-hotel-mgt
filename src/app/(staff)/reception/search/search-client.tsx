@@ -42,7 +42,7 @@ export default function SearchClient({
 
   return (
     <div className="fixed inset-0 bg-[#F4F6F8] z-50 flex flex-col overflow-y-auto animate-in fade-in duration-300">
-      <header className="px-10 py-8 flex items-center justify-between flex-shrink-0">
+      <header className="px-4 sm:px-10 py-4 sm:py-8 flex items-center justify-between flex-wrap gap-3 flex-shrink-0">
         <Link href="/reception">
           <Button
             variant="ghost"
@@ -52,17 +52,17 @@ export default function SearchClient({
             Return to Front Desk
           </Button>
         </Link>
-        <h2 className="manrope-bold text-xl text-[#00152A]">
+        <h2 className="manrope-bold text-base sm:text-xl text-[#00152A]">
           Palace Management
         </h2>
       </header>
 
-      <main className="flex-1 flex flex-col p-10 max-w-3xl mx-auto w-full space-y-12">
-        <div className="space-y-4">
-          <h1 className="manrope-bold text-5xl text-[#00152A]">
+      <main className="flex-1 flex flex-col p-4 sm:p-10 max-w-3xl mx-auto w-full space-y-8 sm:space-y-12">
+        <div className="space-y-3">
+          <h1 className="manrope-bold text-3xl sm:text-5xl text-[#00152A]">
             Find Reservation
           </h1>
-          <p className="text-gray-500 text-lg">
+          <p className="text-gray-500 text-sm sm:text-lg">
             Enter the booking reference, guest name, email, or phone to
             retrieve the folio.
           </p>
@@ -99,14 +99,14 @@ export default function SearchClient({
         )}
 
         {/* Search form */}
-        <form onSubmit={handleSearch} className="flex items-center gap-4">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Name, email, phone, booking ref…"
-              className="h-16 pl-14 pr-12 text-lg bg-white border-0 shadow-sm focus-visible:ring-2 focus-visible:ring-[#BA722E] rounded-xl text-[#00152A] font-medium"
+              className="h-14 sm:h-16 pl-14 pr-12 text-base sm:text-lg bg-white border-0 shadow-sm focus-visible:ring-2 focus-visible:ring-[#BA722E] rounded-xl text-[#00152A] font-medium"
             />
             {query && (
               <button
@@ -120,7 +120,7 @@ export default function SearchClient({
           </div>
           <Button
             type="submit"
-            className="h-16 px-8 bg-[#00152A] hover:bg-[#0A2038] text-white rounded-xl shadow-md flex items-center gap-2"
+            className="h-14 sm:h-16 px-6 sm:px-8 bg-[#00152A] hover:bg-[#0A2038] text-white rounded-xl shadow-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <span className="font-bold">Search</span>
             <ArrowRight className="w-4 h-4" />

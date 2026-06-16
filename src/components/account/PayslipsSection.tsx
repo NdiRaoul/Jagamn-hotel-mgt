@@ -190,13 +190,14 @@ export function PayslipsSection() {
               key={payslip.id}
               className="p-4 bg-white rounded-lg border border-gray-200 hover:border-jagamn-primary transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <FileText className="w-5 h-5 text-jagamn-primary" />
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <FileText className="w-5 h-5 text-jagamn-primary shrink-0" />
                     <h4 className="font-bold text-jagamn-primary">
                       {new Date(payslip.run_period_start).toLocaleDateString()}{" "}
-                      - {new Date(payslip.run_period_end).toLocaleDateString()}
+                      &ndash;{" "}
+                      {new Date(payslip.run_period_end).toLocaleDateString()}
                     </h4>
                     <span
                       className={`px-2 py-1 text-xs font-bold uppercase tracking-wider rounded ${
@@ -210,7 +211,7 @@ export function PayslipsSection() {
                       {payslip.status}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                     <div>
                       <p className="text-gray-500 text-xs uppercase tracking-wider">
                         Base Salary
@@ -270,7 +271,7 @@ export function PayslipsSection() {
                   variant="outline"
                   size="sm"
                   onClick={() => downloadPayslip(payslip)}
-                  className="ml-4"
+                  className="self-end sm:self-start shrink-0"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download

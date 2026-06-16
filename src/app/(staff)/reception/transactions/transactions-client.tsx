@@ -106,31 +106,37 @@ export default function TransactionsClient({
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>
         </select>
-        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 h-10">
-          <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="bg-transparent text-[11px] font-medium text-[#00152A] outline-none w-[110px]"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 h-10">
+            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide hidden xs:inline">From</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="bg-transparent text-[11px] font-medium text-[#00152A] outline-none w-[110px]"
+            />
+          </div>
           <ArrowRight className="w-3 h-3 text-gray-300 shrink-0" />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="bg-transparent text-[11px] font-medium text-[#00152A] outline-none w-[110px]"
-          />
-          {(dateFrom || dateTo) && (
-            <button
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
-            >
-              <X className="w-3 h-3 text-gray-400 hover:text-red-500" />
-            </button>
-          )}
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 h-10">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide hidden xs:inline">To</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="bg-transparent text-[11px] font-medium text-[#00152A] outline-none w-[110px]"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              >
+                <X className="w-3 h-3 text-gray-400 hover:text-red-500" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

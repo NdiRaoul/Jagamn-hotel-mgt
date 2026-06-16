@@ -92,7 +92,10 @@ export default function WalkInBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [cashDialog, setCashDialog] = useState<{ open: boolean; bookingId: string | null }>({ open: false, bookingId: null });
+  const [cashDialog, setCashDialog] = useState<{
+    open: boolean;
+    bookingId: string | null;
+  }>({ open: false, bookingId: null });
   const [cashAmount, setCashAmount] = useState("");
   const [processingCash, setProcessingCash] = useState(false);
 
@@ -145,7 +148,7 @@ export default function WalkInBookingPage() {
       }
 
       if (paymentMethod === "cash") {
-        setCashAmount((totalDue).toString());
+        setCashAmount(totalDue.toString());
         setCashDialog({ open: true, bookingId: data.bookingId });
       } else {
         router.push(`/reception/check-in/success?id=${data.bookingId}`);
@@ -229,13 +232,13 @@ export default function WalkInBookingPage() {
                   className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <div className="">
                   <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     Country
                   </Label>
                   <Select value={guestCountry} onValueChange={setGuestCountry}>
-                    <SelectTrigger className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md">
+                    <SelectTrigger className="h-12 py-5 w-full bg-[#E6E8EA] border border-[#6B7280] rounded-md text-sm px-3">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -255,7 +258,7 @@ export default function WalkInBookingPage() {
                     value={guestIdNumber}
                     onChange={(e) => setGuestIdNumber(e.target.value)}
                     placeholder="Passport / DL"
-                    className="h-12 bg-[#E6E8EA] border-[#6B7280] rounded-md"
+                    className="h-12 w-full bg-[#E6E8EA] border border-[#6B7280] rounded-md text-sm px-3"
                   />
                 </div>
               </div>
@@ -467,7 +470,12 @@ export default function WalkInBookingPage() {
         </div>
       </div>
 
-      <Dialog open={cashDialog.open} onOpenChange={(open) => !open && setCashDialog({ open: false, bookingId: null })}>
+      <Dialog
+        open={cashDialog.open}
+        onOpenChange={(open) =>
+          !open && setCashDialog({ open: false, bookingId: null })
+        }
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record Cash Payment</DialogTitle>
@@ -489,13 +497,19 @@ export default function WalkInBookingPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => router.push(`/reception/check-in/success?id=${cashDialog.bookingId}`)}
+              onClick={() =>
+                router.push(
+                  `/reception/check-in/success?id=${cashDialog.bookingId}`,
+                )
+              }
               disabled={processingCash}
             >
               Skip for Now
             </Button>
             <Button
-              disabled={processingCash || !cashAmount || Number(cashAmount) <= 0}
+              disabled={
+                processingCash || !cashAmount || Number(cashAmount) <= 0
+              }
               onClick={async () => {
                 setProcessingCash(true);
                 try {
@@ -509,7 +523,9 @@ export default function WalkInBookingPage() {
                     }),
                   });
                   if (res.ok) {
-                    router.push(`/reception/check-in/success?id=${cashDialog.bookingId}`);
+                    router.push(
+                      `/reception/check-in/success?id=${cashDialog.bookingId}`,
+                    );
                   } else {
                     const data = await res.json();
                     alert(`Error: ${data.error}`);
