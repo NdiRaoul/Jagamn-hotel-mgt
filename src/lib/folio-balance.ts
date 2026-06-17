@@ -25,9 +25,10 @@ export interface ComputedBalance {
   extrasBalance: number; // extras still owed
   totalCharges: number;
   totalPaid: number;
-  balanceDue: number;
+  balanceDue: number; // amount the guest still owes (>= 0)
+  refundDue: number; // amount owed back to the guest, e.g. after a downgrade (>= 0)
   roomPaid: boolean;
-  fullyPaid: boolean;
+  fullyPaid: boolean; // charges fully covered (a pending refund still counts as covered)
 }
 
 export function computeBookingBalance(i: BalanceInputs): ComputedBalance {
@@ -36,21 +37,38 @@ export function computeBookingBalance(i: BalanceInputs): ComputedBalance {
   const folioPayments = (i.folioPaymentsMinor ?? 0) / 100;
   const roomPrepaid = i.paymentStatus === "paid";
 
-  // When the room is in the folio, its charge is part of folioCharges; strip it
-  // back out so `extraCharges` is dining/misc only.
-  const extraCharges = Math.max(folioCharges - (i.roomInFolio ? room : 0), 0);
+  let extraCharges: number;
+  let roomBalance: number;
+  let extrasBalance: number;
+  let totalCharges: number;
+  let totalPaid: number;
 
-  // Apply desk payments to the room first, then to extras.
-  const paymentsTowardRoom = roomPrepaid ? room : Math.min(folioPayments, room);
-  const roomBalance = Math.max(room - paymentsTowardRoom, 0);
-  const paymentsTowardExtras = roomPrepaid
-    ? folioPayments
-    : Math.max(folioPayments - room, 0);
-  const extrasBalance = Math.max(extraCharges - paymentsTowardExtras, 0);
+  if (i.roomInFolio) {
+    // Folio is the single ledger: room + extras are all charges; every payment
+    // (carried-over prepayment from a reassignment, cash at the desk) is a
+    // payment entry. The net can go NEGATIVE — a credit owed back to the guest,
+    // e.g. when a downgrade leaves them having paid more than the new room costs.
+    extraCharges = Math.max(folioCharges - room, 0);
+    totalCharges = folioCharges;
+    totalPaid = folioPayments;
+    const paymentsTowardRoom = Math.min(folioPayments, room);
+    roomBalance = Math.max(room - paymentsTowardRoom, 0);
+    const paymentsTowardExtras = Math.max(folioPayments - room, 0);
+    extrasBalance = Math.max(extraCharges - paymentsTowardExtras, 0);
+  } else {
+    // Room settled via payment_status (online prepay); only extras live in the
+    // folio.
+    extraCharges = folioCharges;
+    const roomPaidAmt = roomPrepaid ? room : 0;
+    roomBalance = Math.max(room - roomPaidAmt, 0);
+    extrasBalance = Math.max(extraCharges - folioPayments, 0);
+    totalCharges = room + extraCharges;
+    totalPaid = roomPaidAmt + folioPayments;
+  }
 
-  const balanceDue = roomBalance + extrasBalance;
-  const totalCharges = room + extraCharges;
-  const totalPaid = totalCharges - balanceDue;
+  const net = totalCharges - totalPaid;
+  const balanceDue = Math.max(net, 0);
+  const refundDue = Math.max(-net, 0);
 
   return {
     roomCharge: room,
@@ -60,6 +78,7 @@ export function computeBookingBalance(i: BalanceInputs): ComputedBalance {
     totalCharges,
     totalPaid,
     balanceDue,
+    refundDue,
     roomPaid: roomBalance <= 0,
     fullyPaid: balanceDue <= 0,
   };
