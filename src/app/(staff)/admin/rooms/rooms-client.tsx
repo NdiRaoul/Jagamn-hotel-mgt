@@ -258,7 +258,7 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
 
       {/* ── Status Legend ──────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 w-fit">
-        {(["available", "occupied", "dirty", "out_of_order"] as const).map(
+        {(["available", "occupied", "reserved", "dirty", "out_of_order"] as const).map(
           (key) => {
             const config = STATUS_CONFIG[key];
             return (
@@ -281,8 +281,8 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
           const config =
             STATUS_CONFIG[effectiveStatus] ?? STATUS_CONFIG.available;
           const guestLabel =
-            (effectiveStatus === "occupied"
-              ? room.bookingRef || room.guestName
+            (effectiveStatus === "occupied" || effectiveStatus === "reserved"
+              ? room.guestName || room.bookingRef
               : null) ||
             (effectiveStatus === "available"
               ? "Ready for Check-in"
