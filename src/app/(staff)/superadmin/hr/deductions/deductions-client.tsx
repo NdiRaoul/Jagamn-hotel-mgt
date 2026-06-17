@@ -128,7 +128,7 @@ export default function DeductionsClient({
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -406,9 +406,7 @@ export default function DeductionsClient({
               <div className="flex justify-between">
                 <span className="text-gray-400">Applied</span>
                 <span className="font-semibold text-jagamn-primary">
-                  {new Date(
-                    selectedDeduction.applied_date,
-                  ).toLocaleString()}
+                  {new Date(selectedDeduction.applied_date).toLocaleString()}
                 </span>
               </div>
               {selectedDeduction.staff?.department && (

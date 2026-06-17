@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docs
+Jagamn_Palace_Receptionist_Bug_Report.pdf

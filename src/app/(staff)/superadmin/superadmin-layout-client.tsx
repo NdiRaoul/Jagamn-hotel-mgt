@@ -192,7 +192,7 @@ export default function SuperAdminLayoutClient({
                           isSidebarOpen ? "px-8" : "px-0 md:justify-center",
                           isActive
                             ? "bg-[#1A2E42] text-white border-l-2 border-l-[#BA722E]"
-                            : "text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-l-transparent",
+                            : "text-gray-500 hover:text-white hover:bg-white/5",
                         )}
                         onClick={() => {
                           if (

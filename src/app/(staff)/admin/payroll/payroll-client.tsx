@@ -333,7 +333,7 @@ export default function PayrollClient({
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="mx-auto pt-8 md:pt-12 space-y-8 md:space-y-12 px-4 md:px-0">
+      <div className="mx-auto pt-8 md:pt-12 space-y-8 md:space-y-12">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">
@@ -571,20 +571,20 @@ export default function PayrollClient({
             <p className="text-xs font-bold text-slate-400">
               Showing {filteredItems.length} of {items.length} items
             </p>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-4">
+              <div className="w-full sm:w-auto flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-slate-400" />
                 <Input
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="h-10 w-40 text-sm"
+                  className="h-10 w-full sm:w-40 text-sm"
                 />
               </div>
               <Button
                 onClick={handleBulkPay}
                 disabled={selectedItems.size === 0 || isPaying}
-                className="h-10 px-6 bg-green-600 hover:bg-green-700 text-white"
+                className="w-full sm:w-auto h-10 px-6 bg-green-600 hover:bg-green-700 text-white"
               >
                 <Banknote className="w-4 h-4 mr-2" />
                 Pay Selected ({selectedItems.size})

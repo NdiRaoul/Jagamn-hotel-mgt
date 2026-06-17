@@ -181,7 +181,8 @@ export default function ProcurementClient({
     }
   };
 
-  const handleDecline = (orderId: string) => handleAdvanceStatus(orderId, "cancelled");
+  const handleDecline = (orderId: string) =>
+    handleAdvanceStatus(orderId, "cancelled");
 
   const handleCreatePO = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +229,7 @@ export default function ProcurementClient({
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12 px-4 md:px-0">
+      <div className="mx-auto pt-8 md:pt-12 space-y-10 md:space-y-12">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div className="space-y-2 text-center lg:text-left">
@@ -313,7 +314,9 @@ export default function ProcurementClient({
                     <div className="grid grid-cols-12 gap-2 px-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                       <span className="col-span-5">Item</span>
                       <span className="col-span-2 text-center">Qty</span>
-                      <span className="col-span-3 text-center">Unit (FCFA)</span>
+                      <span className="col-span-3 text-center">
+                        Unit (FCFA)
+                      </span>
                       <span className="col-span-2 text-right">Subtotal</span>
                     </div>
 
@@ -326,7 +329,11 @@ export default function ProcurementClient({
                           <Input
                             value={li.description}
                             onChange={(e) =>
-                              updateLineItem(li.id, "description", e.target.value)
+                              updateLineItem(
+                                li.id,
+                                "description",
+                                e.target.value,
+                              )
                             }
                             placeholder="e.g. Egyptian Cotton Towels"
                             className="col-span-5 h-11 bg-[#F1F5F9] border-0 rounded-xl px-3 text-sm font-medium"
@@ -636,7 +643,9 @@ export default function ProcurementClient({
                         {po.status === "pending_approval" ? (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleAdvanceStatus(po.id, "approved")}
+                              onClick={() =>
+                                handleAdvanceStatus(po.id, "approved")
+                              }
                               className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
                             >
                               Approve

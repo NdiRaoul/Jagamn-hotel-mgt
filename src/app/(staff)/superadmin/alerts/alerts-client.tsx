@@ -151,7 +151,7 @@ export default function AlertsClient({
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -186,7 +186,7 @@ export default function AlertsClient({
         <TabsList className="flex w-full bg-white p-1 rounded-xl shadow-sm h-auto overflow-x-auto no-scrollbar gap-1">
           <TabsTrigger
             value="all"
-            className="data-[state=active]:bg-jagamn-primary data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
+            className="ml-4 data-[state=active]:bg-jagamn-primary data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
             All Alerts
           </TabsTrigger>
