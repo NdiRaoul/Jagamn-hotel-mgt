@@ -40,6 +40,7 @@ export default function StorekeeperLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [staff, setStaff] = useState<{
     full_name: string;
     role: string;
@@ -207,39 +208,47 @@ export default function StorekeeperLayout({
         {/* ── Main Content ─────────────────────────────── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="h-[72px] bg-white border-b border-gray-100 px-8 flex items-center justify-between gap-6 flex-shrink-0">
-            <div className="flex items-center gap-4">
+          <header className="h-[72px] bg-white border-b border-gray-100 px-4 md:px-8 flex items-center justify-between gap-3 flex-shrink-0">
+            {/* Left */}
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="md:hidden text-gray-500"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-50 transition-all flex-shrink-0"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               </button>
-              <h2 className="manrope-bold text-lg text-[#00152A] whitespace-nowrap">
+              <h2 className="manrope-bold text-base md:text-lg text-[#00152A] whitespace-nowrap truncate">
                 Store Management
               </h2>
             </div>
 
-            {/* Search */}
-            <div className="relative flex-1 max-w-sm">
+            {/* Search — desktop only */}
+            <div className="hidden md:flex relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search inventory, orders..."
-                className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200"
+                className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200 w-full"
               />
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+              {/* Search icon — mobile */}
+              <button
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all"
+              >
+                <Search className="w-5 h-5" />
+              </button>
               <NotificationBell audience="staff" />
-              <div className="flex items-center gap-2 pl-3 border-l border-gray-100">
+              <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-100">
                 <Avatar className="w-9 h-9 border-2 border-gray-100">
                   {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
                   <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden sm:block text-right">
+                <div className="text-right">
                   <p className="text-xs font-bold text-[#00152A]">
                     {staff?.full_name ?? "Storekeeper"}
                   </p>
@@ -248,11 +257,33 @@ export default function StorekeeperLayout({
                   </p>
                 </div>
               </div>
+              <div className="md:hidden">
+                <Avatar className="w-9 h-9 border-2 border-gray-100">
+                  {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
+                  <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
             </div>
           </header>
 
+          {/* Mobile search bar */}
+          {mobileSearchOpen && (
+            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search inventory, orders..."
+                  className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200 w-full"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-8">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
         </div>
       </div>
     </SessionGuard>

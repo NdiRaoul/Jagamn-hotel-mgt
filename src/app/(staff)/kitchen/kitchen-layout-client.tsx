@@ -45,6 +45,7 @@ export default function KitchenLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [staff, setStaff] = useState<{
     full_name: string;
     role: string;
@@ -216,57 +217,68 @@ export default function KitchenLayout({
         {/* ── Main Content ─────────────────────────────── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="h-[72px] bg-white border-b border-gray-100 px-8 flex items-center justify-between gap-6 flex-shrink-0">
-            <div className="flex items-center gap-4">
+          <header className="h-[72px] bg-white border-b border-gray-100 px-4 md:px-8 flex items-center justify-between gap-3 flex-shrink-0">
+            {/* Left */}
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="md:hidden text-gray-500"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-50 transition-all flex-shrink-0"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               </button>
-              <h2 className="manrope-bold text-lg text-[#00152A] whitespace-nowrap">
+              <h2 className="manrope-bold text-base md:text-lg text-[#00152A] whitespace-nowrap truncate">
                 Kitchen Operations
               </h2>
             </div>
 
-            {/* Search */}
-            <div className="relative flex-1 max-w-sm">
+            {/* Search — desktop only */}
+            <div className="hidden md:flex relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search orders, ingredients..."
-                className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200"
+                className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200 w-full"
               />
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-3">
-              {/* Kitchen Active */}
-              <div className="flex items-center gap-2 bg-[#E6F4EA] text-[#1B7F34] text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-md">
+            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+              {/* Kitchen Active — desktop label, mobile dot only */}
+              <div className="hidden md:flex items-center gap-2 bg-[#E6F4EA] text-[#1B7F34] text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-md">
                 <span className="w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
                 KITCHEN ACTIVE
               </div>
+              <div className="md:hidden w-2 h-2 rounded-full bg-[#1B7F34] animate-pulse" />
 
-              {/* Emergency Stop */}
-              <button className="flex items-center gap-1.5 border border-red-300 text-red-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-md hover:bg-red-50 transition-colors">
+              {/* Emergency Stop — icon only on mobile */}
+              <button className="hidden md:flex items-center gap-1.5 border border-red-300 text-red-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-md hover:bg-red-50 transition-colors">
                 <Zap className="w-3.5 h-3.5" />
                 EMERGENCY STOP
               </button>
+              <button className="md:hidden w-9 h-9 rounded-full flex items-center justify-center border border-red-300 text-red-500 hover:bg-red-50 transition-colors">
+                <Zap className="w-4 h-4" />
+              </button>
 
-              {/* Icons */}
+              {/* Search icon — mobile */}
+              <button
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
               <NotificationBell audience="staff" />
-              <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50">
+              <button className="hidden md:flex w-9 h-9 rounded-full items-center justify-center text-gray-400 hover:bg-gray-50">
                 <HelpCircle className="w-4.5 h-4.5" />
               </button>
 
-              {/* Avatar */}
-              <div className="flex items-center gap-2 pl-3 border-l border-gray-100">
+              <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-100">
                 <Avatar className="w-9 h-9 border-2 border-gray-100">
                   {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
                   <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden sm:block text-right">
+                <div className="text-right">
                   <p className="text-xs font-bold text-[#00152A]">
                     {staff?.full_name ?? "Kitchen Staff"}
                   </p>
@@ -275,11 +287,33 @@ export default function KitchenLayout({
                   </p>
                 </div>
               </div>
+              <div className="md:hidden">
+                <Avatar className="w-9 h-9 border-2 border-gray-100">
+                  {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
+                  <AvatarFallback className="bg-[#BA722E] text-white text-xs font-bold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
             </div>
           </header>
 
+          {/* Mobile search bar */}
+          {mobileSearchOpen && (
+            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search orders, ingredients..."
+                  className="bg-[#F4F6F8] border-0 h-10 pl-10 rounded-lg text-sm focus-visible:ring-1 focus-visible:ring-gray-200 w-full"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-8">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
         </div>
       </div>
     </SessionGuard>

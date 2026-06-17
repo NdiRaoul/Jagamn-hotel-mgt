@@ -76,6 +76,7 @@ export default function SuperAdminLayoutClient({
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [staff, setStaff] = useState<StaffInfo | null>(initialStaff || null);
 
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function SuperAdminLayoutClient({
 
         <aside
           className={cn(
-            "bg-jagamn-primary text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
+            "bg-[#00152A] text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
             isSidebarOpen
               ? "translate-x-0 w-[280px]"
               : "-translate-x-full md:translate-x-0 md:w-[90px]",
@@ -146,7 +147,7 @@ export default function SuperAdminLayoutClient({
             )}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[#BA722E] flex items-center justify-center shrink-0">
                 <Castle className="w-6 h-6 text-white" />
               </div>
               {isSidebarOpen && (
@@ -184,8 +185,8 @@ export default function SuperAdminLayoutClient({
                           "flex items-center gap-4 py-4 transition-all group relative",
                           isSidebarOpen ? "px-8" : "px-0 md:justify-center",
                           isActive
-                            ? "bg-white/10 text-white border-l-[3px] border-l-jagamn-tertiary"
-                            : "text-gray-400 hover:text-white hover:bg-white/5 border-l-[3px] border-l-transparent",
+                            ? "bg-[#1A2E42] text-white border-l-2 border-l-[#BA722E]"
+                            : "text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-l-transparent",
                         )}
                         onClick={() => {
                           if (
@@ -199,7 +200,7 @@ export default function SuperAdminLayoutClient({
                           className={cn(
                             "w-5 h-5 shrink-0",
                             isActive
-                              ? "text-white"
+                              ? "text-[#BA722E]"
                               : "text-gray-500 group-hover:text-white",
                           )}
                         />
@@ -213,7 +214,7 @@ export default function SuperAdminLayoutClient({
                     {!isSidebarOpen && (
                       <TooltipContent
                         side="right"
-                        className="hidden md:block bg-jagamn-primary border-jagamn-tertiary text-white manrope-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg ml-2 shadow-2xl z-[100]"
+                        className="hidden md:block bg-[#00152A] border-[#BA722E] text-white manrope-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg ml-2 shadow-2xl z-[100]"
                       >
                         {item.label}
                       </TooltipContent>
@@ -262,7 +263,7 @@ export default function SuperAdminLayoutClient({
                 isSidebarOpen ? "px-4" : "md:justify-center",
               )}
             >
-              <LogOut className="w-5 h-5 shrink-0 group-hover:text-jagamn-tertiary" />
+              <LogOut className="w-5 h-5 shrink-0 group-hover:text-[#BA722E]" />
               {isSidebarOpen && (
                 <span className="text-[11px] font-black uppercase tracking-widest animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
                   Logout
@@ -273,15 +274,17 @@ export default function SuperAdminLayoutClient({
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-[90px] bg-white px-8 flex items-center justify-between shrink-0 border-b border-gray-100">
-            <div className="flex items-center gap-12 flex-1">
+          <header className="h-[72px] md:h-[90px] bg-white px-4 md:px-8 flex items-center justify-between gap-3 shrink-0 border-b border-gray-100">
+            {/* Left */}
+            <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="md:hidden p-2 rounded-xl bg-gray-100 text-[#0D2137]"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-md bg-gray-100 text-[#00152A] hover:bg-gray-200 transition-colors flex-shrink-0"
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="relative w-full max-w-xl">
+              {/* Search — desktop only */}
+              <div className="relative w-full max-w-xl hidden md:block">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <Input
                   value={searchQuery}
@@ -291,13 +294,38 @@ export default function SuperAdminLayoutClient({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            {/* Right */}
+            <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              {/* Search icon — mobile */}
+              <button
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all"
+              >
+                <Search className="w-5 h-5" />
+              </button>
               <NotificationBell audience="staff" />
-              <button className="rounded-2xl bg-jagamn-tertiary px-4 py-3 text-white text-[10px] font-black uppercase tracking-[0.25em]">
+              <button className="hidden md:flex rounded-2xl bg-[#BA722E] px-4 py-3 text-white text-[10px] font-black uppercase tracking-[0.25em]">
                 Owner Portal
               </button>
             </div>
           </header>
+
+          {/* Mobile search bar */}
+          {mobileSearchOpen && (
+            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search across reports"
+                  className="h-11 w-full bg-gray-100 pl-12 rounded-2xl border-0 focus:ring-0"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+
           <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 md:p-8 custom-scrollbar">
             {children}
           </main>

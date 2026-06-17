@@ -20,15 +20,15 @@ export function ReportsHeader({
   leadTimeAlert,
 }: ReportsHeaderProps) {
   return (
-    <div className="flex items-end justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
       <div>
         <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">
           Analytics
         </p>
-        <h1 className="text-3xl font-bold text-gray-900">Reports & Insights</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reports &amp; Insights</h1>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap flex-shrink-0">
         {/* Total Inventory Value */}
         <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 shadow-sm min-w-45">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
