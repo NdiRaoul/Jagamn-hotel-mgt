@@ -42,6 +42,7 @@ function LoginContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const supabase = createSupabaseBrowserClient();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const tab = searchParams.get("tab");
