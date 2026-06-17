@@ -145,9 +145,9 @@ export default function FinancialSyncClient({
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-0">
         <div>
           <h1 className="manrope-bold text-4xl text-jagamn-primary">
             Financial Sync
@@ -209,7 +209,9 @@ export default function FinancialSyncClient({
               <YAxis
                 tick={{ fontSize: 11, fill: "#64748b" }}
                 axisLine={false}
-                tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k FCFA`}
+                tickFormatter={(value) =>
+                  `${(Number(value) / 1000).toFixed(0)}k FCFA`
+                }
               />
               <Tooltip
                 contentStyle={{

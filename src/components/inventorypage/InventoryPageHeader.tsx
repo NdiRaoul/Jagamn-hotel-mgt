@@ -9,17 +9,17 @@ interface InventoryPageHeaderProps {
 
 export function InventoryPageHeader({ criticalAlerts, activeSKUs }: InventoryPageHeaderProps) {
   return (
-    <div className="flex items-end justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
       {/* Left */}
       <div>
         <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">
           Inventory Repository
         </p>
-        <h1 className="text-3xl font-bold text-gray-900">Current Holdings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Current Holdings</h1>
       </div>
 
       {/* Right: stat cards */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-shrink-0">
         {/* Critical Alerts */}
         <div className="flex items-center gap-3 border border-amber-300 bg-amber-50 rounded-lg px-5 py-3">
           <div className="w-8 h-8 rounded-md bg-amber-400 flex items-center justify-center shrink-0">

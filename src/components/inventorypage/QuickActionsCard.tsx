@@ -9,7 +9,7 @@ interface QuickActionsCardProps {
 
 export function QuickActionsCard({ onNewPO, onImportTemplate }: QuickActionsCardProps) {
   return (
-    <div className="w-72 shrink-0 bg-gray-900 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+    <div className="w-full lg:w-72 lg:shrink-0 bg-gray-900 rounded-xl p-6 shadow-sm flex flex-col justify-between">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
           Quick Action

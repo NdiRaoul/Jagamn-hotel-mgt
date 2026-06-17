@@ -32,7 +32,7 @@ export default async function AdminArrivalsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20 animate-in fade-in duration-700">
-      <div className="mx-auto pt-8 md:pt-12 space-y-8 px-4 md:px-0">
+      <div className="mx-auto pt-8 md:pt-12 space-y-8">
         <div className="space-y-2">
           <p className="text-[10px] font-black text-[#0D2137]/40 uppercase tracking-[0.4em]">
             Front Desk Oversight

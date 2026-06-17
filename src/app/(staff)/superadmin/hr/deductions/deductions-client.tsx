@@ -128,11 +128,11 @@ export default function DeductionsClient({
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="manrope-bold text-4xl text-jagamn-primary mb-2">
+          <h1 className="manrope-bold text-2xl sm:text-4xl text-jagamn-primary mb-2">
             Deductions & Penalties
           </h1>
           <p className="text-gray-500 text-sm">
@@ -141,8 +141,8 @@ export default function DeductionsClient({
             editorial clarity.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
+        <div className="flex items-center gap-3 sm:shrink-0">
+          <div className="sm:text-right">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               Monthly Impact
             </p>
@@ -290,9 +290,9 @@ export default function DeductionsClient({
                       </AvatarFallback>
                     </Avatar>
 
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 mb-2">
+                        <div className="min-w-0">
                           <p className="font-bold text-jagamn-primary">
                             {deduction.staff?.full_name}
                           </p>
@@ -301,7 +301,7 @@ export default function DeductionsClient({
                             {deduction.staff?.position}
                           </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 shrink-0">
                           <p className="manrope-bold text-lg text-red-600">
                             -{formatCurrency(deduction.amount_minor)}
                           </p>
@@ -406,9 +406,7 @@ export default function DeductionsClient({
               <div className="flex justify-between">
                 <span className="text-gray-400">Applied</span>
                 <span className="font-semibold text-jagamn-primary">
-                  {new Date(
-                    selectedDeduction.applied_date,
-                  ).toLocaleString()}
+                  {new Date(selectedDeduction.applied_date).toLocaleString()}
                 </span>
               </div>
               {selectedDeduction.staff?.department && (

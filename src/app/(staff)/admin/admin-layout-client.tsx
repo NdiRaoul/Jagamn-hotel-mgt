@@ -62,6 +62,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [staff, setStaff] = useState<{
     full_name: string;
     email: string;
@@ -104,7 +105,7 @@ export default function AdminLayout({
 
         <aside
           className={cn(
-            "bg-jagamn-primary text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
+            "bg-[#00152A] text-white flex flex-col transition-all duration-500 z-50 shrink-0 fixed inset-y-0 left-0 md:relative shadow-2xl md:shadow-none",
             isSidebarOpen
               ? "translate-x-0 w-[280px]"
               : "-translate-x-full md:translate-x-0 md:w-[90px]",
@@ -118,7 +119,7 @@ export default function AdminLayout({
             )}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-jagamn-tertiary flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[#BA722E] flex items-center justify-center shrink-0">
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               {isSidebarOpen && (
@@ -148,7 +149,14 @@ export default function AdminLayout({
               {ADMIN_NAV.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/admin" && pathname.startsWith(item.href));
+                  (item.href !== "/admin" &&
+                    pathname.startsWith(item.href) &&
+                    !ADMIN_NAV.some(
+                      (other) =>
+                        other !== item &&
+                        (pathname === other.href ||
+                          pathname.startsWith(other.href + "/")),
+                    ));
                 return (
                   <Tooltip key={item.label} delayDuration={0}>
                     <TooltipTrigger asChild>
@@ -158,8 +166,8 @@ export default function AdminLayout({
                           "flex items-center gap-4 py-4 transition-all group relative",
                           isSidebarOpen ? "px-8" : "px-0 md:justify-center",
                           isActive
-                            ? "bg-white/10 text-white border-l-[3px] border-l-jagamn-tertiary"
-                            : "text-gray-400 hover:text-white hover:bg-white/5 border-l-[3px] border-l-transparent",
+                            ? "bg-[#1A2E42] text-white border-l-2 border-l-[#BA722E]"
+                            : "text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-l-transparent",
                         )}
                         onClick={() => {
                           if (
@@ -173,7 +181,7 @@ export default function AdminLayout({
                           className={cn(
                             "w-5 h-5 shrink-0",
                             isActive
-                              ? "text-white"
+                              ? "text-[#BA722E]"
                               : "text-gray-500 group-hover:text-white",
                           )}
                         />
@@ -187,7 +195,7 @@ export default function AdminLayout({
                     {!isSidebarOpen && (
                       <TooltipContent
                         side="right"
-                        className="hidden md:block bg-jagamn-primary border-jagamn-tertiary text-white manrope-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg ml-2 shadow-2xl z-[100]"
+                        className="hidden md:block bg-[#00152A] border-[#BA722E] text-white manrope-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg ml-2 shadow-2xl z-[100]"
                       >
                         {item.label}
                       </TooltipContent>
@@ -220,7 +228,7 @@ export default function AdminLayout({
                 isSidebarOpen ? "px-4" : "md:justify-center",
               )}
             >
-              <LogOut className="w-5 h-5 shrink-0 group-hover:text-jagamn-tertiary" />
+              <LogOut className="w-5 h-5 shrink-0 group-hover:text-[#BA722E]" />
               {isSidebarOpen && (
                 <span className="text-[11px] font-black uppercase tracking-widest animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
                   Logout
@@ -232,53 +240,61 @@ export default function AdminLayout({
 
         {/* ── Main Content ─────────────────────────────── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Header Bar - Image 2 Style */}
-          <header className="h-[90px] bg-white px-8 flex items-center justify-between shrink-0 border-b border-gray-100">
-            <div className="flex items-center gap-12 flex-1">
+          {/* Header */}
+          <header className="h-[72px] md:h-[90px] bg-white px-4 md:px-8 flex items-center justify-between shrink-0 border-b border-gray-100">
+            <div className="flex items-center gap-3 md:gap-8 flex-1 min-w-0">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 text-gray-400 hover:text-jagamn-tertiary transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-50 transition-colors flex-shrink-0"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               </button>
 
-              {/* Global Pill Search */}
+              {/* Global Pill Search — desktop only */}
               <div className="relative w-full max-w-md hidden md:block">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Global search across pages..."
-                  className="w-full h-12 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-jagamn-tertiary/20"
+                  className="w-full h-12 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-[#BA722E]/20"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-3 pr-8 border-r border-gray-100">
+            <div className="flex items-center gap-2 md:gap-6 flex-shrink-0">
+              {/* Search icon — mobile */}
+              <button
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-2 md:gap-3 md:pr-6 md:border-r md:border-gray-100">
                 <NotificationBell audience="staff" />
-                <button className="p-2.5 text-jagamn-primary hover:bg-gray-50 rounded-xl transition-all">
+                <button className="hidden md:flex p-2.5 text-[#00152A] hover:bg-gray-50 rounded-xl transition-all">
                   <Settings className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="flex items-center gap-4 pl-2">
-                <div className="text-right hidden sm:block">
-                  <p className="manrope-extrabold text-[13px] text-jagamn-primary leading-none mb-1">
+              <div className="flex items-center gap-2 md:gap-4">
+                <div className="text-right hidden md:block">
+                  <p className="manrope-extrabold text-[13px] text-[#00152A] leading-none mb-1">
                     {staff?.full_name ?? "Admin Palace"}
                   </p>
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                     {staff?.email ?? "admin@palace.com"}
                   </p>
                 </div>
-                <Avatar className="w-11 h-11 border-[2.5px] border-jagamn-tertiary p-0.5 shadow-sm">
+                <Avatar className="w-9 h-9 md:w-11 md:h-11 border-[2.5px] border-[#BA722E] p-0.5 shadow-sm">
                   {staff?.avatar_url ? (
                     <AvatarImage
                       src={staff.avatar_url}
                       className="rounded-full"
                     />
                   ) : (
-                    <AvatarFallback className="bg-jagamn-neutral text-jagamn-primary text-[10px] font-black">
+                    <AvatarFallback className="bg-gray-100 text-[#00152A] text-[10px] font-black">
                       {staff?.full_name
                         ? staff.full_name
                             .split(" ")
@@ -292,6 +308,22 @@ export default function AdminLayout({
               </div>
             </div>
           </header>
+
+          {/* Mobile search bar */}
+          {mobileSearchOpen && (
+            <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Global search across pages..."
+                  className="w-full h-11 bg-gray-100 border-0 rounded-2xl pl-12 text-sm font-medium"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
 
           <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 md:p-8 custom-scrollbar">
             {children}

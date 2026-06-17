@@ -65,8 +65,8 @@ export default function InventoryClient({
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Header ────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <h1 className="manrope-bold text-4xl text-[#00152A]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="manrope-bold text-2xl sm:text-4xl text-[#00152A]">
           Live Inventory Verification
         </h1>
         <div className="flex items-center gap-4">
