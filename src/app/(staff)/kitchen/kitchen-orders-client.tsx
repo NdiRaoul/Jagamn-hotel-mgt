@@ -513,7 +513,7 @@ export default function KitchenOrdersClient({
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       {/* ── Page Header ─────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="manrope-bold text-4xl text-[#00152A]">Orders</h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -600,9 +600,9 @@ export default function KitchenOrdersClient({
       {/* ── Kanban Board ────────────────────── */}
       <div
         className={cn(
-          "flex gap-6 pb-2",
+          "flex gap-6 pb-2 -mx-4 px-4 md:mx-0 md:px-0",
           activeTab === "all"
-            ? "overflow-x-auto"
+            ? "overflow-x-auto no-scrollbar"
             : "flex-col md:flex-row md:flex-wrap",
         )}
       >
