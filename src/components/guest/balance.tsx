@@ -1,6 +1,13 @@
 "use client";
 
-import { Wallet, CheckCircle2, AlertCircle, BedDouble, UtensilsCrossed } from "lucide-react";
+import {
+  Wallet,
+  CheckCircle2,
+  AlertCircle,
+  BedDouble,
+  UtensilsCrossed,
+  ArrowDownLeft,
+} from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +31,18 @@ export function BalanceBadge({
   className?: string;
 }) {
   if (!folio) return null;
+  if (folio.refundDue > 0) {
+    return (
+      <Badge
+        className={cn(
+          "bg-emerald-50 text-emerald-700 border-0 text-[9px] font-bold uppercase tracking-wider px-3 py-1 flex items-center gap-1.5",
+          className,
+        )}
+      >
+        <ArrowDownLeft className="w-3 h-3" /> Refund {formatMoney(folio.refundDue)}
+      </Badge>
+    );
+  }
   if (folio.fullyPaid) {
     return (
       <Badge
@@ -66,52 +85,75 @@ export function OutstandingBalanceBanner({
       <div className="h-28 rounded-md bg-gray-100 animate-pulse" />
     );
   }
-  if (!summary || !summary.hasOutstanding) return null;
+  if (!summary || (!summary.hasOutstanding && !summary.hasRefund)) return null;
 
   const roomUnpaid = summary.bookings.reduce((s, b) => s + b.roomBalance, 0);
   const extrasUnpaid = summary.bookings.reduce((s, b) => s + b.extrasBalance, 0);
 
   return (
-    <div className="bg-white rounded-md border border-gray-100 border-l-4 border-l-[#E65100] shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div className="flex items-start gap-5">
-        <div className="w-12 h-12 rounded-lg bg-[#FFF3E0] flex items-center justify-center shrink-0">
-          <Wallet className="w-6 h-6 text-[#E65100]" />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Outstanding Balance
-            </p>
+    <div className="space-y-4">
+      {summary.hasOutstanding && (
+        <div className="bg-white rounded-md border border-gray-100 border-l-4 border-l-[#E65100] shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-5">
+            <div className="w-12 h-12 rounded-lg bg-[#FFF3E0] flex items-center justify-center shrink-0">
+              <Wallet className="w-6 h-6 text-[#E65100]" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Outstanding Balance
+              </p>
+              <p className="manrope-bold text-3xl text-[#E65100]">
+                {formatMoney(summary.totalBalanceDue)}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-1">
+                {roomUnpaid > 0 && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+                    <BedDouble className="w-3.5 h-3.5 text-gray-400" />
+                    Room {formatMoney(roomUnpaid)}
+                  </span>
+                )}
+                {extrasUnpaid > 0 && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+                    <UtensilsCrossed className="w-3.5 h-3.5 text-gray-400" />
+                    Dining & extras {formatMoney(extrasUnpaid)}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <p className="manrope-bold text-3xl text-[#E65100]">
-            {formatMoney(summary.totalBalanceDue)}
-          </p>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-1">
-            {roomUnpaid > 0 && (
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
-                <BedDouble className="w-3.5 h-3.5 text-gray-400" />
-                Room {formatMoney(roomUnpaid)}
-              </span>
-            )}
-            {extrasUnpaid > 0 && (
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
-                <UtensilsCrossed className="w-3.5 h-3.5 text-gray-400" />
-                Dining & extras {formatMoney(extrasUnpaid)}
-              </span>
-            )}
-          </div>
+          {showAction && (
+            <div className="flex flex-col items-stretch md:items-end gap-2">
+              <Link href="/dashboard/payments">
+                <Button className="bg-jagamn-primary hover:bg-jagamn-primary/90 text-white h-11 px-6 rounded-md w-full md:w-auto">
+                  View Payments
+                </Button>
+              </Link>
+              <p className="text-[10px] text-gray-400 text-center md:text-right">
+                Settle online or at the front desk.
+              </p>
+            </div>
+          )}
         </div>
-      </div>
-      {showAction && (
-        <div className="flex flex-col items-stretch md:items-end gap-2">
-          <Link href="/dashboard/payments">
-            <Button className="bg-jagamn-primary hover:bg-jagamn-primary/90 text-white h-11 px-6 rounded-md w-full md:w-auto">
-              View Payments
-            </Button>
-          </Link>
-          <p className="text-[10px] text-gray-400 text-center md:text-right">
-            Settle online or at the front desk.
-          </p>
+      )}
+
+      {summary.hasRefund && (
+        <div className="bg-white rounded-md border border-gray-100 border-l-4 border-l-emerald-500 shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-5">
+            <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+              <ArrowDownLeft className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Refund Due to You
+              </p>
+              <p className="manrope-bold text-3xl text-emerald-600">
+                {formatMoney(summary.totalRefundDue)}
+              </p>
+              <p className="text-[11px] text-gray-500">
+                A credit from a room change — collect at the front desk.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

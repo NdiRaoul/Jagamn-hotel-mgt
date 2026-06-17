@@ -8,7 +8,9 @@ const EMPTY = {
   totalCharges: 0,
   totalPaid: 0,
   totalBalanceDue: 0,
+  totalRefundDue: 0,
   hasOutstanding: false,
+  hasRefund: false,
 };
 
 // Guest-facing consolidated balance (room + extras − payments). The folio

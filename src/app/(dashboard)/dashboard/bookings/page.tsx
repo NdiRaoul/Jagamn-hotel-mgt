@@ -242,6 +242,19 @@ export default function MyBookingsPage() {
                 <div className="text-right space-y-1.5">
                   {(() => {
                     const f = folioById.get(currentStay.id);
+                    const refund = f?.refundDue ?? 0;
+                    if (refund > 0) {
+                      return (
+                        <>
+                          <p className="manrope-bold text-xl text-emerald-600">
+                            {formatMoney(refund)}
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            Refund Due
+                          </p>
+                        </>
+                      );
+                    }
                     const amountDue = f ? f.balanceDue : currentStay.total_amount;
                     const showDue = f ? !f.fullyPaid : currentStay.payment_status !== "paid";
                     return (

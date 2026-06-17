@@ -52,6 +52,7 @@ export interface RoomBoardRoom {
   bookingId: string | null; // current booking on the room (for reassignment)
   roomSlug: string | null; // booking's current room-type slug
   balanceDue: number; // outstanding for the room's current booking (whole XAF)
+  refundDue: number; // owed back to the guest, e.g. after a downgrade (whole XAF)
 }
 
 export interface TransactionRecord {
@@ -313,6 +314,7 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     let bookingId: string | null = null;
     let roomSlug: string | null = null;
     let balanceDue = 0;
+    let refundDue = 0;
 
     if (!isActive) {
       status = "out_of_order";
@@ -327,13 +329,15 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
         chargesMinor: 0,
         paymentsMinor: 0,
       };
-      balanceDue = computeBookingBalance({
+      const bal = computeBookingBalance({
         totalAmount: booking.total_amount ?? 0,
         paymentStatus: (booking as { payment_status?: string }).payment_status,
         folioChargesMinor: folio.chargesMinor,
         folioPaymentsMinor: folio.paymentsMinor,
         roomInFolio: roomInFolio.has(booking.id),
-      }).balanceDue;
+      });
+      balanceDue = bal.balanceDue;
+      refundDue = bal.refundDue;
     } else if (room.housekeeping_status === "dirty") {
       // Vacated but not yet cleaned (set on checkout, cleared by housekeeping).
       status = "dirty";
@@ -350,6 +354,7 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
       bookingId,
       roomSlug,
       balanceDue,
+      refundDue,
     };
   });
 

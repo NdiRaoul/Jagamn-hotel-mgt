@@ -281,36 +281,63 @@ export default function BookingDetailsPage() {
                 </span>
               </div>
               <div className="flex justify-between items-end pt-2 border-t border-gray-50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Balance Due
-                </span>
                 {(() => {
+                  const refundDue = folio?.refundDue ?? 0;
                   const balanceDue = folio
                     ? folio.balanceDue
                     : booking.payment_status === "paid"
                       ? 0
                       : booking.total_amount;
+                  if (refundDue > 0) {
+                    return (
+                      <>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          Refund Due
+                        </span>
+                        <span className="manrope-bold text-3xl text-emerald-600">
+                          {formatMoney(refundDue)}
+                        </span>
+                      </>
+                    );
+                  }
                   const settled = balanceDue <= 0;
                   return (
-                    <span
-                      className={cn(
-                        "manrope-bold text-3xl",
-                        settled ? "text-jagamn-primary" : "text-[#E65100]",
-                      )}
-                    >
-                      {settled ? "$0" : formatMoney(balanceDue)}
-                    </span>
+                    <>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        Balance Due
+                      </span>
+                      <span
+                        className={cn(
+                          "manrope-bold text-3xl",
+                          settled ? "text-jagamn-primary" : "text-[#E65100]",
+                        )}
+                      >
+                        {settled ? "$0" : formatMoney(balanceDue)}
+                      </span>
+                    </>
                   );
                 })()}
               </div>
             </div>
 
             {(() => {
+              const refundDue = folio?.refundDue ?? 0;
               const balanceDue = folio
                 ? folio.balanceDue
                 : booking.payment_status === "paid"
                   ? 0
                   : booking.total_amount;
+              if (refundDue > 0) {
+                return (
+                  <div className="bg-emerald-50 rounded-md p-4 flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                      {formatMoney(refundDue)} refund due — collect at the front
+                      desk.
+                    </span>
+                  </div>
+                );
+              }
               const settled = balanceDue <= 0;
               return settled ? (
                 <div className="bg-jagamn-neutral rounded-md p-4 flex items-center gap-3">

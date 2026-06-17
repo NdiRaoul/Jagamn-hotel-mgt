@@ -20,7 +20,8 @@ export interface BookingFolio {
   extrasBalance: number; // extras still owed
   totalCharges: number; // roomCharge + extraCharges
   totalPaid: number; // payments applied across room + extras
-  balanceDue: number; // roomBalance + extrasBalance
+  balanceDue: number; // amount still owed (>= 0)
+  refundDue: number; // amount owed back to the guest, e.g. after a downgrade (>= 0)
   fullyPaid: boolean;
   entries?: FolioEntry[];
 }
@@ -30,5 +31,7 @@ export interface GuestFolioSummary {
   totalCharges: number;
   totalPaid: number;
   totalBalanceDue: number;
+  totalRefundDue: number;
   hasOutstanding: boolean;
+  hasRefund: boolean;
 }

@@ -34,7 +34,9 @@ const EMPTY_SUMMARY: GuestFolioSummary = {
   totalCharges: 0,
   totalPaid: 0,
   totalBalanceDue: 0,
+  totalRefundDue: 0,
   hasOutstanding: false,
+  hasRefund: false,
 };
 
 /**
@@ -143,6 +145,7 @@ export async function getGuestFolios(
       totalCharges: balance.totalCharges,
       totalPaid: balance.totalPaid,
       balanceDue: balance.balanceDue,
+      refundDue: balance.refundDue,
       fullyPaid: balance.fullyPaid,
       // For a folio-tracked room, the standalone "room" charge line is internal
       // accounting — hide it so the breakdown shows room (via nights × rate) +
@@ -158,12 +161,15 @@ export async function getGuestFolios(
   const totalCharges = result.reduce((s, b) => s + b.totalCharges, 0);
   const totalPaid = result.reduce((s, b) => s + b.totalPaid, 0);
   const totalBalanceDue = result.reduce((s, b) => s + b.balanceDue, 0);
+  const totalRefundDue = result.reduce((s, b) => s + b.refundDue, 0);
 
   return {
     bookings: result,
     totalCharges,
     totalPaid,
     totalBalanceDue,
+    totalRefundDue,
     hasOutstanding: totalBalanceDue > 0,
+    hasRefund: totalRefundDue > 0,
   };
 }
