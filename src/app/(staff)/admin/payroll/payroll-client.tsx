@@ -14,7 +14,7 @@ import {
   Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -51,7 +51,6 @@ export default function PayrollClient({
   error,
 }: Props) {
   const router = useRouter();
-  const { toast } = useToast();
   const [sendingPayslipFor, setSendingPayslipFor] = useState<string | null>(
     null,
   );
@@ -217,24 +216,19 @@ export default function PayrollClient({
       });
       const data = await res.json();
       if (res.ok) {
-        toast({
-          title: "Payslip sent",
+        toast.success("Payslip sent", {
           description: `${item.staff?.full_name ?? "Staff"} was notified${
             data.emailSent ? " by email" : ""
           } and can view it in their account.`,
         });
       } else {
-        toast({
-          title: "Could not send payslip",
+        toast.error("Could not send payslip", {
           description: data.error || "Unknown error",
-          variant: "destructive",
         });
       }
     } catch (e: any) {
-      toast({
-        title: "Could not send payslip",
+      toast.error("Could not send payslip", {
         description: e?.message || "Network error",
-        variant: "destructive",
       });
     } finally {
       setSendingPayslipFor(null);
