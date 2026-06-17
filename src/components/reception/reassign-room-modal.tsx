@@ -135,7 +135,7 @@ export function ReassignRoomModal({
 
   return (
     <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="manrope-bold text-xl text-[#00152A]">
             Reassign Room
@@ -211,7 +211,12 @@ export function ReassignRoomModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={submitting}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
           <Button
@@ -221,7 +226,7 @@ export function ReassignRoomModal({
               !selectedType ||
               selectedType.slug === target.roomSlug
             }
-            className="bg-[#00152A] text-white"
+            className="w-full sm:w-auto bg-[#00152A] text-white whitespace-normal sm:whitespace-nowrap"
           >
             {submitting ? "Reassigning…" : "Confirm Reassignment"}
           </Button>
