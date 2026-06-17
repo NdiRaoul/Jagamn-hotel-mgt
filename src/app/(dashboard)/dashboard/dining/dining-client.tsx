@@ -46,6 +46,8 @@ interface DiningClientProps {
     roomUnit?: string;
     roomType?: string;
   } | null;
+  /** Current outstanding room balance (room + already-charged extras). */
+  roomBalance?: number;
 }
 
 export default function DiningClient({
@@ -53,6 +55,7 @@ export default function DiningClient({
   orders,
   roomInfo,
   isAuthenticated = true,
+  roomBalance = 0,
 }: DiningClientProps) {
   const router = useRouter();
   const [view, setView] = useState<"overview" | "menu">("overview");
@@ -63,7 +66,13 @@ export default function DiningClient({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"charge_to_room" | "momo" | "card">("charge_to_room");
+  // Charge-to-room is only valid during an active in-room stay. `roomInfo` is
+  // returned by the server ONLY when the guest is checked in with an assigned
+  // room and today is within the stay window, so its presence is the gate.
+  const canChargeToRoom = Boolean(roomInfo?.roomId);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "charge_to_room" | "momo" | "card"
+  >(canChargeToRoom ? "charge_to_room" : "momo");
 
   const subtotal = useMemo(
     () => cart.reduce((acc, item) => acc + item.price * item.quantity, 0),
@@ -115,6 +124,15 @@ export default function DiningClient({
     // to charge an in-room dining order to their stay.
     if (!isAuthenticated) {
       setShowSignInPrompt(true);
+      return;
+    }
+
+    // Defence in depth — the option is disabled in the UI and enforced on the
+    // server, but never submit a charge-to-room order without an active stay.
+    if (paymentMethod === "charge_to_room" && !canChargeToRoom) {
+      toast.error(
+        "Charge to room is only available during your stay. Please pick mobile money or card.",
+      );
       return;
     }
 
@@ -476,15 +494,25 @@ export default function DiningClient({
                   Payment Method
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {/* Charge to Room */}
+                  {/* Charge to Room — only while checked in to a room */}
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod("charge_to_room")}
+                    disabled={!canChargeToRoom}
+                    title={
+                      canChargeToRoom
+                        ? undefined
+                        : "Available only during your stay (after check-in)"
+                    }
+                    onClick={() =>
+                      canChargeToRoom && setPaymentMethod("charge_to_room")
+                    }
                     className={cn(
                       "border-2 rounded-md p-2 flex flex-col items-center justify-between gap-2 transition-all text-center h-24",
-                      paymentMethod === "charge_to_room"
-                        ? "border-jagamn-tertiary bg-orange-50/30"
-                        : "border-gray-100 bg-white hover:bg-gray-50"
+                      !canChargeToRoom
+                        ? "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                        : paymentMethod === "charge_to_room"
+                          ? "border-jagamn-tertiary bg-orange-50/30"
+                          : "border-gray-100 bg-white hover:bg-gray-50"
                     )}
                   >
                     <div className={cn("w-3 h-3 rounded-full border border-gray-300 flex items-center justify-center self-end", paymentMethod === "charge_to_room" && "border-jagamn-tertiary")}>
@@ -539,6 +567,19 @@ export default function DiningClient({
                     </span>
                   </button>
                 </div>
+                {!canChargeToRoom && (
+                  <div className="flex items-start gap-2 rounded-md bg-gray-50 p-3">
+                    <Info className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      <span className="font-bold text-jagamn-primary">
+                        Charge to room
+                      </span>{" "}
+                      is available only during your stay — once you&apos;re
+                      checked in and assigned a room. Pay by mobile money or card
+                      in the meantime.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Summary */}
@@ -549,6 +590,27 @@ export default function DiningClient({
                     {subtotal.toLocaleString("en-US")} XAF
                   </span>
                 </div>
+                {/* When charging to the room, show how this order rolls into
+                    the existing room balance the guest will settle at checkout. */}
+                {paymentMethod === "charge_to_room" && (
+                  <>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">Current room balance</span>
+                      <span className="font-bold text-jagamn-primary">
+                        {Math.round(roomBalance).toLocaleString("en-US")} XAF
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">New room balance</span>
+                      <span className="font-bold text-[#E65100]">
+                        {Math.round(roomBalance + subtotal).toLocaleString(
+                          "en-US",
+                        )}{" "}
+                        XAF
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between pt-4">
                   <span className="manrope-bold text-lg text-jagamn-primary">
                     Total
@@ -557,6 +619,12 @@ export default function DiningClient({
                     {subtotal.toLocaleString("en-US")} XAF
                   </span>
                 </div>
+                {paymentMethod === "charge_to_room" && (
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    This order will be added to your room balance and settled
+                    at checkout.
+                  </p>
+                )}
               </div>
 
               <Button

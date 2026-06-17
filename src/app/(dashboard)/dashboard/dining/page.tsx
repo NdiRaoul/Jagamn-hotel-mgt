@@ -3,6 +3,7 @@ import {
   getDiningOrdersForGuest,
   getGuestBookingRoomInfo,
 } from "@/lib/data/dining";
+import { getGuestFolios } from "@/lib/data/folio";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { resolveAppUser } from "@/lib/auth/app-user";
 import DiningClient from "./dining-client";
@@ -22,10 +23,11 @@ export default async function DiningPage() {
     ? await resolveAppUser(user.id, user.email)
     : null;
 
-  const [menu, orders, roomInfo] = await Promise.all([
+  const [menu, orders, roomInfo, folio] = await Promise.all([
     getMenu(),
     appUser ? getDiningOrdersForGuest(appUser.id) : Promise.resolve([]),
     appUser ? getGuestBookingRoomInfo(appUser.id) : Promise.resolve(null),
+    appUser ? getGuestFolios(appUser.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -34,6 +36,7 @@ export default async function DiningPage() {
       orders={orders}
       roomInfo={roomInfo}
       isAuthenticated={!!appUser}
+      roomBalance={folio?.totalBalanceDue ?? 0}
     />
   );
 }

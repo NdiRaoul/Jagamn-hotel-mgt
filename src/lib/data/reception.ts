@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Booking, Room, RoomType, Payment } from "@/types/database";
 import { getCache, setCache } from "@/lib/cache";
+import { computeBookingBalance } from "@/lib/folio-balance";
 
 // Default page size for the heavy front-desk lists. Kept generous so the
 // in-memory search/filter in the clients still covers a full working set,
@@ -48,6 +49,9 @@ export interface RoomBoardRoom {
   status: "occupied" | "reserved" | "available" | "dirty" | "out_of_order";
   guestName: string | null;
   bookingRef: string | null;
+  bookingId: string | null; // current booking on the room (for reassignment)
+  roomSlug: string | null; // booking's current room-type slug
+  balanceDue: number; // outstanding for the room's current booking (whole XAF)
 }
 
 export interface TransactionRecord {
@@ -218,7 +222,7 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
       supabaseAdmin
         .from("bookings")
         .select(
-          "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref",
+          "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref,total_amount,payment_status",
         )
         .not("status", "in", "(cancelled,expired,checked_out,completed)")
         .gt("check_out", todayKey),
@@ -268,6 +272,36 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     }
   });
 
+  // Outstanding balance per active booking (room + extras − payments). Folio
+  // reads degrade to a 0 balance rather than breaking the board.
+  const boardBookingIds = [...bookingMap.values()].map((b) => b.id);
+  const folioByBooking = new Map<
+    string,
+    { chargesMinor: number; paymentsMinor: number }
+  >();
+  const roomInFolio = new Set<string>();
+  if (boardBookingIds.length > 0) {
+    const [{ data: folios }, { data: roomChargeRows }] = await Promise.all([
+      supabaseAdmin
+        .from("booking_folio_balance")
+        .select("booking_id, charges_minor, paid_minor")
+        .in("booking_id", boardBookingIds),
+      supabaseAdmin
+        .from("folio_entries")
+        .select("booking_id")
+        .in("booking_id", boardBookingIds)
+        .eq("category", "room")
+        .eq("entry_type", "charge"),
+    ]);
+    for (const f of folios ?? []) {
+      folioByBooking.set(f.booking_id, {
+        chargesMinor: f.charges_minor ?? 0,
+        paymentsMinor: f.paid_minor ?? 0,
+      });
+    }
+    for (const r of roomChargeRows ?? []) roomInFolio.add(r.booking_id);
+  }
+
   const board = (
     (rooms || []) as unknown as (Room & { housekeeping_status?: string })[]
   ).map((room) => {
@@ -276,14 +310,30 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     let status: RoomBoardRoom["status"] = "available";
     let guestName: string | null = null;
     let bookingRef: string | null = null;
+    let bookingId: string | null = null;
+    let roomSlug: string | null = null;
+    let balanceDue = 0;
 
     if (!isActive) {
       status = "out_of_order";
     } else if (booking) {
       bookingRef = booking.booking_ref;
       guestName = booking.guest_name;
+      bookingId = booking.id;
+      roomSlug = (booking as { room_slug?: string }).room_slug ?? null;
       // Checked in → occupied; assigned but not yet arrived → reserved.
       status = booking.status === "checked_in" ? "occupied" : "reserved";
+      const folio = folioByBooking.get(booking.id) ?? {
+        chargesMinor: 0,
+        paymentsMinor: 0,
+      };
+      balanceDue = computeBookingBalance({
+        totalAmount: booking.total_amount ?? 0,
+        paymentStatus: (booking as { payment_status?: string }).payment_status,
+        folioChargesMinor: folio.chargesMinor,
+        folioPaymentsMinor: folio.paymentsMinor,
+        roomInFolio: roomInFolio.has(booking.id),
+      }).balanceDue;
     } else if (room.housekeeping_status === "dirty") {
       // Vacated but not yet cleaned (set on checkout, cleared by housekeeping).
       status = "dirty";
@@ -297,6 +347,9 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
       status,
       guestName,
       bookingRef,
+      bookingId,
+      roomSlug,
+      balanceDue,
     };
   });
 

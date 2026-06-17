@@ -480,19 +480,53 @@ export default function WalkInBookingPage() {
           <DialogHeader>
             <DialogTitle>Record Cash Payment</DialogTitle>
             <DialogDescription>
-              Enter the amount of cash received from the guest for this booking.
+              Enter the amount of cash received. Any shortfall is added to the
+              room balance and can be settled later at checkout.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-md bg-gray-50 px-4 py-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                Total Due
+              </span>
+              <span className="manrope-bold text-lg text-[#00152A]">
+                {formatMoney(totalDue)}
+              </span>
+            </div>
             <div>
               <Label>Amount Received (XAF)</Label>
               <Input
                 type="number"
+                min={0}
                 value={cashAmount}
                 onChange={(e) => setCashAmount(e.target.value)}
                 className="mt-1"
               />
             </div>
+            {(() => {
+              const received = Number(cashAmount) || 0;
+              const remaining = Math.max(totalDue - received, 0);
+              return (
+                <div
+                  className={cn(
+                    "flex items-center justify-between rounded-md px-4 py-3",
+                    remaining > 0 ? "bg-[#FFF3E0]" : "bg-emerald-50",
+                  )}
+                >
+                  <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                    {remaining > 0 ? "Balance to Room" : "Fully Paid"}
+                  </span>
+                  <span
+                    className={cn(
+                      "manrope-bold text-lg",
+                      remaining > 0 ? "text-[#E65100]" : "text-emerald-600",
+                    )}
+                  >
+                    {formatMoney(remaining)}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button
@@ -518,8 +552,11 @@ export default function WalkInBookingPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       booking_id: cashDialog.bookingId,
-                      amount_minor: Number(cashAmount), // XAF has no minor units basically for Stripe, but backend assumes amount_minor for folio
-                      description: "Walk-in Initial Cash Payment",
+                      // Folio amounts are stored as XAF × 100 (see schema +
+                      // dining orders). The room charge was posted in the same
+                      // unit, so the payment must match for the balance to net.
+                      amount_minor: Math.round(Number(cashAmount) * 100),
+                      description: "Walk-in Cash Payment",
                     }),
                   });
                   if (res.ok) {

@@ -101,14 +101,21 @@ export async function getGuestBookingRoomInfo(appUserId: string): Promise<{
   roomUnit?: string;
   roomType?: string;
 } | null> {
+  // Only surface the room while the guest is actually in it: checked in, a room
+  // assigned, and today within the stay window. This drives the "charge to
+  // room" availability in the UI, mirroring the order route's server check.
+  const today = new Date().toISOString().split("T")[0];
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(`room_id, rooms ( unit_code ), room_types ( name )`)
     .eq("app_user_id", appUserId)
     .eq("status", "checked_in")
+    .not("room_id", "is", null)
+    .lte("check_in", today)
+    .gte("check_out", today)
     .order("check_in", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return null;
 

@@ -27,6 +27,11 @@ import {
 } from "@/components/ui/select";
 import type { RoomBoardRoom } from "@/lib/data/reception";
 import type { RoomAvailabilitySummary } from "@/types/database";
+import { formatMoney } from "@/lib/currency";
+import {
+  ReassignRoomModal,
+  type ReassignTarget,
+} from "@/components/reception/reassign-room-modal";
 
 const STATUS_CONFIG = {
   available: {
@@ -89,6 +94,9 @@ interface Props {
 
 export default function RoomsClient({ rooms, summary, error }: Props) {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<ReassignTarget | null>(
+    null,
+  );
   const [floorFilter, setFloorFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   // local overrides for status (pending a proper room-status API)
@@ -320,6 +328,11 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
                 >
                   {guestLabel}
                 </p>
+                {room.balanceDue > 0 && (
+                  <p className="text-[11px] font-bold text-[#E65100] flex items-center gap-1 pt-1">
+                    Balance: {formatMoney(room.balanceDue)}
+                  </p>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <Badge
@@ -331,7 +344,15 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
                 >
                   {config.text}
                 </Badge>
-                <div className={cn("w-2.5 h-2.5 rounded-full", config.color)} />
+                {room.balanceDue > 0 ? (
+                  <span className="text-[8px] font-black uppercase tracking-widest text-[#E65100] bg-[#FFF3E0] px-2 py-1 rounded-md">
+                    Owing
+                  </span>
+                ) : (
+                  <div
+                    className={cn("w-2.5 h-2.5 rounded-full", config.color)}
+                  />
+                )}
               </div>
             </div>
           );
@@ -356,8 +377,28 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
           }}
           onClose={() => setSelectedRoomId(null)}
           onSave={handleStatusUpdate}
+          onReassign={
+            selectedRoom.bookingId
+              ? () => {
+                  setReassignTarget({
+                    bookingId: selectedRoom.bookingId!,
+                    unitCode: selectedRoom.unitCode,
+                    guestName: selectedRoom.guestName,
+                    roomSlug: selectedRoom.roomSlug,
+                    roomTypeName: selectedRoom.roomTypeName,
+                    balanceDue: selectedRoom.balanceDue,
+                  });
+                  setSelectedRoomId(null);
+                }
+              : undefined
+          }
         />
       )}
+
+      <ReassignRoomModal
+        target={reassignTarget}
+        onClose={() => setReassignTarget(null)}
+      />
     </div>
   );
 }
@@ -366,10 +407,12 @@ function QuickUpdatePanel({
   room,
   onClose,
   onSave,
+  onReassign,
 }: {
   room: { id: string; unitCode: string; status: keyof typeof STATUS_CONFIG };
   onClose: () => void;
   onSave: (id: string, status: string) => void;
+  onReassign?: () => void;
 }) {
   const [pendingStatus, setPendingStatus] =
     useState<keyof typeof STATUS_CONFIG>(room.status);
@@ -447,6 +490,16 @@ function QuickUpdatePanel({
               </SelectContent>
             </Select>
           </div>
+          {onReassign && (
+            <Button
+              variant="outline"
+              onClick={onReassign}
+              className="w-full h-12 border-[#0D2137]/15 rounded-xl manrope-bold text-[#0D2137] hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+            >
+              <BedDouble className="w-4 h-4" />
+              Reassign / Upgrade Room
+            </Button>
+          )}
           <div className="flex gap-4">
             <Button
               onClick={() => onSave(room.id, pendingStatus)}
