@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaffById } from "@/lib/data/staff";
-import { resend } from "@/lib/resend";
+import { resend, EMAIL_FROM } from "@/lib/resend";
 
 const ADMIN_ROLES = ["owner", "admin"];
 
@@ -57,7 +57,7 @@ export async function POST(
 
   try {
     await resend.emails.send({
-      from: "Jagamn Palace <noreply@jagamnpalace.com>",
+      from: EMAIL_FROM,
       to: [existing.email],
       subject: "Your Jagamn Palace Staff Portal Credentials",
       html,

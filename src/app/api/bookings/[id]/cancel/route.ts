@@ -148,9 +148,9 @@ export async function POST(
       .eq("id", id);
 
     try {
-      const { resend } = await import("@/lib/resend");
+      const { resend, EMAIL_FROM } = await import("@/lib/resend");
       await resend.emails.send({
-        from: "Jagamn Palace <reservations@jagamnpalace.com>",
+        from: EMAIL_FROM,
         to: [booking.guest_email],
         subject: `Booking Cancelled — ${booking.booking_ref} | Jagamn Palace`,
         html: `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px;">
