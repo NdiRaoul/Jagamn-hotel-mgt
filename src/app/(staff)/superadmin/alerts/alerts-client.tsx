@@ -151,18 +151,18 @@ export default function AlertsClient({
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2">
             Real-Time Operations
           </p>
-          <h1 className="manrope-bold text-4xl text-jagamn-primary mb-2">
+          <h1 className="manrope-bold text-2xl sm:text-4xl text-jagamn-primary mb-2">
             System Alert Center
           </h1>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 sm:shrink-0">
           <div className="text-center">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
               Active Urgent
@@ -183,34 +183,34 @@ export default function AlertsClient({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-white p-1 rounded-xl shadow-sm h-14">
+        <TabsList className="flex w-full bg-white p-1 rounded-xl shadow-sm h-auto overflow-x-auto no-scrollbar gap-1">
           <TabsTrigger
             value="all"
-            className="data-[state=active]:bg-jagamn-primary data-[state=active]:text-white rounded-lg font-bold text-sm"
+            className="data-[state=active]:bg-jagamn-primary data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
             All Alerts
           </TabsTrigger>
           <TabsTrigger
             value="urgent"
-            className="data-[state=active]:bg-red-600 data-[state=active]:text-white rounded-lg font-bold text-sm"
+            className="data-[state=active]:bg-red-600 data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
             Urgent
           </TabsTrigger>
           <TabsTrigger
             value="guest_complaints"
-            className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg font-bold text-sm"
+            className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
-            Guest Complaints
+            Complaints
           </TabsTrigger>
           <TabsTrigger
             value="sync_failures"
-            className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white rounded-lg font-bold text-sm"
+            className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
-            Sync Failures
+            Failures
           </TabsTrigger>
           <TabsTrigger
             value="resolved"
-            className="data-[state=active]:bg-green-600 data-[state=active]:text-white rounded-lg font-bold text-sm"
+            className="data-[state=active]:bg-green-600 data-[state=active]:text-white rounded-lg font-bold text-sm whitespace-nowrap flex-1 min-w-fit"
           >
             Resolved
           </TabsTrigger>

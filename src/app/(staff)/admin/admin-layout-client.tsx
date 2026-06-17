@@ -149,7 +149,14 @@ export default function AdminLayout({
               {ADMIN_NAV.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/admin" && pathname.startsWith(item.href));
+                  (item.href !== "/admin" &&
+                    pathname.startsWith(item.href) &&
+                    !ADMIN_NAV.some(
+                      (other) =>
+                        other !== item &&
+                        (pathname === other.href ||
+                          pathname.startsWith(other.href + "/")),
+                    ));
                 return (
                   <Tooltip key={item.label} delayDuration={0}>
                     <TooltipTrigger asChild>

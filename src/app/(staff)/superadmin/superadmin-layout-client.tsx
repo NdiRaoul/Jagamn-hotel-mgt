@@ -175,7 +175,13 @@ export default function SuperAdminLayoutClient({
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/superadmin" &&
-                    pathname.startsWith(item.href));
+                    pathname.startsWith(item.href) &&
+                    !SUPERADMIN_NAV.some(
+                      (other) =>
+                        other !== item &&
+                        (pathname === other.href ||
+                          pathname.startsWith(other.href + "/")),
+                    ));
                 return (
                   <Tooltip key={item.label} delayDuration={0}>
                     <TooltipTrigger asChild>
