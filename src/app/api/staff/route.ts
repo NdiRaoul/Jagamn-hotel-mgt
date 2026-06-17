@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaff, createStaff } from "@/lib/data/staff";
+import { canAssignRole } from "@/lib/auth/staff-permissions";
 
-const ADMIN_ROLES = ["owner", "admin"];
+const ADMIN_ROLES = ["owner", "admin", "manager"];
 
 async function requireAdmin(request: NextRequest) {
   const session = await getStaffSession();
@@ -81,13 +82,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // The owner (superadmin flow) may only create admin or manager accounts.
-  if (
-    session.role === "owner" &&
-    !["admin", "manager"].includes(String(role))
-  ) {
+  // Role-based gate: only the owner may create admin/manager accounts; admins
+  // and managers may only create operational staff.
+  if (!canAssignRole(session.role, String(role))) {
     return NextResponse.json(
-      { error: "Owner may only create admin or manager accounts." },
+      {
+        error:
+          session.role === "owner"
+            ? "Invalid role."
+            : "Only the owner can create admin or manager accounts.",
+      },
       { status: 403 },
     );
   }

@@ -34,19 +34,46 @@ export default function ReservationsClient({
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  // Paginated list: the first page is server-rendered; "Load more" appends
+  // subsequent pages so client-side search still covers everything loaded.
+  const PAGE_SIZE = 50;
+  const [items, setItems] = useState<ActiveReservation[]>(reservations);
+  const [hasMore, setHasMore] = useState(reservations.length >= PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/reception/reservations?offset=${items.length}&limit=${PAGE_SIZE}`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load more");
+      setItems((prev) => [
+        ...prev,
+        ...((data.reservations ?? []) as ActiveReservation[]),
+      ]);
+      setHasMore(Boolean(data.hasMore));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return reservations.filter(
+    return items.filter(
       (r) =>
         !q ||
         r.guestName.toLowerCase().includes(q) ||
         r.bookingRef.toLowerCase().includes(q) ||
         r.roomTypeName.toLowerCase().includes(q),
     );
-  }, [reservations, search]);
+  }, [items, search]);
 
   const selected =
-    reservations.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
+    items.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
 
   // ── Extend / modify stay ──────────────────────────────
   const [showExtend, setShowExtend] = useState(false);
@@ -157,8 +184,8 @@ export default function ReservationsClient({
             Active Reservations
           </h1>
           <p className="text-gray-500 text-sm">
-            {reservations.length} guest{reservations.length !== 1 ? "s" : ""}{" "}
-            currently active
+            {items.length} guest{items.length !== 1 ? "s" : ""}
+            {hasMore ? "+" : ""} currently active
           </p>
         </div>
         <div className="relative w-64">
@@ -242,6 +269,15 @@ export default function ReservationsClient({
                 </div>
               </div>
             ))}
+            {hasMore && !search && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-3 text-xs font-bold uppercase tracking-widest text-[#00152A] hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
 
           {/* Detail */}

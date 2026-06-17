@@ -9,7 +9,6 @@ import {
   UtensilsCrossed,
   Clock,
   ArrowRight,
-  LeafIcon,
   ChevronRight,
   CalendarDays,
   History,
@@ -28,24 +27,15 @@ function getGreeting(): string {
   return "Good Evening";
 }
 
-const UPCOMING_ACTIVITIES = [
-  {
-    title: "Signature Massage",
-    location: "The Royal Spa • 60 Minutes",
-    time: "Today, 3:00 PM",
-    icon: LeafIcon,
-    status: "Upcoming",
-    statusColor: "bg-[#FFF7F0] text-[#BA722E]",
-  },
-  {
-    title: "Dinner Delivery",
-    location: "In-Room Dining • Steak Frites",
-    time: "Yesterday, 8:15 PM",
-    icon: UtensilsCrossed,
-    status: "Delivered",
-    statusColor: "bg-gray-100 text-gray-500",
-  },
-];
+type Activity = {
+  title: string;
+  location: string;
+  time: string;
+  sortAt: number;
+  icon: typeof BedDouble;
+  status: string;
+  statusColor: string;
+};
 
 export default function DashboardOverviewPage() {
   const supabase = createSupabaseBrowserClient();
@@ -53,6 +43,7 @@ export default function DashboardOverviewPage() {
   const [currentStay, setCurrentStay] = useState<Booking | null>(null);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [pastCount, setPastCount] = useState(0);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -114,6 +105,68 @@ export default function DashboardOverviewPage() {
           .lt("check_out", today);
 
         setPastCount(past || 0);
+
+        // ── Recent & Upcoming activity — derived from real bookings + orders ──
+        const acts: Activity[] = [];
+
+        // Upcoming / current stays
+        const { data: stayRows } = await supabase
+          .from("bookings")
+          .select("booking_ref, check_in, check_out, status, room_types(name)")
+          .eq("app_user_id", userRowId)
+          .not("status", "in", "(cancelled,expired)")
+          .gte("check_out", today)
+          .order("check_in", { ascending: true })
+          .limit(4);
+
+        for (const b of (stayRows || []) as Array<{
+          booking_ref: string;
+          check_in: string;
+          status: string;
+          room_types: { name?: string } | { name?: string }[] | null;
+        }>) {
+          const rt = Array.isArray(b.room_types) ? b.room_types[0] : b.room_types;
+          const checkIn = new Date(b.check_in);
+          acts.push({
+            title: rt?.name || "Your Stay",
+            location: `Booking ${b.booking_ref}`,
+            time: format(checkIn, "MMM d, yyyy"),
+            sortAt: checkIn.getTime(),
+            icon: BedDouble,
+            status: checkIn.getTime() <= Date.now() ? "Current" : "Upcoming",
+            statusColor: "bg-[#FFF7F0] text-[#BA722E]",
+          });
+        }
+
+        // Recent in-room dining orders
+        const { data: orderRows } = await supabase
+          .from("dining_orders")
+          .select("status, total_amount, created_at")
+          .eq("app_user_id", userRowId)
+          .order("created_at", { ascending: false })
+          .limit(4);
+
+        for (const o of (orderRows || []) as Array<{
+          status: string;
+          total_amount: number | null;
+          created_at: string;
+        }>) {
+          const at = new Date(o.created_at);
+          acts.push({
+            title: "In-Room Dining",
+            location: `Order • ${(o.total_amount || 0).toLocaleString()} FCFA`,
+            time: format(at, "MMM d, h:mm a"),
+            sortAt: at.getTime(),
+            icon: UtensilsCrossed,
+            status: o.status
+              ? o.status.charAt(0).toUpperCase() + o.status.slice(1)
+              : "Placed",
+            statusColor: "bg-gray-100 text-gray-500",
+          });
+        }
+
+        acts.sort((a, b) => b.sortAt - a.sortAt);
+        setActivities(acts.slice(0, 4));
       }
 
       setLoading(false);
@@ -292,7 +345,7 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* Recent & Upcoming Activities (static) */}
+      {/* Recent & Upcoming Activities — live from bookings + dining orders */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="manrope-bold text-xl text-jagamn-primary">
@@ -308,42 +361,56 @@ export default function DashboardOverviewPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {UPCOMING_ACTIVITIES.map((activity, idx) => (
-            <div
-              key={idx}
-              className="bg-white rounded-md p-6 flex items-center justify-between shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-5">
-                <div className="w-12 h-12 rounded bg-jagamn-neutral flex items-center justify-center">
-                  <activity.icon className="w-6 h-6 text-gray-400" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-jagamn-primary">
-                    {activity.title}
-                  </h4>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    {activity.location}
-                  </p>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Clock className="w-3 h-3 text-jagamn-tertiary" />
-                    <span className="text-[10px] font-bold text-jagamn-primary">
-                      {activity.time}
-                    </span>
+        {!loading && activities.length === 0 ? (
+          <div className="bg-white rounded-md p-10 flex flex-col items-center justify-center text-center shadow-sm border border-dashed border-gray-200">
+            <div className="w-12 h-12 rounded-full bg-jagamn-neutral flex items-center justify-center mb-3">
+              <Clock className="w-6 h-6 text-gray-300" />
+            </div>
+            <p className="text-sm font-bold text-jagamn-primary">
+              No recent activity yet
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Your upcoming stays and in-room orders will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {activities.map((activity, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-md p-6 flex items-center justify-between shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 rounded bg-jagamn-neutral flex items-center justify-center">
+                    <activity.icon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-jagamn-primary">
+                      {activity.title}
+                    </h4>
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      {activity.location}
+                    </p>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <Clock className="w-3 h-3 text-jagamn-tertiary" />
+                      <span className="text-[10px] font-bold text-jagamn-primary">
+                        {activity.time}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <Badge
+                  className={cn(
+                    "border-0 text-[9px] font-bold uppercase tracking-wider px-3 py-1",
+                    activity.statusColor,
+                  )}
+                >
+                  {activity.status}
+                </Badge>
               </div>
-              <Badge
-                className={cn(
-                  "border-0 text-[9px] font-bold uppercase tracking-wider px-3 py-1",
-                  activity.statusColor,
-                )}
-              >
-                {activity.status}
-              </Badge>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

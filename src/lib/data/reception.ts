@@ -1,5 +1,12 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Booking, Room, RoomType, Payment } from "@/types/database";
+import { getCache, setCache } from "@/lib/cache";
+
+// Default page size for the heavy front-desk lists. Kept generous so the
+// in-memory search/filter in the clients still covers a full working set,
+// while bounding the query as history grows (see getActiveReservations /
+// getTransactions). "Load more" fetches subsequent pages on demand.
+export const RECEPTION_PAGE_SIZE = 50;
 
 export interface ArrivalRecord {
   id: string;
@@ -186,6 +193,14 @@ export async function getDepartures(
 }
 
 export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
+  // The room board is read-heavy and polled by the front desk, yet it scans
+  // all rooms + today's active bookings on every call. A short TTL absorbs
+  // repeat reads without making occupancy meaningfully stale (check-in /
+  // checkout are not second-to-second events, and the page can be refreshed).
+  const CACHE_KEY = "room_board";
+  const cached = getCache<RoomBoardRoom[]>(CACHE_KEY);
+  if (cached) return cached;
+
   const today = new Date();
   const todayKey = toDateKey(today);
 
@@ -227,7 +242,7 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     }
   });
 
-  return (
+  const board = (
     (rooms || []) as unknown as (Room & { housekeeping_status?: string })[]
   ).map((room) => {
     const booking = bookingMap.get(room.id);
@@ -257,6 +272,9 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
       bookingRef,
     };
   });
+
+  setCache(CACHE_KEY, board, 15_000);
+  return board;
 }
 
 export async function searchFrontDesk(query: string): Promise<ArrivalRecord[]> {
@@ -373,7 +391,13 @@ export interface TransactionRecord2 {
 export async function getActiveReservations(filters?: {
   query?: string;
   status?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<ActiveReservation[]> {
+  // Bounded, paginated read so the query stays cheap as booking history grows.
+  const limit = filters?.limit ?? RECEPTION_PAGE_SIZE;
+  const offset = filters?.offset ?? 0;
+
   let query = supabaseAdmin
     .from("bookings")
     .select(
@@ -393,7 +417,7 @@ export async function getActiveReservations(filters?: {
     query = query.eq("status", filters.status);
   }
 
-  const { data, error } = await query.limit(100);
+  const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
   type ActiveReservationData = {
@@ -451,14 +475,20 @@ export async function getTransactions(filters?: {
   status?: string;
   dateFrom?: string;
   dateTo?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<TransactionRecord2[]> {
+  // Bounded, paginated read so the timeline query stays cheap as the payment
+  // event history grows.
+  const limit = filters?.limit ?? RECEPTION_PAGE_SIZE;
+  const offset = filters?.offset ?? 0;
+
   let query = supabaseAdmin
     .from("payment_timeline")
     .select(
       "payment_id,booking_ref,guest_name,guest_email,provider,amount_minor,currency,derived_status,event_type,event_at",
     )
-    .order("event_at", { ascending: false })
-    .limit(200);
+    .order("event_at", { ascending: false });
 
   if (filters?.query) {
     const q = filters.query.trim();
@@ -475,7 +505,7 @@ export async function getTransactions(filters?: {
   if (filters?.dateTo)
     query = query.lte("event_at", filters.dateTo + "T23:59:59");
 
-  const { data, error } = await query;
+  const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
   type TransactionTimelineRow = {

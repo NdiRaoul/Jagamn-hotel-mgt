@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { TransactionRecord2 } from "@/lib/data/reception";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -48,9 +49,36 @@ export default function TransactionsClient({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // Paginated: first page server-rendered, "Load more" appends so the
+  // client-side search/filters still cover everything loaded.
+  const PAGE_SIZE = 50;
+  const [items, setItems] = useState<TransactionRecord2[]>(transactions);
+  const [hasMore, setHasMore] = useState(transactions.length >= PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/reception/transactions?offset=${items.length}&limit=${PAGE_SIZE}`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load more");
+      setItems((prev) => [
+        ...prev,
+        ...((data.transactions ?? []) as TransactionRecord2[]),
+      ]);
+      setHasMore(Boolean(data.hasMore));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return transactions.filter((t) => {
+    return items.filter((t) => {
       const matchesSearch =
         !q ||
         (t.bookingRef?.toLowerCase().includes(q) ?? false) ||
@@ -64,7 +92,7 @@ export default function TransactionsClient({
       const matchesTo = !dateTo || eventDate <= dateTo;
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [transactions, search, statusFilter, dateFrom, dateTo]);
+  }, [items, search, statusFilter, dateFrom, dateTo]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -72,7 +100,8 @@ export default function TransactionsClient({
         <div className="space-y-1">
           <h1 className="manrope-bold text-4xl text-[#00152A]">Transactions</h1>
           <p className="text-gray-500 text-sm">
-            Payment event timeline — {transactions.length} events
+            Payment event timeline — {items.length}
+            {hasMore ? "+" : ""} events
           </p>
         </div>
       </div>
@@ -311,6 +340,16 @@ export default function TransactionsClient({
           ))
         )}
       </div>
+
+      {hasMore && !search && statusFilter === "all" && !dateFrom && !dateTo && (
+        <button
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="w-full py-3 text-xs font-bold uppercase tracking-widest text-[#00152A] hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors disabled:opacity-50"
+        >
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
+      )}
     </div>
   );
 }

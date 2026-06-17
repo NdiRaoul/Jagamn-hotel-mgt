@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   UtensilsCrossed,
@@ -53,6 +54,7 @@ export default function DiningClient({
   roomInfo,
   isAuthenticated = true,
 }: DiningClientProps) {
+  const router = useRouter();
   const [view, setView] = useState<"overview" | "menu">("overview");
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -143,8 +145,9 @@ export default function DiningClient({
       setNotes("");
       setView("overview");
 
-      // Refresh the page to show new order
-      window.location.reload();
+      // Re-run the server component to show the new order without a full
+      // document reload (avoids re-downloading the JS bundle + re-auth).
+      router.refresh();
     } catch (error) {
       console.error("Order error:", error);
       toast.error("Failed to place order. Please try again.");

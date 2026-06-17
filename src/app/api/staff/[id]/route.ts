@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { getStaffById, updateStaff, setStaffStatus } from "@/lib/data/staff";
+import {
+  canAssignRole,
+  canModifyStaff,
+  canSetSalary,
+} from "@/lib/auth/staff-permissions";
 
 const ADMIN_ROLES = ["owner", "admin"];
-const MANAGER_ROLES = ["admin", "manager"];
+const MANAGER_ROLES = ["owner", "admin", "manager"];
 
 async function requireRole(request: NextRequest, roles: string[]) {
   const session = await getStaffSession();
@@ -47,18 +52,39 @@ export async function PATCH(
     return NextResponse.json({ error: "Staff not found" }, { status: 404 });
   }
 
-  // The owner (acting through the superadmin flow) may only assign admin or
-  // manager roles. Promoting an existing staffer to admin/manager is allowed;
-  // assigning any other role is not.
-  if (
-    typeof role === "string" &&
-    session.role === "owner" &&
-    !["admin", "manager"].includes(role)
-  ) {
+  // Admins/managers cannot modify an elevated-role record (admin/manager/owner)
+  // — only the owner can. This also blocks an admin from editing their own
+  // admin record (incl. salary) through this endpoint.
+  if (!canModifyStaff(session.role, existing.role)) {
     return NextResponse.json(
-      { error: "Owner may only assign the admin or manager role." },
+      { error: "Only the owner can modify admin or manager accounts." },
       { status: 403 },
     );
+  }
+
+  // Only the owner may assign elevated roles (e.g. promote reception → admin).
+  if (typeof role === "string" && !canAssignRole(session.role, role)) {
+    return NextResponse.json(
+      { error: "Only the owner can assign the admin or manager role." },
+      { status: 403 },
+    );
+  }
+
+  // Salary: the effective role is the new role if being changed, else current.
+  // Elevated-role salaries are owner-only; nobody may set their own salary.
+  if (typeof salary === "number") {
+    const effectiveRole = typeof role === "string" ? role : existing.role;
+    const isSelf = existing.id === session.id;
+    if (!canSetSalary(session.role, { targetRole: effectiveRole, isSelf })) {
+      return NextResponse.json(
+        {
+          error: isSelf
+            ? "You cannot change your own salary."
+            : "Only the owner can set admin or manager salaries.",
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const patch: Record<string, unknown> = {};

@@ -3,6 +3,7 @@ import {
   createSupabaseServerClient,
   supabaseAdmin,
 } from "@/lib/supabase-server";
+import { canAssignRole } from "@/lib/auth/staff-permissions";
 
 const ADMIN_ROLES = ["owner", "admin", "manager"];
 
@@ -67,10 +68,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // The owner (superadmin flow) may only create admin or manager accounts.
-  if (guard.role === "owner" && !["admin", "manager"].includes(String(role))) {
+  // Only the owner may create admin/manager accounts; admins and managers may
+  // only create operational staff.
+  if (!canAssignRole(guard.role, String(role))) {
     return NextResponse.json(
-      { error: "Owner may only create admin or manager accounts." },
+      {
+        error:
+          guard.role === "owner"
+            ? "Invalid role."
+            : "Only the owner can create admin or manager accounts.",
+      },
       { status: 403 },
     );
   }

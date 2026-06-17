@@ -58,10 +58,16 @@ interface StaffEditModalProps {
   onOpenChange: (open: boolean) => void;
   staff: Staff;
   /**
-   * Restrict the assignable roles (e.g. the superadmin Staff page may only
-   * create/assign `admin` or `manager`). Defaults to the full role set.
+   * Restrict the assignable roles shown in the dropdown. Defaults to the full
+   * role set. The server is the source of truth — see lib/auth/staff-permissions.
    */
   allowedRoles?: string[];
+  /**
+   * Whether the current viewer may edit this staffer's salary. When false the
+   * field is read-only (e.g. an admin viewing another admin, or your own
+   * record — only the owner may set admin/manager salaries). Defaults to true.
+   */
+  canEditSalary?: boolean;
 }
 
 export function StaffEditModal({
@@ -69,10 +75,15 @@ export function StaffEditModal({
   onOpenChange,
   staff,
   allowedRoles,
+  canEditSalary = true,
 }: StaffEditModalProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    staff.avatar_url ?? null,
+  );
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // form state seeded from staff record
   const [fullName, setFullName] = useState(staff.full_name);
@@ -115,9 +126,38 @@ export function StaffEditModal({
   const [deleting, setDeleting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setEditPreview(URL.createObjectURL(file));
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setApiError("Please select an image file.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setApiError("Image must be less than 2MB.");
+      return;
+    }
+    // Show an instant local preview, then upload to the avatars bucket and keep
+    // the returned public URL so it is persisted with the staff record on save.
+    setEditPreview(URL.createObjectURL(file));
+    setApiError(null);
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await fetch("/api/admin/staff/avatar", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setAvatarUrl(data.avatar_url);
+    } catch (err) {
+      setEditPreview(null);
+      setApiError(err instanceof Error ? err.message : "Avatar upload failed");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const mutate = async (url: string, method: string, body?: object) => {
@@ -147,8 +187,13 @@ export function StaffEditModal({
         department: department || null,
         position: position || null,
         role,
-        salary: salary ? parseFloat(salary) : null,
+        // Only include salary when the viewer is permitted to change it,
+        // otherwise the server (rightly) rejects the whole update.
+        ...(canEditSalary ? { salary: salary ? parseFloat(salary) : null } : {}),
         hire_date: hireDate || null,
+        ...(avatarUrl !== (staff.avatar_url ?? null)
+          ? { avatar_url: avatarUrl }
+          : {}),
       });
 
       // Suspend / reactivate if toggle changed
@@ -235,9 +280,9 @@ export function StaffEditModal({
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-jagamn-primary rounded-l-xl" />
                 <div className="relative mb-4 group">
                   <Avatar className="w-24 h-24 border-4 border-white shadow-lg rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                    {editPreview ? (
+                    {editPreview || avatarUrl ? (
                       <img
-                        src={editPreview}
+                        src={editPreview ?? avatarUrl ?? ""}
                         className="w-full h-full object-cover"
                         alt="Preview"
                       />
@@ -473,9 +518,15 @@ export function StaffEditModal({
                     type="number"
                     value={salary}
                     onChange={(e) => setSalary(e.target.value)}
-                    className="h-12 bg-white border-gray-200 rounded-lg pl-14 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all"
+                    disabled={!canEditSalary}
+                    className="h-12 bg-white border-gray-200 rounded-lg pl-14 text-sm font-semibold focus-visible:ring-0 focus-visible:border-jagamn-tertiary transition-all disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
                 </div>
+                {!canEditSalary && (
+                  <p className="text-[10px] font-semibold text-gray-400">
+                    Only the owner can change admin or manager salaries.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -581,7 +632,7 @@ export function StaffEditModal({
             </Button>
             <Button
               type="button"
-              disabled={saving}
+              disabled={saving || uploadingAvatar}
               onClick={handleSave}
               className="h-11 px-8 bg-[#0D2137] hover:bg-[#0D2137]/90 text-white manrope-bold rounded-lg shadow-md transition-all gap-2"
             >

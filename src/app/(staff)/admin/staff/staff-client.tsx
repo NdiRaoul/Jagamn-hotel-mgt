@@ -119,6 +119,8 @@ export default function StaffClient({ staff, error }: Props) {
   const [deptFilter, setDeptFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("name");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<{ from: string; to: string }>({
     from: "",
@@ -152,9 +154,38 @@ export default function StaffClient({ staff, error }: Props) {
       );
   }, []);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setPhotoPreview(URL.createObjectURL(file));
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setFormError("Please select an image file.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setFormError("Image must be less than 2MB.");
+      return;
+    }
+    // Instant preview, then upload to the avatars bucket so the new hire's
+    // photo is persisted with their record (avatar_url) on submit.
+    setPhotoPreview(URL.createObjectURL(file));
+    setFormError(null);
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await fetch("/api/admin/staff/avatar", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setPhotoUrl(data.avatar_url);
+    } catch (err) {
+      setPhotoPreview(null);
+      setFormError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const departments = useMemo(() => {
@@ -259,6 +290,7 @@ export default function StaffClient({ staff, error }: Props) {
           salary: form.salary ? parseFloat(form.salary) : 0,
           hire_date: form.hire_date || null,
           password: form.password || undefined,
+          avatar_url: photoUrl || undefined,
         }),
       });
       const data = await res.json();
@@ -272,6 +304,7 @@ export default function StaffClient({ staff, error }: Props) {
       });
       setForm(EMPTY_FORM);
       setPhotoPreview(null);
+      setPhotoUrl(null);
       router.refresh();
     } catch {
       setFormError("Network error — please try again");
@@ -637,10 +670,9 @@ export default function StaffClient({ staff, error }: Props) {
                         <SelectTrigger className="h-12 bg-white border-gray-200 rounded-xl">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
+                        {/* Admins may only onboard operational staff. Creating
+                            admin/manager accounts is owner-only (superadmin). */}
                         <SelectContent>
-                          <SelectItem value="owner">Owner</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="reception">Reception</SelectItem>
                           <SelectItem value="kitchen">Kitchen</SelectItem>
                           <SelectItem value="storekeeper">
@@ -709,6 +741,7 @@ export default function StaffClient({ staff, error }: Props) {
                       type="submit"
                       disabled={
                         submitting ||
+                        uploadingPhoto ||
                         !form.full_name ||
                         !form.email ||
                         !form.role
@@ -1058,6 +1091,10 @@ export default function StaffClient({ staff, error }: Props) {
             if (!open) router.refresh();
           }}
           staff={editModal.member}
+          allowedRoles={["reception", "kitchen", "storekeeper"]}
+          canEditSalary={
+            !["owner", "admin", "manager"].includes(editModal.member.role)
+          }
         />
       )}
     </div>
