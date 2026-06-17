@@ -74,34 +74,40 @@ export default function DashboardOverviewPage() {
       const today = new Date().toISOString().split("T")[0];
 
       if (userRowId) {
-        // Current stay
+        // Current stay — spans today AND is an active stay. A guest who has
+        // been checked in at the front desk has status "checked_in", not
+        // "confirmed", so we must accept both or the dashboard wrongly shows
+        // "No active stay" during the actual stay. maybeSingle() avoids the
+        // PGRST116 error that .single() throws on the common no-stay case.
         const { data: current } = await supabase
           .from("bookings")
           .select("*, room_types(*)")
           .eq("app_user_id", userRowId)
-          .eq("status", "confirmed")
+          .in("status", ["confirmed", "checked_in"])
           .lte("check_in", today)
           .gte("check_out", today)
+          .order("check_in", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         setCurrentStay(current as Booking | null);
 
-        // Upcoming count
+        // Upcoming count — future confirmed reservations.
         const { count: upcoming } = await supabase
           .from("bookings")
           .select("id", { count: "exact", head: true })
           .eq("app_user_id", userRowId)
-          .eq("status", "confirmed")
+          .in("status", ["confirmed", "checked_in"])
           .gt("check_in", today);
 
         setUpcomingCount(upcoming || 0);
 
-        // Past count
+        // Past count — only genuine stays; exclude abandoned/cancelled holds.
         const { count: past } = await supabase
           .from("bookings")
           .select("id", { count: "exact", head: true })
           .eq("app_user_id", userRowId)
+          .not("status", "in", "(pending,cancelled,expired)")
           .lt("check_out", today);
 
         setPastCount(past || 0);

@@ -45,10 +45,14 @@ export default async function SuperadminPage() {
       .from("bookings")
       .select("id, status", { count: "exact", head: true })
       .neq("status", "cancelled"),
+    // "Confirmed" = every booking that got past payment, regardless of where
+    // it now sits in the lifecycle. Filtering on status = "confirmed" alone
+    // wrongly drops bookings the instant a guest is checked in or out, making
+    // the count (and confirmation rate) shrink as stays progress.
     supabaseAdmin
       .from("bookings")
       .select("id", { count: "exact", head: true })
-      .eq("status", "confirmed"),
+      .not("status", "in", "(pending,cancelled,expired)"),
     // Staff counts
     supabaseAdmin
       .from("staff")
