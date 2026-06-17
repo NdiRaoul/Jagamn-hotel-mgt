@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
                   </p>
                 </div>
                 <Link
-                  href="/login"
+                  href="/staff-login"
                   className="flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-jagamn-primary transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
                     </Button>
 
                     <Link
-                      href="/login"
+                      href="/staff-login"
                       className="flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-jagamn-primary transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" />
