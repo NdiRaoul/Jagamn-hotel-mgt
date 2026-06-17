@@ -454,12 +454,7 @@ export default function GuestLayout({
               >
                 TERMS OF SERVICE
               </Link>
-              <Link
-                href="/staff-login"
-                className="hover:text-white transition-colors"
-              >
-                STAFF LOGIN
-              </Link>
+            
             </div>
           </div>
         </div>

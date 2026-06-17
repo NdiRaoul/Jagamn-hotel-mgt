@@ -210,14 +210,17 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
         .from("rooms")
         .select("id,unit_code,floor,is_active,room_type_id,housekeeping_status"),
       supabaseAdmin.from("room_types").select("id,name"),
-      // Rooms currently occupied: a non-departed booking spanning today.
+      // Rooms with a live assignment: any non-departed booking whose stay has
+      // not yet ended (check_out in the future). This covers bookings checked
+      // in today (→ occupied) AND ones assigned for today or an upcoming date
+      // (→ reserved) — both should surface on the board rather than reading as
+      // freely available.
       supabaseAdmin
         .from("bookings")
         .select(
           "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref",
         )
         .not("status", "in", "(cancelled,expired,checked_out,completed)")
-        .lte("check_in", todayKey)
         .gt("check_out", todayKey),
     ]);
 
@@ -235,6 +238,11 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
   // arrived booking marks its room "reserved" so it still surfaces on the
   // board (rather than appearing freely available). Check-in flips status to
   // "checked_in" atomically, which promotes the room to "occupied".
+  //
+  // A single room may carry several live bookings (e.g. a current stay plus a
+  // future assignment). Pick the most relevant one: a checked-in booking always
+  // wins (the room is physically occupied right now); otherwise the
+  // soonest-arriving assignment represents the room's next commitment.
   const bookingMap = new Map<
     string,
     Booking & { booking_ref: string; status?: string }
@@ -243,10 +251,21 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     (activeBookings || []) as unknown as (Booking & { status?: string })[]
   ).forEach((booking) => {
     if (!booking.room_id) return;
-    // Prefer a checked-in (occupying) booking over a merely assigned one.
     const existing = bookingMap.get(booking.room_id);
-    if (existing && existing.status === "checked_in") return;
-    bookingMap.set(booking.room_id, booking);
+    if (!existing) {
+      bookingMap.set(booking.room_id, booking);
+      return;
+    }
+    // A checked-in booking is the definitive occupant — keep it.
+    if (existing.status === "checked_in") return;
+    if (booking.status === "checked_in") {
+      bookingMap.set(booking.room_id, booking);
+      return;
+    }
+    // Neither is checked in: keep the earlier check-in (the nearer commitment).
+    if ((booking.check_in ?? "") < (existing.check_in ?? "")) {
+      bookingMap.set(booking.room_id, booking);
+    }
   });
 
   const board = (
