@@ -108,27 +108,36 @@ export default function ProfilePage() {
     setSaveMsg(null);
     setSaveError(null);
 
-    const { error } = await supabase
-      .from("users")
-      .update({
-        full_name: form.fullName,
-        phone: form.phone || null,
-        country: form.country || null,
-        id_type: form.idType || null,
-        id_number: form.idNumber || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("auth_user_id", userId);
+    try {
+      // Persist via the server route (service role + email-fallback resolution).
+      // A browser update().eq("auth_user_id", …) silently matches zero rows when
+      // the users row predates the account, producing a false success — so we
+      // rely on the server confirming the write before reporting success.
+      const res = await fetch("/api/account/guest-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: form.fullName,
+          phone: form.phone || null,
+          country: form.country || null,
+          id_type: form.idType || null,
+          id_number: form.idNumber || null,
+        }),
+      });
+      const data = await res.json();
 
-    if (error) {
+      if (!res.ok) {
+        setSaveError(data.error || "Failed to save profile. Please try again.");
+      } else {
+        setSaveMsg("Profile saved successfully.");
+        // Re-fetch so the form reflects the value actually persisted to the DB.
+        await load();
+      }
+    } catch {
       setSaveError("Failed to save profile. Please try again.");
-    } else {
-      setSaveMsg("Profile saved successfully.");
-      // Re-fetch so the form reflects the value actually persisted to the DB
-      // (confirms the phone round-trip rather than just the optimistic state).
-      await load();
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   }
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();

@@ -212,9 +212,17 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
   const roomTypeMap = new Map(
     (roomTypes as unknown as RoomType[]).map((rt) => [rt.id, rt.name]),
   );
+  // A room only reads as physically occupied once the guest is checked in.
+  // Bookings get a room_id pre-assigned at creation, so a not-yet-arrived
+  // pending/confirmed booking must NOT mark its room occupied — otherwise the
+  // same guest shows as a "pending arrival" *and* as occupying the room board,
+  // the contradictory dual-state in Recep-001. Check-in flips status to
+  // "checked_in" atomically, which is the real occupancy signal.
   const bookingMap = new Map<string, Booking & { booking_ref: string }>();
-  ((activeBookings || []) as unknown as Booking[]).forEach((booking) => {
-    if (booking.room_id) {
+  (
+    (activeBookings || []) as unknown as (Booking & { status?: string })[]
+  ).forEach((booking) => {
+    if (booking.room_id && booking.status === "checked_in") {
       bookingMap.set(booking.room_id, booking);
     }
   });

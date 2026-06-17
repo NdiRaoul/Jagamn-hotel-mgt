@@ -3,6 +3,7 @@ import {
   createSupabaseRouteHandlerClient,
   supabaseAdmin,
 } from "@/lib/supabase-server";
+import { resolveAppUser } from "@/lib/auth/app-user";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,12 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No items in order" }, { status: 400 });
     }
 
-    // Resolve app_user_id from auth user
-    const { data: appUser } = await supabaseAdmin
-      .from("users")
-      .select("id, email")
-      .eq("auth_user_id", user.id)
-      .single();
+    // Resolve app_user_id from auth user (with email fallback + self-link so a
+    // guest who booked before signing up is still recognised — see Guest-006).
+    const appUser = await resolveAppUser(user.id, user.email);
 
     if (!appUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
