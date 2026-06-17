@@ -1,5 +1,5 @@
 -- ============================================================
--- Jagamn Palace — Supabase Schema  (v4 — consolidated)
+-- Jagamn Palace — Supabase Schema 
 -- Run this in the Supabase SQL Editor.
 -- Drops ALL tables and recreates them from scratch.
 -- ============================================================
