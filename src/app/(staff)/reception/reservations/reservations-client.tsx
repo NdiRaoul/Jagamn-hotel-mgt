@@ -2,17 +2,15 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Filter,
   MoreVertical,
   Calendar,
-  User,
   CreditCard,
   XCircle,
   FileText,
   AlertCircle,
   Inbox,
   ArrowRight,
-  Star,
+  ArrowLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +29,7 @@ export default function ReservationsClient({
   error: string | null;
 }) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(reservations[0]?.id ?? null);
   const [search, setSearch] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
@@ -191,8 +189,8 @@ export default function ReservationsClient({
         </div>
       ) : (
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
-          {/* List */}
-          <div className="lg:col-span-1 overflow-y-auto pr-2 space-y-4 pb-10">
+          {/* List — hidden on mobile when a card is selected */}
+          <div className={cn("lg:col-span-1 overflow-y-auto pr-2 space-y-4 pb-10", selectedId ? "hidden lg:block" : "block")}>
             {filtered.map((res) => (
               <div
                 key={res.id}
@@ -248,7 +246,15 @@ export default function ReservationsClient({
 
           {/* Detail */}
           {selected && (
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-10 overflow-y-auto">
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-10 overflow-y-auto">
+              {/* Back button — mobile only */}
+              <button
+                onClick={() => setSelectedId(null)}
+                className="lg:hidden mb-6 flex items-center gap-2 text-gray-500 hover:text-[#00152A] font-bold text-sm transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to list
+              </button>
               <div className="flex items-start justify-between mb-8">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">

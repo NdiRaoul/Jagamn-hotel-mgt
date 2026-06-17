@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -52,10 +52,23 @@ function BookingContent() {
   const elements = useElements();
   const supabase = createSupabaseBrowserClient();
 
-  const roomSlug = searchParams.get("room");
-  const checkInStr = searchParams.get("checkIn");
-  const checkOutStr = searchParams.get("checkOut");
-  const guestsStr = searchParams.get("guests") || "2a1c";
+  const roomSlug =
+    searchParams.get("room") ||
+    searchParams.get("amp;room") ||
+    searchParams.get("room;");
+  const checkInStr =
+    searchParams.get("checkIn") ||
+    searchParams.get("amp;checkIn") ||
+    searchParams.get("checkIn;");
+  const checkOutStr =
+    searchParams.get("checkOut") ||
+    searchParams.get("amp;checkOut") ||
+    searchParams.get("checkOut;");
+  const guestsStr =
+    searchParams.get("guests") ||
+    searchParams.get("amp;guests") ||
+    searchParams.get("guests;") ||
+    "3";
 
   // Resolve the selected room. Static data covers the 3 legacy rooms; for all
   // other (DB-only) room types — e.g. Garden Terrace, Maharaja — we fetch the
@@ -78,8 +91,17 @@ function BookingContent() {
   );
   const [roomLoading, setRoomLoading] = useState(!staticRoom && !!roomSlug);
 
-  const checkIn = checkInStr ? new Date(checkInStr) : null;
-  const checkOut = checkOutStr ? new Date(checkOutStr) : null;
+  const checkIn = useMemo(() => {
+    if (!checkInStr) return null;
+    const d = new Date(checkInStr);
+    return isNaN(d.getTime()) ? null : d;
+  }, [checkInStr]);
+
+  const checkOut = useMemo(() => {
+    if (!checkOutStr) return null;
+    const d = new Date(checkOutStr);
+    return isNaN(d.getTime()) ? null : d;
+  }, [checkOutStr]);
 
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [createAccount, setCreateAccount] = useState(false);
@@ -139,7 +161,8 @@ function BookingContent() {
             slug: rt.slug,
             name: rt.name,
             price: rt.price_per_night ?? rt.price ?? 0,
-            image: rt.main_image || rt.images?.main || "/images/palace-deluxe.png",
+            image:
+              rt.main_image || rt.images?.main || "/images/palace-deluxe.png",
           });
         }
       } catch {
@@ -235,9 +258,7 @@ function BookingContent() {
   // Settle a wallet (Apple/Google Pay) payment via the same booking →
   // PaymentIntent → confirm pipeline used by cards. The booking only flips
   // pending → paid through /api/payments/stripe/confirm.
-  const handleWalletPayment = async (
-    ev: PaymentRequestPaymentMethodEvent,
-  ) => {
+  const handleWalletPayment = async (ev: PaymentRequestPaymentMethodEvent) => {
     if (!stripe) {
       ev.complete("fail");
       return;
@@ -352,7 +373,7 @@ function BookingContent() {
     if (!stripe || !room || totalPrice <= 0) return;
 
     const pr = stripe.paymentRequest({
-      country: process.env.NEXT_PUBLIC_STRIPE_MERCHANT_COUNTRY || "CM",
+      country: process.env.NEXT_PUBLIC_STRIPE_MERCHANT_COUNTRY || "US",
       currency: "xaf",
       total: {
         label: "Jagamn Palace Booking",
@@ -408,13 +429,14 @@ function BookingContent() {
   }
 
   async function createBooking(paymentMethodStr: string) {
-    const guestCount = guestsStr.includes("2a2c")
-      ? 4
-      : guestsStr.includes("2a1c")
-        ? 3
-        : guestsStr.includes("2a")
-          ? 2
-          : 1;
+    const guestCount =
+      guestsStr.includes("2a2c") || guestsStr === "4"
+        ? 4
+        : guestsStr.includes("2a1c") || guestsStr === "3"
+          ? 3
+          : guestsStr.includes("2a") || guestsStr === "2"
+            ? 2
+            : 1;
 
     const res = await fetch("/api/bookings", {
       method: "POST",

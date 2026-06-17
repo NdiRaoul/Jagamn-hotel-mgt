@@ -68,23 +68,41 @@ function PaymentsContent() {
   const [transactions, setTransactions] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [addType, setAddType] = useState<"card" | "mobile" | "google" | "apple">("card");
+  const [addType, setAddType] = useState<
+    "card" | "mobile" | "google" | "apple"
+  >("card");
 
   // Add card form (Stripe SetupIntent collects the card itself)
   const [cardHolder, setCardHolder] = useState("");
   const [mobilePhone, setMobilePhone] = useState("");
   const [mobileLabel, setMobileLabel] = useState("");
-  const [mobileType, setMobileType] = useState<"mobile_money" | "orange_money">("mobile_money");
+  const [mobileType, setMobileType] = useState<"mobile_money" | "orange_money">(
+    "mobile_money",
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   async function loadData() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const [{ data: pm }, { data: tx }] = await Promise.all([
-      supabase.from("payment_methods").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("payments").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("payments")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
     setMethods((pm as PaymentMethod[]) || []);
@@ -92,13 +110,23 @@ function PaymentsContent() {
     setLoading(false);
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   async function handleSetDefault(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from("payment_methods").update({ is_default: false }).eq("user_id", user.id);
-    await supabase.from("payment_methods").update({ is_default: true }).eq("id", id);
+    await supabase
+      .from("payment_methods")
+      .update({ is_default: false })
+      .eq("user_id", user.id);
+    await supabase
+      .from("payment_methods")
+      .update({ is_default: true })
+      .eq("id", id);
     loadData();
   }
 
@@ -110,8 +138,13 @@ function PaymentsContent() {
   async function handleAddMethod() {
     setSaveError(null);
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setSaving(false);
+      return;
+    }
 
     // ── Card: real Stripe SetupIntent flow ──────────────────────────────
     // Saves a reusable payment method (off_session) that can be charged for
@@ -177,7 +210,14 @@ function PaymentsContent() {
     let row: any = { user_id: user.id, is_default: methods.length === 0 };
 
     if (addType === "mobile") {
-      row = { ...row, method_type: mobileType, label: mobileLabel || (mobileType === "mobile_money" ? "MTN MoMo" : "Orange Money"), phone: mobilePhone };
+      row = {
+        ...row,
+        method_type: mobileType,
+        label:
+          mobileLabel ||
+          (mobileType === "mobile_money" ? "MTN MoMo" : "Orange Money"),
+        phone: mobilePhone,
+      };
     } else if (addType === "google") {
       row = { ...row, method_type: "google_pay", label: "Google Pay" };
     } else if (addType === "apple") {
@@ -189,22 +229,29 @@ function PaymentsContent() {
       setSaveError(error.message);
     } else {
       setAddModalOpen(false);
-      setCardHolder(""); setMobilePhone(""); setMobileLabel("");
+      setCardHolder("");
+      setMobilePhone("");
+      setMobileLabel("");
       loadData();
     }
     setSaving(false);
   }
 
   function methodIcon(type: string) {
-    if (type === "card") return <CreditCard className="w-5 h-5 text-jagamn-primary" />;
-    if (type === "mobile_money" || type === "orange_money") return <Smartphone className="w-5 h-5 text-jagamn-primary" />;
+    if (type === "card")
+      return <CreditCard className="w-5 h-5 text-jagamn-primary" />;
+    if (type === "mobile_money" || type === "orange_money")
+      return <Smartphone className="w-5 h-5 text-jagamn-primary" />;
     return <CreditCard className="w-5 h-5 text-jagamn-primary" />;
   }
 
   function methodDisplay(m: PaymentMethod) {
-    if (m.method_type === "card") return `${m.card_brand || "Card"} •••• ${m.card_last4 || "****"}`;
-    if (m.method_type === "mobile_money") return `MTN MoMo ${m.phone ? `• ${m.phone}` : ""}`;
-    if (m.method_type === "orange_money") return `Orange Money ${m.phone ? `• ${m.phone}` : ""}`;
+    if (m.method_type === "card")
+      return `${m.card_brand || "Card"} •••• ${m.card_last4 || "****"}`;
+    if (m.method_type === "mobile_money")
+      return `MTN MoMo ${m.phone ? `• ${m.phone}` : ""}`;
+    if (m.method_type === "orange_money")
+      return `Orange Money ${m.phone ? `• ${m.phone}` : ""}`;
     if (m.method_type === "google_pay") return "Google Pay";
     if (m.method_type === "apple_pay") return "Apple Pay";
     return m.label || m.method_type;
@@ -215,9 +262,12 @@ function PaymentsContent() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="space-y-3">
-          <h1 className="manrope-bold text-5xl text-jagamn-primary tracking-tight">Secure Payments</h1>
+          <h1 className="manrope-bold text-5xl text-jagamn-primary tracking-tight">
+            Secure Payments
+          </h1>
           <p className="text-sm text-gray-500 max-w-lg leading-relaxed">
-            Manage your verified accounts and saved cards for a seamless experience.
+            Manage your verified accounts and saved cards for a seamless
+            experience.
           </p>
         </div>
         <Button
@@ -231,16 +281,35 @@ function PaymentsContent() {
 
       {/* Accepted Methods Banner (static) */}
       <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 flex flex-wrap items-center gap-6">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Accepted Methods</p>
-        {["Visa", "Mastercard", "Google Pay", "Apple Pay", "MTN MoMo", "Orange Money"].map((m) => (
-          <span key={m} className="text-xs font-bold text-jagamn-primary border border-gray-100 px-3 py-1.5 rounded-md">{m}</span>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+          Accepted Methods
+        </p>
+        {[
+          "Visa",
+          "Mastercard",
+          "Google Pay",
+          "Apple Pay",
+          "MTN MoMo",
+          "Orange Money",
+        ].map((m) => (
+          <span
+            key={m}
+            className="text-xs font-bold text-jagamn-primary border border-gray-100 px-3 py-1.5 rounded-md"
+          >
+            {m}
+          </span>
         ))}
       </div>
 
       {/* Saved Methods */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => <div key={i} className="h-44 bg-gray-100 rounded-md animate-pulse" />)}
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-44 bg-gray-100 rounded-md animate-pulse"
+            />
+          ))}
         </div>
       ) : methods.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -249,16 +318,24 @@ function PaymentsContent() {
               key={method.id}
               className={cn(
                 "bg-white rounded-md p-8 shadow-sm border border-gray-100 border-l-4 flex flex-col justify-between min-h-[180px] relative overflow-hidden group hover:shadow-md transition-shadow",
-                method.is_default ? "border-l-jagamn-tertiary" : "border-l-jagamn-primary"
+                method.is_default
+                  ? "border-l-jagamn-tertiary"
+                  : "border-l-jagamn-primary",
               )}
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                     {method.label || method.method_type}
-                    {method.is_default && <span className="ml-2 text-jagamn-tertiary">• Default</span>}
+                    {method.is_default && (
+                      <span className="ml-2 text-jagamn-tertiary">
+                        • Default
+                      </span>
+                    )}
                   </p>
-                  <h3 className="manrope-bold text-lg text-jagamn-primary">{methodDisplay(method)}</h3>
+                  <h3 className="manrope-bold text-lg text-jagamn-primary">
+                    {methodDisplay(method)}
+                  </h3>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -268,7 +345,9 @@ function PaymentsContent() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {!method.is_default && (
-                      <DropdownMenuItem onClick={() => handleSetDefault(method.id)}>
+                      <DropdownMenuItem
+                        onClick={() => handleSetDefault(method.id)}
+                      >
                         <Star className="w-4 h-4 mr-2" /> Set as Default
                       </DropdownMenuItem>
                     )}
@@ -303,8 +382,12 @@ function PaymentsContent() {
             <CreditCard className="w-5 h-5" />
           </div>
           <div className="space-y-1">
-            <h4 className="manrope-bold text-lg text-jagamn-primary">Add a payment method</h4>
-            <p className="text-xs text-gray-400">Connect a card, mobile money, or digital wallet.</p>
+            <h4 className="manrope-bold text-lg text-jagamn-primary">
+              Add a payment method
+            </h4>
+            <p className="text-xs text-gray-400">
+              Connect a card, mobile money, or digital wallet.
+            </p>
           </div>
         </div>
       )}
@@ -313,28 +396,39 @@ function PaymentsContent() {
         {/* Transaction History */}
         <div className="lg:col-span-2 bg-white rounded-md shadow-sm border border-gray-100 p-10 space-y-10">
           <div className="flex items-center justify-between">
-            <h2 className="manrope-bold text-2xl text-jagamn-primary">Transaction History</h2>
+            <h2 className="manrope-bold text-2xl text-jagamn-primary">
+              Transaction History
+            </h2>
             <button className="text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest flex items-center gap-2 hover:underline">
               Download Statements <Download className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {transactions.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No transactions yet.</p>
+            <p className="text-sm text-gray-400 text-center py-8">
+              No transactions yet.
+            </p>
           ) : (
             <div className="space-y-8">
               {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between group">
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between group"
+                >
                   <div className="flex items-center gap-6">
                     <div className="w-12 h-12 rounded bg-gray-50 flex items-center justify-center text-jagamn-primary group-hover:bg-jagamn-neutral transition-colors">
                       <Bed className="w-5 h-5" />
                     </div>
                     <div>
                       <h4 className="text-base font-bold text-jagamn-primary">
-                        {tx.booking_ref ? `Booking ${tx.booking_ref}` : "Payment"}
+                        {tx.booking_ref
+                          ? `Booking ${tx.booking_ref}`
+                          : "Payment"}
                       </h4>
                       <p className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mt-1">
-                        {formatTxnId(tx.id)} • {format(new Date(tx.created_at), "MMM d, yyyy")} • {tx.payment_method || tx.provider || "—"}
+                        {formatTxnId(tx.id)} •{" "}
+                        {format(new Date(tx.created_at), "MMM d, yyyy")} •{" "}
+                        {tx.payment_method || tx.provider || "—"}
                       </p>
                     </div>
                   </div>
@@ -342,10 +436,14 @@ function PaymentsContent() {
                     <p className="manrope-bold text-lg text-jagamn-primary mb-1">
                       ${(tx.amount / 100).toLocaleString("en-US")}
                     </p>
-                    <Badge className={cn(
-                      "border-0 text-[8px] font-bold uppercase tracking-wider px-2 h-5",
-                      tx.status === "paid" ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
-                    )}>
+                    <Badge
+                      className={cn(
+                        "border-0 text-[8px] font-bold uppercase tracking-wider px-2 h-5",
+                        tx.status === "paid"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-gray-100 text-gray-500",
+                      )}
+                    >
                       {tx.status}
                     </Badge>
                   </div>
@@ -361,30 +459,40 @@ function PaymentsContent() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div className="space-y-4">
-            <h3 className="manrope-bold text-xl text-jagamn-primary leading-tight">World-Class Security</h3>
+            <h3 className="manrope-bold text-xl text-jagamn-primary leading-tight">
+              World-Class Security
+            </h3>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Your payment data is encrypted using military-grade AES-256 protocols.
+              Your payment data is encrypted using military-grade AES-256
+              protocols.
             </p>
           </div>
           <button className="flex items-center gap-2 text-[10px] font-bold text-jagamn-tertiary uppercase tracking-widest group">
-            Security Settings <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            Security Settings{" "}
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
       </div>
 
       {/* Help Section */}
-      <div className="bg-jagamn-primary rounded-md p-12 text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl shadow-jagamn-primary/30">
-        <div className="space-y-4 max-w-xl text-center md:text-left">
-          <h3 className="manrope-bold text-3xl leading-tight">Having trouble with a payment?</h3>
+      <div className="bg-jagamn-primary rounded-md p-6 sm:p-12 text-white flex flex-col lg:flex-row items-center justify-between gap-8 sm:gap-10 shadow-2xl shadow-jagamn-primary/30">
+        <div className="space-y-4 max-w-xl text-center lg:text-left">
+          <h3 className="manrope-bold text-2xl sm:text-3xl leading-tight">
+            Having trouble with a payment?
+          </h3>
           <p className="text-sm text-gray-400 leading-relaxed">
-            Our 24/7 concierge desk is available to assist with international transaction clearances.
+            Our 24/7 concierge desk is available to assist with international
+            transaction clearances.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <Button variant="outline" className="h-14 px-10 bg-white/5 border-white/10 text-white hover:bg-white/10 gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+          <Button
+            variant="outline"
+            className="h-14 px-6 py-3 sm:px-10 bg-white/5 border-white/10 text-white hover:bg-white/10 gap-2 flex-1 justify-center"
+          >
             <MessageSquare className="w-4 h-4" /> Chat Now
           </Button>
-          <Button className="h-14 px-10 bg-white text-jagamn-primary hover:bg-gray-100 font-bold gap-2">
+          <Button className="h-14 px-6 py-3 sm:px-10 bg-white text-jagamn-primary hover:bg-gray-100 font-bold gap-2 flex-1 justify-center">
             <Phone className="w-4 h-4" /> Call Concierge
           </Button>
         </div>
@@ -394,7 +502,9 @@ function PaymentsContent() {
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="manrope-bold text-xl text-jagamn-primary">Add Payment Method</DialogTitle>
+            <DialogTitle className="manrope-bold text-xl text-jagamn-primary">
+              Add Payment Method
+            </DialogTitle>
           </DialogHeader>
 
           {/* Method type selector */}
@@ -410,7 +520,9 @@ function PaymentsContent() {
                 onClick={() => setAddType(opt.key as any)}
                 className={cn(
                   "flex items-center gap-2 p-3 border rounded-md text-sm font-bold transition-all",
-                  addType === opt.key ? "border-jagamn-primary bg-jagamn-neutral text-jagamn-primary" : "border-gray-100 text-gray-500 hover:border-gray-300"
+                  addType === opt.key
+                    ? "border-jagamn-primary bg-jagamn-neutral text-jagamn-primary"
+                    : "border-gray-100 text-gray-500 hover:border-gray-300",
                 )}
               >
                 <opt.icon className="w-4 h-4" /> {opt.label}
@@ -418,16 +530,29 @@ function PaymentsContent() {
             ))}
           </div>
 
-          {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded mb-4">{saveError}</div>}
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded mb-4">
+              {saveError}
+            </div>
+          )}
 
           {addType === "card" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Cardholder Name</Label>
-                <Input value={cardHolder} onChange={(e) => setCardHolder(e.target.value)} placeholder="John Doe" className="bg-gray-50 border-none h-11" />
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Cardholder Name
+                </Label>
+                <Input
+                  value={cardHolder}
+                  onChange={(e) => setCardHolder(e.target.value)}
+                  placeholder="John Doe"
+                  className="bg-gray-50 border-none h-11"
+                />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Card Details</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Card Details
+                </Label>
                 <div className="bg-gray-50 h-12 px-4 rounded-md flex items-center">
                   <CardElement
                     className="w-full"
@@ -454,11 +579,33 @@ function PaymentsContent() {
           {addType === "mobile" && (
             <div className="space-y-4">
               <div className="flex gap-3">
-                <button onClick={() => setMobileType("mobile_money")} className={cn("flex-1 py-2 rounded-full text-xs font-bold transition-all", mobileType === "mobile_money" ? "bg-[#00152A] text-white" : "bg-gray-200 text-gray-500")}>MTN MoMo</button>
-                <button onClick={() => setMobileType("orange_money")} className={cn("flex-1 py-2 rounded-full text-xs font-bold transition-all", mobileType === "orange_money" ? "bg-orange-500 text-white" : "bg-gray-200 text-gray-500")}>Orange Money</button>
+                <button
+                  onClick={() => setMobileType("mobile_money")}
+                  className={cn(
+                    "flex-1 py-2 rounded-full text-xs font-bold transition-all",
+                    mobileType === "mobile_money"
+                      ? "bg-[#00152A] text-white"
+                      : "bg-gray-200 text-gray-500",
+                  )}
+                >
+                  MTN MoMo
+                </button>
+                <button
+                  onClick={() => setMobileType("orange_money")}
+                  className={cn(
+                    "flex-1 py-2 rounded-full text-xs font-bold transition-all",
+                    mobileType === "orange_money"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-200 text-gray-500",
+                  )}
+                >
+                  Orange Money
+                </button>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Phone Number</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Phone Number
+                </Label>
                 <PhoneInput
                   value={mobilePhone}
                   onChange={setMobilePhone}
@@ -467,19 +614,32 @@ function PaymentsContent() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Label (optional)</Label>
-                <Input value={mobileLabel} onChange={(e) => setMobileLabel(e.target.value)} placeholder="My MTN" className="bg-gray-50 border-none h-11" />
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Label (optional)
+                </Label>
+                <Input
+                  value={mobileLabel}
+                  onChange={(e) => setMobileLabel(e.target.value)}
+                  placeholder="My MTN"
+                  className="bg-gray-50 border-none h-11"
+                />
               </div>
             </div>
           )}
 
           {(addType === "google" || addType === "apple") && (
             <div className="text-center py-4 text-sm text-gray-500">
-              Click confirm to add {addType === "google" ? "Google Pay" : "Apple Pay"} as a payment method.
+              Click confirm to add{" "}
+              {addType === "google" ? "Google Pay" : "Apple Pay"} as a payment
+              method.
             </div>
           )}
 
-          <Button onClick={handleAddMethod} disabled={saving} className="w-full h-12 bg-jagamn-primary text-white font-bold mt-4">
+          <Button
+            onClick={handleAddMethod}
+            disabled={saving}
+            className="w-full h-12 bg-jagamn-primary text-white font-bold mt-4"
+          >
             {saving ? "Saving..." : "Add Method"}
           </Button>
         </DialogContent>

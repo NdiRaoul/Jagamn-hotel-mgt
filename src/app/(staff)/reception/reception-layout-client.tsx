@@ -255,19 +255,21 @@ export default function ReceptionLayout({
         {/* ── Main Content Area ──────────────────────── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="h-[80px] bg-white border-b border-gray-100 px-10 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-6">
+          <header className="h-[72px] md:h-[80px] bg-white border-b border-gray-100 px-4 md:px-10 flex items-center justify-between gap-3 flex-shrink-0">
+            {/* Left — hamburger + title */}
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="md:hidden text-gray-500"
+                className="md:hidden w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-md transition-all flex-shrink-0"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5" />
               </button>
-              <h2 className="manrope-bold text-xl text-[#00152A] whitespace-nowrap">
+              <h2 className="manrope-bold text-lg md:text-xl text-[#00152A] whitespace-nowrap truncate">
                 Front Desk
               </h2>
             </div>
 
+            {/* Centre — full search bar (desktop only) */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -277,7 +279,7 @@ export default function ReceptionLayout({
                   window.location.href = `/reception/search?q=${encodeURIComponent(q)}`;
                 }
               }}
-              className="flex items-center gap-8 flex-1 max-w-2xl px-12"
+              className="hidden md:flex items-center flex-1 max-w-2xl px-8"
             >
               <div className="relative w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -289,19 +291,28 @@ export default function ReceptionLayout({
               </div>
             </form>
 
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3 pr-6 border-r border-gray-100">
-                <NotificationBell audience="staff" />
-                <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all">
-                  <Settings className="w-5 h-5" />
-                </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all">
-                  <HelpCircle className="w-5 h-5" />
-                </button>
-              </div>
+            {/* Right — icons */}
+            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+              {/* Search icon — mobile only, links to search page */}
+              <a
+                href="/reception/search"
+                className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all"
+              >
+                <Search className="w-5 h-5" />
+              </a>
 
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
+              <NotificationBell audience="staff" />
+
+              <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-all">
+                <Settings className="w-5 h-5" />
+              </button>
+
+              <button className="hidden md:flex w-9 h-9 rounded-full items-center justify-center text-gray-400 hover:bg-gray-50 transition-all">
+                <HelpCircle className="w-5 h-5" />
+              </button>
+
+              <div className="hidden md:flex items-center gap-3 pl-4 border-l border-gray-100">
+                <div className="text-right">
                   <p className="text-sm font-bold text-[#00152A]">
                     {staff?.full_name ?? "Reception Staff"}
                   </p>
@@ -309,7 +320,7 @@ export default function ReceptionLayout({
                     {staff?.email ?? "reception@palace.com"}
                   </p>
                 </div>
-                <Avatar className="w-10 h-10 border-2 border-gray-100">
+                <Avatar className="w-9 h-9 border-2 border-gray-100">
                   {staff?.avatar_url && <AvatarImage src={staff.avatar_url} />}
                   <AvatarFallback>
                     {staff?.full_name
@@ -326,7 +337,7 @@ export default function ReceptionLayout({
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-10">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-10">{children}</main>
         </div>
       </div>
     </SessionGuard>

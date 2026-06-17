@@ -41,7 +41,7 @@ export function SearchBar({ roomTypes }: Props) {
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [roomType, setRoomType] = useState<string>("all");
-  const [guests, setGuests] = useState<string>("2a1c");
+  const [guests, setGuests] = useState<string>("3");
 
   // Hydrate the bar from the URL (shareable links) or the guest's
   // previously stored selection, so it stays in sync everywhere.
@@ -64,7 +64,15 @@ export function SearchBar({ roomTypes }: Props) {
           /* ignore bad date */
         }
       }
-      if (resolved.guests) setGuests(resolved.guests);
+      if (resolved.guests) {
+        const val = resolved.guests;
+        const mapped = val === "1a" || val === "1" ? "1"
+          : val === "2a" || val === "2" ? "2"
+          : val === "2a1c" || val === "3" ? "3"
+          : val === "2a2c" || val === "4" ? "4"
+          : "3";
+        setGuests(mapped);
+      }
       if (resolved.roomType) setRoomType(resolved.roomType);
     }
     hydrateFromSearch();
@@ -224,10 +232,10 @@ export function SearchBar({ roomTypes }: Props) {
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1a">1 Adult</SelectItem>
-              <SelectItem value="2a">2 Adults</SelectItem>
-              <SelectItem value="2a1c">2 Adults, 1 Child</SelectItem>
-              <SelectItem value="2a2c">2 Adults, 2 Children</SelectItem>
+              <SelectItem value="1">1 Adult</SelectItem>
+              <SelectItem value="2">2 Adults</SelectItem>
+              <SelectItem value="3">2 Adults, 1 Child</SelectItem>
+              <SelectItem value="4">2 Adults, 2 Children</SelectItem>
             </SelectContent>
           </Select>
         </div>

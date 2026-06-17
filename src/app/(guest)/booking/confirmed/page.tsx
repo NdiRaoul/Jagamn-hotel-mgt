@@ -56,13 +56,11 @@ async function ConfirmedContent({
   }>;
 }) {
   const params = await searchParams;
-  const {
-    ref = "JP-0000-XX",
-    room: roomSlug,
-    checkIn: ci,
-    checkOut: co,
-    guests = "2a1c",
-  } = params;
+  const ref = params.ref || (params as any)["ref;"] || (params as any)["amp;ref"] || "JP-0000-XX";
+  const roomSlug = params.room || (params as any)["room;"] || (params as any)["amp;room"];
+  const ci = params.checkIn || (params as any)["checkIn;"] || (params as any)["amp;checkIn"];
+  const co = params.checkOut || (params as any)["checkOut;"] || (params as any)["amp;checkOut"];
+  const guests = params.guests || (params as any)["guests;"] || (params as any)["amp;guests"] || "3";
 
   // Try to fetch real booking from DB
   const booking = await fetchBooking(ref);
@@ -97,11 +95,11 @@ async function ConfirmedContent({
     );
   const guestCount =
     booking?.guests ||
-    (guests.includes("2a2c")
+    (guests.includes("2a2c") || guests === "4"
       ? 4
-      : guests.includes("2a1c")
+      : guests.includes("2a1c") || guests === "3"
         ? 3
-        : guests.includes("2a")
+        : guests.includes("2a") || guests === "2"
           ? 2
           : 1);
 
