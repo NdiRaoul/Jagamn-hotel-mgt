@@ -17,7 +17,7 @@ interface ReportsTabsProps {
 
 export function ReportsTabs({ activeTab, onChange }: ReportsTabsProps) {
   return (
-    <div className="flex gap-1 border-b border-gray-200 mb-6">
+    <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto no-scrollbar">
       {TABS.map((tab) => (
         <button
           key={tab}

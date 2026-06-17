@@ -44,7 +44,7 @@ export function InventoryValuationChart({
   const [dateRange, setDateRange] = useState("Last 30 Days");
 
   return (
-    <div className="flex gap-4 mb-6">
+    <div className="flex flex-col lg:flex-row gap-4 mb-6">
       {/* Left: Bar chart */}
       <div className="flex-1 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
         <div className="flex items-start justify-between mb-4">
@@ -99,7 +99,7 @@ export function InventoryValuationChart({
       </div>
 
       {/* Right: Top performing categories dark card */}
-      <div className="w-64 shrink-0 bg-gray-900 rounded-xl p-5 flex flex-col">
+      <div className="w-full lg:w-64 lg:shrink-0 bg-gray-900 rounded-xl p-5 flex flex-col">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
           Top Performing
         </p>

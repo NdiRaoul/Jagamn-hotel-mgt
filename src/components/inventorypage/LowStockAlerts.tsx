@@ -77,7 +77,7 @@ export function LowStockAlerts({ alerts: initialAlerts }: LowStockAlertsProps) {
   }
 
   return (
-    <div className="w-72 shrink-0">
+    <div className="w-full lg:w-72 lg:shrink-0">
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle className="w-4 h-4 text-amber-500" />
         <h2 className="font-bold text-gray-900">Low Stock Alerts</h2>
