@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { clearCache } from "@/lib/cache";
+import { notify } from "@/lib/data/notifications";
+import { resend, EMAIL_FROM } from "@/lib/resend";
+import { formatMoney } from "@/lib/currency";
 
 // Reception + management may move a guest to another room — same type, an
 // upgrade, or a downgrade. Changing the room type re-rates the stay (rate ×
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
   const { data: booking, error: bookingErr } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id, booking_ref, room_id, room_slug, room_type_id, check_in, check_out, nights, room_price_per_night, tax_amount, total_amount, status, payment_status",
+      "id, booking_ref, room_id, room_slug, room_type_id, check_in, check_out, nights, room_price_per_night, tax_amount, total_amount, status, payment_status, guest_name, guest_email, app_user_id",
     )
     .eq("id", booking_id)
     .maybeSingle();
@@ -274,6 +277,61 @@ export async function POST(request: NextRequest) {
     },
     ip: request.headers.get("x-forwarded-for") || "unknown",
   });
+
+  // ── Notify the guest of the room change ─────────────────────────────────
+  // An email always goes out (covers guests with no account). Guests WITH an
+  // account also get an in-app notification on the dashboard bell. All of this
+  // is best-effort: a failure here must not fail the reassignment.
+  const moneyLine =
+    newBalance > 0
+      ? `A balance of ${formatMoney(newBalance)} is now due on your room.`
+      : newRefund > 0
+        ? `A refund of ${formatMoney(newRefund)} is due to you — please collect it at the front desk.`
+        : "There is no change to your balance.";
+  const changeSummary = `${newType.name} (Room ${targetUnitCode})`;
+
+  // In-app notification — only for guests with a real account (auth_user_id).
+  if (booking.app_user_id) {
+    try {
+      const { data: appUser } = await supabaseAdmin
+        .from("users")
+        .select("auth_user_id")
+        .eq("id", booking.app_user_id)
+        .maybeSingle();
+      if (appUser?.auth_user_id) {
+        await notify({
+          appUserId: booking.app_user_id,
+          type: "booking",
+          title: "Your room has been changed",
+          body: `Booking ${booking.booking_ref} has been moved to ${changeSummary}. ${moneyLine}`,
+        });
+      }
+    } catch (e) {
+      console.error("[reassign-room] in-app notify failed (non-fatal):", e);
+    }
+  }
+
+  // Email — always, to the address on the booking.
+  if (booking.guest_email && process.env.RESEND_API_KEY) {
+    try {
+      await resend.emails.send({
+        from: EMAIL_FROM,
+        to: [booking.guest_email],
+        subject: `Your Room Has Changed — ${booking.booking_ref} | Jagamn Palace`,
+        html: `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px;color:#00152A;">
+          <h1 style="color:#00152A;">Room Reassignment</h1>
+          <p>Dear ${booking.guest_name || "Guest"},</p>
+          <p>Your reservation <strong>${booking.booking_ref}</strong> has been moved to a new room:</p>
+          <p style="font-size:18px;margin:16px 0;"><strong>${changeSummary}</strong></p>
+          <p>${moneyLine}</p>
+          <p style="color:#6B7280;font-size:13px;margin-top:24px;">If you have any questions, please speak with our front desk.</p>
+          <p style="color:#6B7280;font-size:13px;">— Jagamn Palace Hotel</p>
+        </div>`,
+      });
+    } catch (e) {
+      console.error("[reassign-room] email send failed (non-fatal):", e);
+    }
+  }
 
   const delta = newTotal - oldTotal;
   return NextResponse.json({
