@@ -19,6 +19,12 @@ import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { Booking } from "@/types/database";
+import { useFolioSummary } from "@/hooks/use-folio";
+import {
+  OutstandingBalanceBanner,
+  formatMoney,
+} from "@/components/guest/balance";
+import { Wallet } from "lucide-react";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -45,6 +51,7 @@ export default function DashboardOverviewPage() {
   const [pastCount, setPastCount] = useState(0);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const { summary: folio, loading: folioLoading } = useFolioSummary();
 
   useEffect(() => {
     async function load() {
@@ -201,6 +208,9 @@ export default function DashboardOverviewPage() {
         </p>
       </div>
 
+      {/* Outstanding Balance — room not fully paid and/or dining charged to room */}
+      <OutstandingBalanceBanner summary={folio} loading={folioLoading} />
+
       {/* Top Widgets Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Current Stay Widget */}
@@ -301,6 +311,57 @@ export default function DashboardOverviewPage() {
 
         {/* Quick Stats */}
         <div className="flex flex-col gap-4">
+          {/* Balance — always visible: amount owed (room + dining) or settled */}
+          <Link
+            href="/dashboard/payments"
+            className={cn(
+              "rounded-md border-l-4 shadow-sm p-6 flex items-center gap-4 transition-shadow hover:shadow-md",
+              folio?.hasOutstanding
+                ? "bg-[#FFF7F0] border-[#E65100]"
+                : "bg-white border-jagamn-secondary/40",
+            )}
+          >
+            <div
+              className={cn(
+                "w-12 h-12 rounded-lg flex items-center justify-center",
+                folio?.hasOutstanding ? "bg-[#FFE8D6]" : "bg-jagamn-neutral",
+              )}
+            >
+              <Wallet
+                className={cn(
+                  "w-6 h-6",
+                  folio?.hasOutstanding
+                    ? "text-[#E65100]"
+                    : "text-jagamn-primary",
+                )}
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Balance
+              </p>
+              <p
+                className={cn(
+                  "manrope-bold text-3xl",
+                  folio?.hasOutstanding ? "text-[#E65100]" : "text-jagamn-primary",
+                )}
+              >
+                {folioLoading
+                  ? "—"
+                  : folio?.hasOutstanding
+                    ? formatMoney(folio.totalBalanceDue)
+                    : formatMoney(0)}
+              </p>
+              <p className="text-[10px] text-gray-400 font-medium">
+                {folioLoading
+                  ? ""
+                  : folio?.hasOutstanding
+                    ? "Outstanding — tap to settle"
+                    : "All settled"}
+              </p>
+            </div>
+          </Link>
+
           <div className="bg-white rounded-md border-l-4 border-[#FFB77A] shadow-sm p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-jagamn-neutral flex items-center justify-center">
               <CalendarDays className="w-6 h-6 text-jagamn-primary" />

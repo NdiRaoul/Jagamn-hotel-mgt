@@ -21,12 +21,23 @@ import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { Booking } from "@/types/database";
+import { useFolioSummary } from "@/hooks/use-folio";
+import {
+  BalanceBadge,
+  OutstandingBalanceBanner,
+  formatMoney,
+} from "@/components/guest/balance";
 
 export default function MyBookingsPage() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const { summary: folio, loading: folioLoading } = useFolioSummary();
+
+  const folioById = new Map(
+    (folio?.bookings ?? []).map((f) => [f.bookingId, f]),
+  );
 
   async function loadBookings() {
     const {
@@ -142,6 +153,9 @@ export default function MyBookingsPage() {
 
   return (
     <div className="space-y-12 max-w-6xl relative pb-20">
+      {/* Outstanding Balance across all stays (room + dining/extras) */}
+      <OutstandingBalanceBanner summary={folio} loading={folioLoading} />
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((stat, idx) => (
@@ -225,15 +239,34 @@ export default function MyBookingsPage() {
                     Ref: {currentStay.booking_ref}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="manrope-bold text-xl text-jagamn-tertiary">
-                    ${currentStay.total_amount.toLocaleString("en-US")}
-                  </p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                    {currentStay.payment_status === "paid"
-                      ? "Paid in Full"
-                      : currentStay.payment_status}
-                  </p>
+                <div className="text-right space-y-1.5">
+                  {(() => {
+                    const f = folioById.get(currentStay.id);
+                    const amountDue = f ? f.balanceDue : currentStay.total_amount;
+                    const showDue = f ? !f.fullyPaid : currentStay.payment_status !== "paid";
+                    return (
+                      <>
+                        <p
+                          className={cn(
+                            "manrope-bold text-xl",
+                            showDue ? "text-[#E65100]" : "text-jagamn-tertiary",
+                          )}
+                        >
+                          {showDue
+                            ? formatMoney(amountDue)
+                            : `$${currentStay.total_amount.toLocaleString("en-US")}`}
+                        </p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                          {showDue ? "Balance Due" : "Paid in Full"}
+                        </p>
+                        {f && f.extraCharges > 0 && (
+                          <p className="text-[10px] text-gray-400">
+                            incl. {formatMoney(f.extraCharges)} dining & extras
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -324,6 +357,7 @@ export default function MyBookingsPage() {
                         <Badge className="bg-[#FFF3E0] text-[#E65100] border-0 text-[8px] font-bold uppercase tracking-wider h-5">
                           Confirmed
                         </Badge>
+                        <BalanceBadge folio={folioById.get(booking.id)} />
                       </div>
                       <p className="text-[10px] text-gray-400 font-medium">
                         {format(new Date(booking.check_in), "MMM d")} —{" "}

@@ -39,6 +39,8 @@ import { formatTxnId } from "@/lib/txn";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { PaymentMethod, Payment } from "@/types/database";
+import { useFolioSummary } from "@/hooks/use-folio";
+import { OutstandingBalanceBanner } from "@/components/guest/balance";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -67,6 +69,7 @@ function PaymentsContent() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [transactions, setTransactions] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { summary: folio, loading: folioLoading } = useFolioSummary();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addType, setAddType] = useState<
     "card" | "mobile" | "google" | "apple"
@@ -278,6 +281,13 @@ function PaymentsContent() {
           Add New Method
         </Button>
       </div>
+
+      {/* Outstanding Balance — room not fully paid and/or dining charged to room */}
+      <OutstandingBalanceBanner
+        summary={folio}
+        loading={folioLoading}
+        showAction={false}
+      />
 
       {/* Accepted Methods Banner (static) */}
       <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 flex flex-wrap items-center gap-6">
