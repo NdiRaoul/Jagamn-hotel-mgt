@@ -158,7 +158,15 @@ function StaffLoginForm() {
         </Button>
       </form>
 
-     
+      <div className="flex justify-center">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-[#00152A] transition-colors"
+        >
+          <Globe className="w-4 h-4" />
+          Return to Main Website
+        </Link>
+      </div>
     </div>
   );
 }

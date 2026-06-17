@@ -45,7 +45,7 @@ export interface RoomBoardRoom {
   unitCode: string;
   floor: number | null;
   roomTypeName: string;
-  status: "occupied" | "reserved" | "available" | "dirty" | "out_of_order";
+  status: "occupied" | "available" | "dirty" | "out_of_order";
   guestName: string | null;
   bookingRef: string | null;
 }
@@ -227,26 +227,19 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
   const roomTypeMap = new Map(
     (roomTypes as unknown as RoomType[]).map((rt) => [rt.id, rt.name]),
   );
-  // A room reads as physically "occupied" only once the guest is checked in.
+  // A room only reads as physically occupied once the guest is checked in.
   // Bookings get a room_id pre-assigned at creation, so a not-yet-arrived
-  // pending/confirmed booking must NOT read as occupied — otherwise the same
-  // guest shows as both a "pending arrival" and as occupying the board, the
-  // contradictory dual-state in Recep-001. Instead, an assigned-but-not-yet-
-  // arrived booking marks its room "reserved" so it still surfaces on the
-  // board (rather than appearing freely available). Check-in flips status to
-  // "checked_in" atomically, which promotes the room to "occupied".
-  const bookingMap = new Map<
-    string,
-    Booking & { booking_ref: string; status?: string }
-  >();
+  // pending/confirmed booking must NOT mark its room occupied — otherwise the
+  // same guest shows as a "pending arrival" *and* as occupying the room board,
+  // the contradictory dual-state in Recep-001. Check-in flips status to
+  // "checked_in" atomically, which is the real occupancy signal.
+  const bookingMap = new Map<string, Booking & { booking_ref: string }>();
   (
     (activeBookings || []) as unknown as (Booking & { status?: string })[]
   ).forEach((booking) => {
-    if (!booking.room_id) return;
-    // Prefer a checked-in (occupying) booking over a merely assigned one.
-    const existing = bookingMap.get(booking.room_id);
-    if (existing && existing.status === "checked_in") return;
-    bookingMap.set(booking.room_id, booking);
+    if (booking.room_id && booking.status === "checked_in") {
+      bookingMap.set(booking.room_id, booking);
+    }
   });
 
   const board = (
@@ -263,8 +256,7 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     } else if (booking) {
       bookingRef = booking.booking_ref;
       guestName = booking.guest_name;
-      // Checked in → occupied; assigned but not yet arrived → reserved.
-      status = booking.status === "checked_in" ? "occupied" : "reserved";
+      status = "occupied";
     } else if (room.housekeeping_status === "dirty") {
       // Vacated but not yet cleaned (set on checkout, cleared by housekeeping).
       status = "dirty";

@@ -247,8 +247,8 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
                       : "text-[#0D2137]",
                   )}
                 >
-                  {room.status === "occupied" || room.status === "reserved"
-                    ? room.guestName || room.bookingRef || config.text
+                  {room.status === "occupied"
+                    ? room.bookingRef || room.guestName || "Occupied"
                     : room.status === "dirty"
                       ? "Needs Cleaning"
                       : room.status === "out_of_order"

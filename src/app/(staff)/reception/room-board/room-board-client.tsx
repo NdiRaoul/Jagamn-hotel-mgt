@@ -26,13 +26,6 @@ const STATUS_CONFIG = {
     badge: "bg-gray-50 text-gray-500",
     label: "Occupied",
   },
-  reserved: {
-    border: "border-t-[#E8924A]",
-    icon: Key,
-    iconBg: "bg-[#E8924A]/5 text-[#E8924A]",
-    badge: "bg-orange-50 text-orange-600",
-    label: "Reserved",
-  },
   available: {
     border: "border-t-[#BA722E]",
     icon: Key,
@@ -109,7 +102,6 @@ export default function RoomBoardClient({
   const counts = useMemo(
     () => ({
       occupied: rooms.filter((r) => r.status === "occupied").length,
-      reserved: rooms.filter((r) => r.status === "reserved").length,
       available: rooms.filter((r) => r.status === "available").length,
       dirty: rooms.filter((r) => r.status === "dirty").length,
       out_of_order: rooms.filter((r) => r.status === "out_of_order").length,
@@ -143,7 +135,6 @@ export default function RoomBoardClient({
           >
             <option value="all">All Status</option>
             <option value="occupied">Occupied</option>
-            <option value="reserved">Reserved</option>
             <option value="available">Available</option>
             <option value="dirty">Needs Cleaning</option>
             <option value="out_of_order">Out of Order</option>
@@ -194,13 +185,11 @@ export default function RoomBoardClient({
                 "w-3 h-3 rounded",
                 key === "occupied"
                   ? "bg-[#00152A]"
-                  : key === "reserved"
-                    ? "bg-[#E8924A]"
-                    : key === "available"
-                      ? "bg-[#BA722E]"
-                      : key === "dirty"
-                        ? "bg-orange-400"
-                        : "bg-red-500",
+                  : key === "available"
+                    ? "bg-[#BA722E]"
+                    : key === "dirty"
+                      ? "bg-orange-400"
+                      : "bg-red-500",
               )}
             />
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -243,13 +232,13 @@ export default function RoomBoardClient({
               </div>
 
               <div className="pt-3 border-t border-gray-50">
-                {room.status === "occupied" || room.status === "reserved" ? (
+                {room.status === "occupied" ? (
                   <div className="space-y-2">
                     {/* Default: booking ID. Toggle reveals the guest name. */}
                     <p className="text-sm font-bold text-[#00152A] line-clamp-1 font-mono">
                       {showGuestNames
-                        ? room.guestName || room.bookingRef || cfg.label
-                        : room.bookingRef || room.guestName || cfg.label}
+                        ? room.guestName || room.bookingRef || "Occupied"
+                        : room.bookingRef || room.guestName || "Occupied"}
                     </p>
                     {(showGuestNames ? room.bookingRef : room.guestName) && (
                       <p

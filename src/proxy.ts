@@ -38,6 +38,16 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Protect all /dashboard/* routes
+  if (pathname.startsWith("/dashboard")) {
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   // Protect staff portals with role checks
   const staffPrefixes = [
     "/admin",

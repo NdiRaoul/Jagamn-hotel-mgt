@@ -199,7 +199,7 @@ function ResetPasswordContent() {
                 </form>
 
                 <Link
-                  href="/staff-login"
+                  href="/login"
                   className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-jagamn-primary transition-colors"
                 >
                   Back to Sign In
