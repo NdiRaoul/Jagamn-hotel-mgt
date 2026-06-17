@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const { data: booking, error: bookingErr } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id, booking_ref, room_id, room_slug, room_type_id, check_in, check_out, nights, room_price_per_night, tax_amount, total_amount, status",
+      "id, booking_ref, room_id, room_slug, room_type_id, check_in, check_out, nights, room_price_per_night, tax_amount, total_amount, status, payment_status",
     )
     .eq("id", booking_id)
     .maybeSingle();
@@ -149,10 +149,87 @@ export async function POST(request: NextRequest) {
     room_type_id: newType.id,
     room_slug: newType.slug,
   };
+
+  // When the room type changes, the money already paid for the old room is
+  // carried onto the new room. We move the whole stay onto the folio ledger so
+  // the carried amount nets against the new room charge — leaving either a
+  // BALANCE (new room costs more) or a REFUND credit (new room costs less).
+  let newBalance = 0;
+  let newRefund = 0;
+  let newPaymentStatus: string | null = booking.payment_status; // overwritten when typeChanged
+
   if (typeChanged) {
+    // 5a. Capture what the guest has already paid toward the room.
+    const [{ data: folioBal }, { data: existingRoomCharges }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("booking_folio_balance")
+          .select("paid_minor")
+          .eq("booking_id", booking.id)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("folio_entries")
+          .select("id")
+          .eq("booking_id", booking.id)
+          .eq("category", "room")
+          .eq("entry_type", "charge"),
+      ]);
+
+    const hadRoomCharge = (existingRoomCharges?.length ?? 0) > 0;
+    // Walk-in / desk bookings already track payments on the folio. Online
+    // prepaid bookings have none, so the full old room total is the carried
+    // amount; a pending online booking has paid nothing.
+    const amountPaidMinor = hadRoomCharge
+      ? (folioBal?.paid_minor ?? 0)
+      : booking.payment_status === "paid"
+        ? Math.round(oldTotal * 100)
+        : 0;
+    const newTotalMinor = Math.round(newTotal * 100);
+
     update.room_price_per_night = newPrice;
     update.tax_amount = newTax;
     update.total_amount = newTotal;
+
+    const netMinor = newTotalMinor - amountPaidMinor;
+    newPaymentStatus =
+      netMinor <= 0 ? "paid" : amountPaidMinor > 0 ? "partial" : "pending";
+    update.payment_status = newPaymentStatus;
+    newBalance = Math.max(netMinor, 0) / 100;
+    newRefund = Math.max(-netMinor, 0) / 100;
+
+    // 5b. Re-rate / post the room charge so the folio reflects the new room.
+    if (hadRoomCharge) {
+      await supabaseAdmin
+        .from("folio_entries")
+        .update({
+          amount_minor: newTotalMinor,
+          description: "Room Charge (reassigned)",
+        })
+        .eq("booking_id", booking.id)
+        .eq("category", "room")
+        .eq("entry_type", "charge");
+    } else {
+      await supabaseAdmin.from("folio_entries").insert({
+        booking_id: booking.id,
+        booking_ref: booking.booking_ref,
+        category: "room",
+        description: "Room Charge (reassigned)",
+        amount_minor: newTotalMinor,
+        entry_type: "charge",
+      });
+      // Carry the previous prepayment onto the folio as a payment so it offsets
+      // the new room charge.
+      if (amountPaidMinor > 0) {
+        await supabaseAdmin.from("folio_entries").insert({
+          booking_id: booking.id,
+          booking_ref: booking.booking_ref,
+          category: "payment",
+          description: "Carried-over payment from previous room",
+          amount_minor: amountPaidMinor,
+          entry_type: "payment",
+        });
+      }
+    }
   }
 
   const { error: updErr } = await supabaseAdmin
@@ -165,17 +242,6 @@ export async function POST(request: NextRequest) {
       { error: "Could not reassign room" },
       { status: 500 },
     );
-  }
-
-  // 6. Keep the folio room charge (walk-in / desk bookings) in step with the
-  // new rate so the outstanding balance stays correct.
-  if (typeChanged) {
-    await supabaseAdmin
-      .from("folio_entries")
-      .update({ amount_minor: Math.round(newTotal * 100) })
-      .eq("booking_id", booking.id)
-      .eq("category", "room")
-      .eq("entry_type", "charge");
   }
 
   // 7. Old room needs cleaning if the guest was physically in it.
@@ -202,6 +268,9 @@ export async function POST(request: NextRequest) {
       toType: newType.slug,
       oldTotal,
       newTotal,
+      balanceDue: newBalance,
+      refundDue: newRefund,
+      paymentStatus: newPaymentStatus,
     },
     ip: request.headers.get("x-forwarded-for") || "unknown",
   });
@@ -216,5 +285,7 @@ export async function POST(request: NextRequest) {
     newTotal,
     delta,
     direction: delta > 0 ? "upgrade" : delta < 0 ? "downgrade" : "same",
+    balanceDue: newBalance,
+    refundDue: newRefund,
   });
 }

@@ -269,11 +269,15 @@ export default function RoomBoardClient({
                         {showGuestNames ? room.bookingRef : room.guestName}
                       </p>
                     )}
-                    {room.balanceDue > 0 && (
+                    {room.balanceDue > 0 ? (
                       <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-[#E65100] bg-[#FFF3E0] px-2 py-0.5 rounded">
                         Balance {formatMoney(room.balanceDue)}
                       </span>
-                    )}
+                    ) : room.refundDue > 0 ? (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                        Refund {formatMoney(room.refundDue)}
+                      </span>
+                    ) : null}
                     {room.bookingId && (
                       <Button
                         variant="outline"

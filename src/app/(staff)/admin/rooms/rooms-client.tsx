@@ -328,11 +328,15 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
                 >
                   {guestLabel}
                 </p>
-                {room.balanceDue > 0 && (
+                {room.balanceDue > 0 ? (
                   <p className="text-[11px] font-bold text-[#E65100] flex items-center gap-1 pt-1">
                     Balance: {formatMoney(room.balanceDue)}
                   </p>
-                )}
+                ) : room.refundDue > 0 ? (
+                  <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 pt-1">
+                    Refund: {formatMoney(room.refundDue)}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center justify-between">
                 <Badge
@@ -347,6 +351,10 @@ export default function RoomsClient({ rooms, summary, error }: Props) {
                 {room.balanceDue > 0 ? (
                   <span className="text-[8px] font-black uppercase tracking-widest text-[#E65100] bg-[#FFF3E0] px-2 py-1 rounded-md">
                     Owing
+                  </span>
+                ) : room.refundDue > 0 ? (
+                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                    Refund
                   </span>
                 ) : (
                   <div

@@ -110,12 +110,16 @@ export function ReassignRoomModal({
         setError(data.error || "Reassignment failed");
         return;
       }
+      const money =
+        data.balanceDue > 0
+          ? ` • Balance due ${formatMoney(data.balanceDue)}`
+          : data.refundDue > 0
+            ? ` • Refund due ${formatMoney(data.refundDue)}`
+            : data.typeChanged
+              ? " • Settled"
+              : "";
       toast.success(
-        `Moved to ${data.roomType} — Room ${data.unitCode}${
-          data.typeChanged
-            ? ` (${data.direction}, new total ${formatMoney(data.newTotal)})`
-            : ""
-        }`,
+        `Moved to ${data.roomType} — Room ${data.unitCode}${money}`,
       );
       onClose();
       router.refresh();
