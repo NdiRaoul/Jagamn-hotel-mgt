@@ -83,10 +83,13 @@ export async function POST(request: NextRequest) {
 
   const roomPricePerNight = roomType.price_per_night;
   const taxAmount = Math.round(roomPricePerNight * nights * 0.1);
-  const totalAmount =
-    amount && typeof amount === "number"
-      ? amount
-      : roomPricePerNight * nights + taxAmount;
+  // Stored on the booking in WHOLE XAF — must match online bookings so the
+  // guest pages and balance math read the same units. The client `amount`
+  // (minor units, for the payment provider) is NOT used as the stored total.
+  const roomTotalWhole = roomPricePerNight * nights + taxAmount;
+  // Amount handed to the card / mobile-money provider (minor units expected).
+  const providerAmount =
+    amount && typeof amount === "number" ? amount : roomTotalWhole;
 
   const { data: activeBookings } = await supabaseAdmin
     .from("bookings")
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
       guests: typeof guests === "number" ? guests : 1,
       room_price_per_night: roomPricePerNight,
       tax_amount: taxAmount,
-      total_amount: totalAmount,
+      total_amount: roomTotalWhole,
       payment_method:
         typeof payment_method === "string" ? payment_method : null,
       payment_status: "pending",
@@ -212,6 +215,23 @@ export async function POST(request: NextRequest) {
       .eq("id", booking.id);
   }
 
+  // ── Cash / pay-at-desk: post the room onto the folio so any unpaid portion
+  // becomes a tracked balance the front desk can settle (now or at checkout).
+  // The receptionist records what the guest actually hands over via the cash
+  // dialog (→ /api/reception/cash-payment), which draws this charge down.
+  // Card / mobile-money walk-ins are prepaid online and keep the
+  // payment_status-driven model instead (no room folio charge).
+  if (payment_method === "cash") {
+    await supabaseAdmin.from("folio_entries").insert({
+      booking_id: booking.id,
+      booking_ref: booking.booking_ref,
+      category: "room",
+      description: "Room Charge",
+      amount_minor: Math.round(roomTotalWhole * 100),
+      entry_type: "charge",
+    });
+  }
+
   const responsePayload: Record<string, unknown> = {
     bookingId: booking.id,
     bookingRef: booking.booking_ref,
@@ -229,7 +249,7 @@ export async function POST(request: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingRef: booking.booking_ref,
-          totalAmount,
+          totalAmount: providerAmount,
           currency: "xaf",
           clientIdempotencyKey,
         }),
@@ -250,7 +270,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: totalAmount,
+          amount: providerAmount,
           phone,
           medium,
           bookingRef: booking.booking_ref,
@@ -273,7 +293,7 @@ export async function POST(request: NextRequest) {
     payload: {
       roomSlug: room_slug,
       assignedRoomId,
-      totalAmount,
+      totalAmount: roomTotalWhole,
       paymentMethod: payment_method,
     },
     ip: request.headers.get("x-forwarded-for") || "unknown",

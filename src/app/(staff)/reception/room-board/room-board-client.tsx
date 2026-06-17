@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import type { RoomBoardRoom } from "@/lib/data/reception";
+import {
+  ReassignRoomModal,
+  type ReassignTarget,
+} from "@/components/reception/reassign-room-modal";
 
 const STATUS_CONFIG = {
   occupied: {
@@ -71,6 +76,9 @@ export default function RoomBoardClient({
   // reveal guest names instead.
   const [showGuestNames, setShowGuestNames] = useState(false);
   const [cleaningRoomId, setCleaningRoomId] = useState<string | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<ReassignTarget | null>(
+    null,
+  );
 
   async function markClean(roomId: string) {
     setCleaningRoomId(roomId);
@@ -261,6 +269,30 @@ export default function RoomBoardClient({
                         {showGuestNames ? room.bookingRef : room.guestName}
                       </p>
                     )}
+                    {room.balanceDue > 0 && (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-[#E65100] bg-[#FFF3E0] px-2 py-0.5 rounded">
+                        Balance {formatMoney(room.balanceDue)}
+                      </span>
+                    )}
+                    {room.bookingId && (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setReassignTarget({
+                            bookingId: room.bookingId!,
+                            unitCode: room.unitCode,
+                            guestName: room.guestName,
+                            roomSlug: room.roomSlug,
+                            roomTypeName: room.roomTypeName,
+                            balanceDue: room.balanceDue,
+                          })
+                        }
+                        className="h-8 w-full mt-1 border-[#00152A]/15 text-[#00152A] text-[9px] font-bold uppercase tracking-widest gap-1.5"
+                      >
+                        <BedDouble className="w-3 h-3" />
+                        Reassign Room
+                      </Button>
+                    )}
                   </div>
                 ) : room.status === "dirty" ? (
                   <Button
@@ -295,6 +327,11 @@ export default function RoomBoardClient({
           </div>
         )}
       </div>
+
+      <ReassignRoomModal
+        target={reassignTarget}
+        onClose={() => setReassignTarget(null)}
+      />
     </div>
   );
 }

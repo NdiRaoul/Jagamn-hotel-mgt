@@ -13,3 +13,8 @@ export function getCache<T>(key: string): T | null {
   }
   return entry.value as T;
 }
+
+/** Drop a cached entry so the next read recomputes (e.g. after a write). */
+export function clearCache(key: string) {
+  cache.delete(key);
+}
