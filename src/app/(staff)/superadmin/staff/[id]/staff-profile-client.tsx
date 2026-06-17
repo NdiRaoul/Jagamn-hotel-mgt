@@ -221,8 +221,8 @@ export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
                     <p className="text-[9px] font-black text-[#43474D] uppercase tracking-widest">
                       Base Salary
                     </p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="manrope-bold text-3xl md:text-4xl text-jagamn-primary">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+                      <span className="manrope-bold text-2xl md:text-3xl lg:text-4xl text-jagamn-primary break-words tabular-nums leading-tight">
                         {formatSalary(staff.salary || 0)}
                       </span>
                       <span className="text-gray-400 font-bold text-[10px] md:text-xs uppercase">
@@ -382,12 +382,19 @@ export default function StaffProfileClient({ staff }: StaffProfileClientProps) {
         </div>
       </div>
 
-      {/* Edit Staff Modal — owner may only assign admin/manager roles */}
+      {/* Edit Staff Modal — the owner may assign any role and set any salary. */}
       <StaffEditModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         staff={staff}
-        allowedRoles={["admin", "manager"]}
+        allowedRoles={[
+          "admin",
+          "manager",
+          "reception",
+          "kitchen",
+          "storekeeper",
+        ]}
+        canEditSalary={true}
       />
     </div>
   );

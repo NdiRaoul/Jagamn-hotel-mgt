@@ -3,7 +3,11 @@ import {
   supabaseAdmin,
   createSupabaseServerClient,
 } from "@/lib/supabase-server";
+import { getStaffSession } from "@/lib/auth/staff-session";
 import Stripe from "stripe";
+
+// Staff roles permitted to cancel any reservation from the front desk.
+const STAFF_CANCEL_ROLES = ["owner", "admin", "manager", "reception"];
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-05-27.dahlia",
@@ -26,29 +30,57 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Front-desk staff (reception/manager/admin/owner) may cancel any booking.
+    // Otherwise fall back to the guest-owner path: the caller must be the
+    // authenticated owner of this booking.
+    const staff = await getStaffSession();
+    const isAuthorizedStaff =
+      !!staff && STAFF_CANCEL_ROLES.includes(staff.role);
 
-    const { data: userRow } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+    type CancelBooking = {
+      status: string;
+      total_amount: number;
+      payments: PaymentRow[] | null;
+      guest_email: string;
+      guest_name: string;
+      booking_ref: string;
+    };
+    let booking: CancelBooking | null = null;
 
-    if (!userRow)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (isAuthorizedStaff) {
+      const { data } = await supabaseAdmin
+        .from("bookings")
+        .select("*, payments(*)")
+        .eq("id", id)
+        .single();
+      booking = data;
+    } else {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const { data: booking } = await supabaseAdmin
-      .from("bookings")
-      .select("*, payments(*)")
-      .eq("id", id)
-      .eq("app_user_id", userRow.id)
-      .single();
+      if (!user)
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+      const { data: userRow } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (!userRow)
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+      const { data } = await supabaseAdmin
+        .from("bookings")
+        .select("*, payments(*)")
+        .eq("id", id)
+        .eq("app_user_id", userRow.id)
+        .single();
+      booking = data;
+    }
 
     if (!booking)
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
@@ -116,9 +148,9 @@ export async function POST(
       .eq("id", id);
 
     try {
-      const { resend } = await import("@/lib/resend");
+      const { resend, EMAIL_FROM } = await import("@/lib/resend");
       await resend.emails.send({
-        from: "Jagamn Palace <reservations@jagamnpalace.com>",
+        from: EMAIL_FROM,
         to: [booking.guest_email],
         subject: `Booking Cancelled — ${booking.booking_ref} | Jagamn Palace`,
         html: `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px;">

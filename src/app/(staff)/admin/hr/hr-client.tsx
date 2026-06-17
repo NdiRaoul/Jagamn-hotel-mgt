@@ -37,6 +37,8 @@ import type { Staff } from "@/types/database";
 import type { LeaveRequest, Deduction, LeaveType } from "@/lib/data/hr";
 import type { HrLeaveSummary } from "@/lib/data/admin";
 import { formatMoney } from "@/lib/currency";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Props {
   roster: Staff[];
@@ -257,6 +259,31 @@ function LeaveView({
   requests: LeaveRequest[];
   staffCount: number;
 }) {
+  const router = useRouter();
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+
+  async function decideLeave(status: "approved" | "rejected") {
+    if (!selectedRequest) return;
+    setDecidingId(selectedRequest.id);
+    try {
+      const res = await fetch(`/api/admin/leave/${selectedRequest.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not update request");
+      toast.success(
+        `Leave request ${status === "approved" ? "approved" : "rejected"}.`,
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update request");
+    } finally {
+      setDecidingId(null);
+    }
+  }
+
   return (
     <div className="space-y-10">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -503,17 +530,31 @@ function LeaveView({
                   </div>
                 </div>
               </div>
-              <div className="p-6 md:p-8 border-t border-gray-100 flex items-center justify-center gap-6">
-                <Button
-                  variant="outline"
-                  className="h-14 px-12 rounded-xl border-2 border-red-500 text-red-500 manrope-bold hover:bg-red-50"
-                >
-                  REJECT
-                </Button>
-                <Button className="h-14 px-12 rounded-xl bg-[#0D2137] text-white manrope-bold hover:bg-[#0D2137]/90 shadow-xl">
-                  APPROVE
-                </Button>
-              </div>
+              {selectedRequest.status === "pending" ? (
+                <div className="p-6 md:p-8 border-t border-gray-100 flex items-center justify-center gap-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => decideLeave("rejected")}
+                    disabled={decidingId === selectedRequest.id}
+                    className="h-14 px-12 rounded-xl border-2 border-red-500 text-red-500 manrope-bold hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {decidingId === selectedRequest.id ? "…" : "REJECT"}
+                  </Button>
+                  <Button
+                    onClick={() => decideLeave("approved")}
+                    disabled={decidingId === selectedRequest.id}
+                    className="h-14 px-12 rounded-xl bg-[#0D2137] text-white manrope-bold hover:bg-[#0D2137]/90 shadow-xl disabled:opacity-50"
+                  >
+                    {decidingId === selectedRequest.id ? "Saving…" : "APPROVE"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-6 md:p-8 border-t border-gray-100 flex items-center justify-center">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                    This request has been {selectedRequest.status}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

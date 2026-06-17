@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import Link from "next/link";
 import type {
   ArrivalRecord,
@@ -248,12 +249,21 @@ export default function ReceptionOverviewClient({
               <div
                 key={room.id}
                 title={
-                  room.guestName
+                  (room.guestName
                     ? `${room.unitCode} — ${room.guestName}`
-                    : room.unitCode
+                    : room.unitCode) +
+                  (room.balanceDue > 0
+                    ? ` • Balance ${formatMoney(room.balanceDue)}`
+                    : room.refundDue > 0
+                      ? ` • Refund ${formatMoney(room.refundDue)}`
+                      : "")
                 }
                 className={cn(
-                  "aspect-square rounded flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer hover:scale-105",
+                  "relative aspect-square rounded flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer hover:scale-105",
+                  room.balanceDue > 0 && "ring-2 ring-[#E65100] ring-offset-1",
+                  room.balanceDue <= 0 &&
+                    room.refundDue > 0 &&
+                    "ring-2 ring-emerald-500 ring-offset-1",
                   room.status === "occupied"
                     ? "bg-[#00152A] text-white"
                     : room.status === "dirty"
@@ -264,6 +274,12 @@ export default function ReceptionOverviewClient({
                 )}
               >
                 {room.unitCode.slice(-3)}
+                {room.balanceDue > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#E65100]" />
+                )}
+                {room.balanceDue <= 0 && room.refundDue > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />
+                )}
               </div>
             ))}
           </div>

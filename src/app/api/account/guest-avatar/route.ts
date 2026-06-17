@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createSupabaseServerClient, supabaseAdmin } from "@/lib/supabase-server";
+import {
+  createSupabaseServerClient,
+  supabaseAdmin,
+  ensureBucket,
+} from "@/lib/supabase-server";
 
 const storage = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,6 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await ensureBucket("avatars");
     const fileName = `guest-${user.id}-${Date.now()}.${file.name.split(".").pop()}`;
     const { error: uploadError } = await storage.storage
       .from("avatars")

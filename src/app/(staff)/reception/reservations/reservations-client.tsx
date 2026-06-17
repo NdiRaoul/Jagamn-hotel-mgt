@@ -32,20 +32,48 @@ export default function ReservationsClient({
   const [selectedId, setSelectedId] = useState<string | null>(reservations[0]?.id ?? null);
   const [search, setSearch] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Paginated list: the first page is server-rendered; "Load more" appends
+  // subsequent pages so client-side search still covers everything loaded.
+  const PAGE_SIZE = 50;
+  const [items, setItems] = useState<ActiveReservation[]>(reservations);
+  const [hasMore, setHasMore] = useState(reservations.length >= PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/reception/reservations?offset=${items.length}&limit=${PAGE_SIZE}`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load more");
+      setItems((prev) => [
+        ...prev,
+        ...((data.reservations ?? []) as ActiveReservation[]),
+      ]);
+      setHasMore(Boolean(data.hasMore));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return reservations.filter(
+    return items.filter(
       (r) =>
         !q ||
         r.guestName.toLowerCase().includes(q) ||
         r.bookingRef.toLowerCase().includes(q) ||
         r.roomTypeName.toLowerCase().includes(q),
     );
-  }, [reservations, search]);
+  }, [items, search]);
 
   const selected =
-    reservations.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
+    items.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
 
   // ── Extend / modify stay ──────────────────────────────
   const [showExtend, setShowExtend] = useState(false);
@@ -127,12 +155,7 @@ export default function ReservationsClient({
 
   const handleCancel = async () => {
     if (!selected) return;
-    if (
-      !confirm(
-        `Cancel booking ${selected.bookingRef}? A 15% cancellation fee applies.`,
-      )
-    )
-      return;
+    setShowCancelConfirm(false);
     setCancelling(true);
     try {
       const res = await fetch(`/api/bookings/${selected.id}/cancel`, {
@@ -140,7 +163,11 @@ export default function ReservationsClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Cancel failed");
-      toast.success(`Booking ${selected.bookingRef} cancelled`);
+      const refund =
+        typeof data.refundAmount === "number"
+          ? ` ${formatMoney(data.refundAmount)} will be refunded.`
+          : "";
+      toast.success(`Booking ${selected.bookingRef} cancelled.${refund}`);
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cancel failed");
@@ -157,8 +184,8 @@ export default function ReservationsClient({
             Active Reservations
           </h1>
           <p className="text-gray-500 text-sm">
-            {reservations.length} guest{reservations.length !== 1 ? "s" : ""}{" "}
-            currently active
+            {items.length} guest{items.length !== 1 ? "s" : ""}
+            {hasMore ? "+" : ""} currently active
           </p>
         </div>
         <div className="relative w-64">
@@ -242,6 +269,15 @@ export default function ReservationsClient({
                 </div>
               </div>
             ))}
+            {hasMore && !search && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-3 text-xs font-bold uppercase tracking-widest text-[#00152A] hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
 
           {/* Detail */}
@@ -387,7 +423,7 @@ export default function ReservationsClient({
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={handleCancel}
+                    onClick={() => setShowCancelConfirm(true)}
                     disabled={cancelling}
                     className="h-16 bg-white border-red-100 text-red-500 font-medium rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-red-50 hover:border-red-200"
                   >
@@ -476,6 +512,56 @@ export default function ReservationsClient({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Cancel & Refund confirmation modal ─────────────── */}
+      {showCancelConfirm && selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-in fade-in duration-150"
+          onClick={() => setShowCancelConfirm(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-50">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-[#00152A]">
+                  Cancel booking {selected.bookingRef}?
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  A 15% cancellation fee applies. The room will be released and
+                  the guest refunded the remaining{" "}
+                  {formatMoney(
+                    selected.totalAmount -
+                      Math.round(selected.totalAmount * 0.15),
+                  )}
+                  .
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={cancelling}
+                className="border-gray-200"
+              >
+                Keep booking
+              </Button>
+              <Button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="bg-red-500 text-white hover:bg-red-600"
+              >
+                {cancelling ? "Cancelling…" : "Cancel & Refund"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

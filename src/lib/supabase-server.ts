@@ -1,3 +1,4 @@
+
 // ── Server-only Supabase clients ─────────────────────────────────────────────
 // This file must ONLY be imported in:
 //   - Server Components
@@ -66,3 +67,13 @@ export const supabaseAdmin = createClient(
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
+
+// Idempotently ensure a public storage bucket exists before an upload. Storage
+// buckets aren't created by schema.sql, so a fresh environment would otherwise
+// fail with "Bucket not found". Safe to call on every upload — a re-create on
+// an existing bucket is ignored.
+export async function ensureBucket(bucket: string) {
+  await supabaseAdmin.storage
+    .createBucket(bucket, { public: true, fileSizeLimit: 4 * 1024 * 1024 })
+    .catch(() => undefined);
+}

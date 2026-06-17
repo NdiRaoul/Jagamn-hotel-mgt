@@ -3,6 +3,7 @@ import {
   createSupabaseRouteHandlerClient,
   supabaseAdmin,
 } from "@/lib/supabase-server";
+import { resolveAppUser } from "@/lib/auth/app-user";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,26 +23,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No items in order" }, { status: 400 });
     }
 
-    // Resolve app_user_id from auth user
-    const { data: appUser } = await supabaseAdmin
-      .from("users")
-      .select("id, email")
-      .eq("auth_user_id", user.id)
-      .single();
+    // Resolve app_user_id from auth user (with email fallback + self-link so a
+    // guest who booked before signing up is still recognised — see Guest-006).
+    const appUser = await resolveAppUser(user.id, user.email);
 
     if (!appUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Resolve booking_id from current checked_in booking
+    // Resolve the guest's CURRENT in-room stay. In-room dining charged to the
+    // room is only valid while the guest is physically in the room: checked in,
+    // a room assigned, and today within the stay window [check_in, check_out].
+    // A pending/confirmed (not-yet-arrived) or checked-out booking does NOT
+    // qualify.
+    const today = new Date().toISOString().split("T")[0];
     const { data: activeBooking } = await supabaseAdmin
       .from("bookings")
       .select("id, booking_ref, room_id, rooms(unit_code)")
       .eq("app_user_id", appUser.id)
       .eq("status", "checked_in")
+      .not("room_id", "is", null)
+      .lte("check_in", today)
+      .gte("check_out", today)
       .order("check_in", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    // Charge-to-room requires that active stay. Without it there is no folio to
+    // bill, so reject rather than silently creating an unbillable order.
+    if (
+      payment_method === "charge_to_room" &&
+      (!activeBooking || !activeBooking.room_id)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Charge to room is only available during an active stay — you must be checked in with a room assigned. Please pay by mobile money or card.",
+        },
+        { status: 403 },
+      );
+    }
 
     // Define item type
     type OrderItem = {

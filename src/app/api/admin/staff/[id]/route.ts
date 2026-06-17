@@ -3,6 +3,7 @@ import {
   createSupabaseServerClient,
   supabaseAdmin,
 } from "@/lib/supabase-server";
+import { canAssignRole, canModifyStaff } from "@/lib/auth/staff-permissions";
 
 const ADMIN_ROLES = ["owner", "admin", "manager"];
 
@@ -77,14 +78,32 @@ export async function PATCH(
     unknown
   >;
 
-  // The owner (superadmin flow) may only assign admin or manager roles.
-  if (
-    role &&
-    guard.role === "owner" &&
-    !["admin", "manager"].includes(String(role))
-  ) {
+  // Look up the target's current role to enforce the management policy.
+  const { data: target } = await supabaseAdmin
+    .from("staff")
+    .select("role")
+    .eq("id", p.id)
+    .maybeSingle();
+
+  if (!target) {
     return NextResponse.json(
-      { error: "Owner may only assign the admin or manager role." },
+      { error: "Staff member not found" },
+      { status: 404 },
+    );
+  }
+
+  // Admins/managers cannot modify elevated-role records — only the owner can.
+  if (!canModifyStaff(guard.role, String(target.role))) {
+    return NextResponse.json(
+      { error: "Only the owner can modify admin or manager accounts." },
+      { status: 403 },
+    );
+  }
+
+  // Only the owner may assign elevated roles (promote anyone to admin/manager).
+  if (role && !canAssignRole(guard.role, String(role))) {
+    return NextResponse.json(
+      { error: "Only the owner can assign the admin or manager role." },
       { status: 403 },
     );
   }

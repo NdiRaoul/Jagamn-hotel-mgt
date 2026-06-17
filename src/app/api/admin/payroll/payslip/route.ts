@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { notify } from "@/lib/data/notifications";
-import { resend } from "@/lib/resend";
+import { resend, EMAIL_FROM } from "@/lib/resend";
 import { buildPayslipEmailHtml } from "@/lib/emails/payslip";
 
 // Only the owner and admins may issue a payslip to a staff member.
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     if (staff.email) {
       try {
         const { error: sendError } = await resend.emails.send({
-          from: "Jagamn Palace <payroll@jagamnpalace.com>",
+          from: EMAIL_FROM,
           to: [staff.email],
           subject: `Your Payslip — ${periodLabel} | Jagamn Palace`,
           html: buildPayslipEmailHtml({

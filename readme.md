@@ -79,3 +79,6 @@ All prices are automatically in XAF (base currency).
 - **Dining flow:** Guest → Kitchen (realtime) → Storekeeper (stub, to be completed)
 - **Folio:** Charge-to-room for dining, minibar, damages; cash/card payments
 - **Help:** Dynamic articles from `help_articles` table (editable without code deploy)
+
+
+

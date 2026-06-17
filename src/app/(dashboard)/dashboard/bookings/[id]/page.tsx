@@ -28,6 +28,8 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { format } from "date-fns";
 import type { Booking } from "@/types/database";
+import { useFolioSummary } from "@/hooks/use-folio";
+import { formatMoney } from "@/components/guest/balance";
 
 export default function BookingDetailsPage() {
   const params = useParams();
@@ -40,6 +42,8 @@ export default function BookingDetailsPage() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { summary: folioSummary } = useFolioSummary(id);
+  const folio = folioSummary?.bookings?.[0];
 
   useEffect(() => {
     async function load() {
@@ -237,23 +241,121 @@ export default function BookingDetailsPage() {
                   ${taxAmount}
                 </span>
               </div>
+
+              {/* Extras charged to the room (in-room dining, minibar, etc.) */}
+              {folio?.entries
+                ?.filter((e) => e.entryType === "charge")
+                .map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="text-gray-500 capitalize">
+                      {e.description || e.category}
+                    </span>
+                    <span className="font-bold text-jagamn-primary">
+                      {formatMoney(e.amount)}
+                    </span>
+                  </div>
+                ))}
             </div>
-            <div className="pt-6 border-t border-gray-50 flex justify-between items-end">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                Total
-              </span>
-              <span className="manrope-bold text-3xl text-jagamn-primary">
-                ${booking.total_amount.toLocaleString("en-US")}
-              </span>
+
+            <div className="pt-6 border-t border-gray-50 space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Total Charges</span>
+                <span className="font-bold text-jagamn-primary">
+                  {folio
+                    ? formatMoney(folio.totalCharges)
+                    : `$${booking.total_amount.toLocaleString("en-US")}`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Amount Paid</span>
+                <span className="font-bold text-jagamn-secondary">
+                  −
+                  {folio
+                    ? formatMoney(folio.totalPaid)
+                    : booking.payment_status === "paid"
+                      ? `$${booking.total_amount.toLocaleString("en-US")}`
+                      : "$0"}
+                </span>
+              </div>
+              <div className="flex justify-between items-end pt-2 border-t border-gray-50">
+                {(() => {
+                  const refundDue = folio?.refundDue ?? 0;
+                  const balanceDue = folio
+                    ? folio.balanceDue
+                    : booking.payment_status === "paid"
+                      ? 0
+                      : booking.total_amount;
+                  if (refundDue > 0) {
+                    return (
+                      <>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          Refund Due
+                        </span>
+                        <span className="manrope-bold text-3xl text-emerald-600">
+                          {formatMoney(refundDue)}
+                        </span>
+                      </>
+                    );
+                  }
+                  const settled = balanceDue <= 0;
+                  return (
+                    <>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        Balance Due
+                      </span>
+                      <span
+                        className={cn(
+                          "manrope-bold text-3xl",
+                          settled ? "text-jagamn-primary" : "text-[#E65100]",
+                        )}
+                      >
+                        {settled ? "$0" : formatMoney(balanceDue)}
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
-            <div className="bg-jagamn-neutral rounded-md p-4 flex items-center gap-3">
-              <CheckCircle2 className="w-4 h-4 text-jagamn-secondary" />
-              <span className="text-[10px] font-bold text-jagamn-secondary uppercase tracking-widest">
-                {booking.payment_status === "paid"
-                  ? "Payment Completed"
-                  : booking.payment_status}
-              </span>
-            </div>
+
+            {(() => {
+              const refundDue = folio?.refundDue ?? 0;
+              const balanceDue = folio
+                ? folio.balanceDue
+                : booking.payment_status === "paid"
+                  ? 0
+                  : booking.total_amount;
+              if (refundDue > 0) {
+                return (
+                  <div className="bg-emerald-50 rounded-md p-4 flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                      {formatMoney(refundDue)} refund due — collect at the front
+                      desk.
+                    </span>
+                  </div>
+                );
+              }
+              const settled = balanceDue <= 0;
+              return settled ? (
+                <div className="bg-jagamn-neutral rounded-md p-4 flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-jagamn-secondary" />
+                  <span className="text-[10px] font-bold text-jagamn-secondary uppercase tracking-widest">
+                    Payment Completed
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-[#FFF3E0] rounded-md p-4 flex items-center gap-3">
+                  <AlertCircle className="w-4 h-4 text-[#E65100]" />
+                  <span className="text-[10px] font-bold text-[#E65100] uppercase tracking-widest">
+                    {formatMoney(balanceDue)} outstanding — settle online or at
+                    the front desk.
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Cancellation Policy */}

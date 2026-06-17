@@ -1,5 +1,13 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Booking, Room, RoomType, Payment } from "@/types/database";
+import { getCache, setCache } from "@/lib/cache";
+import { computeBookingBalance } from "@/lib/folio-balance";
+
+// Default page size for the heavy front-desk lists. Kept generous so the
+// in-memory search/filter in the clients still covers a full working set,
+// while bounding the query as history grows (see getActiveReservations /
+// getTransactions). "Load more" fetches subsequent pages on demand.
+export const RECEPTION_PAGE_SIZE = 50;
 
 export interface ArrivalRecord {
   id: string;
@@ -38,9 +46,13 @@ export interface RoomBoardRoom {
   unitCode: string;
   floor: number | null;
   roomTypeName: string;
-  status: "occupied" | "available" | "dirty" | "out_of_order";
+  status: "occupied" | "reserved" | "available" | "dirty" | "out_of_order";
   guestName: string | null;
   bookingRef: string | null;
+  bookingId: string | null; // current booking on the room (for reassignment)
+  roomSlug: string | null; // booking's current room-type slug
+  balanceDue: number; // outstanding for the room's current booking (whole XAF)
+  refundDue: number; // owed back to the guest, e.g. after a downgrade (whole XAF)
 }
 
 export interface TransactionRecord {
@@ -186,6 +198,14 @@ export async function getDepartures(
 }
 
 export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
+  // The room board is read-heavy and polled by the front desk, yet it scans
+  // all rooms + today's active bookings on every call. A short TTL absorbs
+  // repeat reads without making occupancy meaningfully stale (check-in /
+  // checkout are not second-to-second events, and the page can be refreshed).
+  const CACHE_KEY = "room_board";
+  const cached = getCache<RoomBoardRoom[]>(CACHE_KEY);
+  if (cached) return cached;
+
   const today = new Date();
   const todayKey = toDateKey(today);
 
@@ -195,14 +215,17 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
         .from("rooms")
         .select("id,unit_code,floor,is_active,room_type_id,housekeeping_status"),
       supabaseAdmin.from("room_types").select("id,name"),
-      // Rooms currently occupied: a non-departed booking spanning today.
+      // Rooms with a live assignment: any non-departed booking whose stay has
+      // not yet ended (check_out in the future). This covers bookings checked
+      // in today (→ occupied) AND ones assigned for today or an upcoming date
+      // (→ reserved) — both should surface on the board rather than reading as
+      // freely available.
       supabaseAdmin
         .from("bookings")
         .select(
-          "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref",
+          "id,room_id,room_slug,guest_name,check_in,check_out,status,booking_ref,total_amount,payment_status",
         )
         .not("status", "in", "(cancelled,expired,checked_out,completed)")
-        .lte("check_in", todayKey)
         .gt("check_out", todayKey),
     ]);
 
@@ -212,14 +235,75 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
   const roomTypeMap = new Map(
     (roomTypes as unknown as RoomType[]).map((rt) => [rt.id, rt.name]),
   );
-  const bookingMap = new Map<string, Booking & { booking_ref: string }>();
-  ((activeBookings || []) as unknown as Booking[]).forEach((booking) => {
-    if (booking.room_id) {
+  // A room reads as physically "occupied" only once the guest is checked in.
+  // Bookings get a room_id pre-assigned at creation, so a not-yet-arrived
+  // pending/confirmed booking must NOT read as occupied — otherwise the same
+  // guest shows as both a "pending arrival" and as occupying the board, the
+  // contradictory dual-state in Recep-001. Instead, an assigned-but-not-yet-
+  // arrived booking marks its room "reserved" so it still surfaces on the
+  // board (rather than appearing freely available). Check-in flips status to
+  // "checked_in" atomically, which promotes the room to "occupied".
+  //
+  // A single room may carry several live bookings (e.g. a current stay plus a
+  // future assignment). Pick the most relevant one: a checked-in booking always
+  // wins (the room is physically occupied right now); otherwise the
+  // soonest-arriving assignment represents the room's next commitment.
+  const bookingMap = new Map<
+    string,
+    Booking & { booking_ref: string; status?: string }
+  >();
+  (
+    (activeBookings || []) as unknown as (Booking & { status?: string })[]
+  ).forEach((booking) => {
+    if (!booking.room_id) return;
+    const existing = bookingMap.get(booking.room_id);
+    if (!existing) {
+      bookingMap.set(booking.room_id, booking);
+      return;
+    }
+    // A checked-in booking is the definitive occupant — keep it.
+    if (existing.status === "checked_in") return;
+    if (booking.status === "checked_in") {
+      bookingMap.set(booking.room_id, booking);
+      return;
+    }
+    // Neither is checked in: keep the earlier check-in (the nearer commitment).
+    if ((booking.check_in ?? "") < (existing.check_in ?? "")) {
       bookingMap.set(booking.room_id, booking);
     }
   });
 
-  return (
+  // Outstanding balance per active booking (room + extras − payments). Folio
+  // reads degrade to a 0 balance rather than breaking the board.
+  const boardBookingIds = [...bookingMap.values()].map((b) => b.id);
+  const folioByBooking = new Map<
+    string,
+    { chargesMinor: number; paymentsMinor: number }
+  >();
+  const roomInFolio = new Set<string>();
+  if (boardBookingIds.length > 0) {
+    const [{ data: folios }, { data: roomChargeRows }] = await Promise.all([
+      supabaseAdmin
+        .from("booking_folio_balance")
+        .select("booking_id, charges_minor, paid_minor")
+        .in("booking_id", boardBookingIds),
+      supabaseAdmin
+        .from("folio_entries")
+        .select("booking_id")
+        .in("booking_id", boardBookingIds)
+        .eq("category", "room")
+        .eq("entry_type", "charge"),
+    ]);
+    for (const f of folios ?? []) {
+      folioByBooking.set(f.booking_id, {
+        chargesMinor: f.charges_minor ?? 0,
+        paymentsMinor: f.paid_minor ?? 0,
+      });
+    }
+    for (const r of roomChargeRows ?? []) roomInFolio.add(r.booking_id);
+  }
+
+  const board = (
     (rooms || []) as unknown as (Room & { housekeeping_status?: string })[]
   ).map((room) => {
     const booking = bookingMap.get(room.id);
@@ -227,13 +311,33 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
     let status: RoomBoardRoom["status"] = "available";
     let guestName: string | null = null;
     let bookingRef: string | null = null;
+    let bookingId: string | null = null;
+    let roomSlug: string | null = null;
+    let balanceDue = 0;
+    let refundDue = 0;
 
     if (!isActive) {
       status = "out_of_order";
     } else if (booking) {
       bookingRef = booking.booking_ref;
       guestName = booking.guest_name;
-      status = "occupied";
+      bookingId = booking.id;
+      roomSlug = (booking as { room_slug?: string }).room_slug ?? null;
+      // Checked in → occupied; assigned but not yet arrived → reserved.
+      status = booking.status === "checked_in" ? "occupied" : "reserved";
+      const folio = folioByBooking.get(booking.id) ?? {
+        chargesMinor: 0,
+        paymentsMinor: 0,
+      };
+      const bal = computeBookingBalance({
+        totalAmount: booking.total_amount ?? 0,
+        paymentStatus: (booking as { payment_status?: string }).payment_status,
+        folioChargesMinor: folio.chargesMinor,
+        folioPaymentsMinor: folio.paymentsMinor,
+        roomInFolio: roomInFolio.has(booking.id),
+      });
+      balanceDue = bal.balanceDue;
+      refundDue = bal.refundDue;
     } else if (room.housekeeping_status === "dirty") {
       // Vacated but not yet cleaned (set on checkout, cleared by housekeeping).
       status = "dirty";
@@ -247,8 +351,15 @@ export async function getRoomBoard(): Promise<RoomBoardRoom[]> {
       status,
       guestName,
       bookingRef,
+      bookingId,
+      roomSlug,
+      balanceDue,
+      refundDue,
     };
   });
+
+  setCache(CACHE_KEY, board, 15_000);
+  return board;
 }
 
 export async function searchFrontDesk(query: string): Promise<ArrivalRecord[]> {
@@ -365,7 +476,13 @@ export interface TransactionRecord2 {
 export async function getActiveReservations(filters?: {
   query?: string;
   status?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<ActiveReservation[]> {
+  // Bounded, paginated read so the query stays cheap as booking history grows.
+  const limit = filters?.limit ?? RECEPTION_PAGE_SIZE;
+  const offset = filters?.offset ?? 0;
+
   let query = supabaseAdmin
     .from("bookings")
     .select(
@@ -385,7 +502,7 @@ export async function getActiveReservations(filters?: {
     query = query.eq("status", filters.status);
   }
 
-  const { data, error } = await query.limit(100);
+  const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
   type ActiveReservationData = {
@@ -443,14 +560,20 @@ export async function getTransactions(filters?: {
   status?: string;
   dateFrom?: string;
   dateTo?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<TransactionRecord2[]> {
+  // Bounded, paginated read so the timeline query stays cheap as the payment
+  // event history grows.
+  const limit = filters?.limit ?? RECEPTION_PAGE_SIZE;
+  const offset = filters?.offset ?? 0;
+
   let query = supabaseAdmin
     .from("payment_timeline")
     .select(
       "payment_id,booking_ref,guest_name,guest_email,provider,amount_minor,currency,derived_status,event_type,event_at",
     )
-    .order("event_at", { ascending: false })
-    .limit(200);
+    .order("event_at", { ascending: false });
 
   if (filters?.query) {
     const q = filters.query.trim();
@@ -467,7 +590,7 @@ export async function getTransactions(filters?: {
   if (filters?.dateTo)
     query = query.lte("event_at", filters.dateTo + "T23:59:59");
 
-  const { data, error } = await query;
+  const { data, error } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
   type TransactionTimelineRow = {

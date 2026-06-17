@@ -3,7 +3,9 @@ import {
   getDiningOrdersForGuest,
   getGuestBookingRoomInfo,
 } from "@/lib/data/dining";
+import { getGuestFolios } from "@/lib/data/folio";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { resolveAppUser } from "@/lib/auth/app-user";
 import DiningClient from "./dining-client";
 
 export const dynamic = "force-dynamic";
@@ -15,20 +17,17 @@ export default async function DiningPage() {
   } = await supabase.auth.getUser();
 
   // Browsing the menu is open to everyone — we only gate the *order action*.
-  let appUser: { id: string } | null = null;
-  if (user) {
-    const { data } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
-    appUser = data;
-  }
+  // Resolve by auth_user_id with an email fallback so a guest who booked before
+  // creating an account is still recognised as signed in (see Guest-006).
+  const appUser = user
+    ? await resolveAppUser(user.id, user.email)
+    : null;
 
-  const [menu, orders, roomInfo] = await Promise.all([
+  const [menu, orders, roomInfo, folio] = await Promise.all([
     getMenu(),
     appUser ? getDiningOrdersForGuest(appUser.id) : Promise.resolve([]),
     appUser ? getGuestBookingRoomInfo(appUser.id) : Promise.resolve(null),
+    appUser ? getGuestFolios(appUser.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -37,6 +36,7 @@ export default async function DiningPage() {
       orders={orders}
       roomInfo={roomInfo}
       isAuthenticated={!!appUser}
+      roomBalance={folio?.totalBalanceDue ?? 0}
     />
   );
 }

@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { formatMoney } from "@/lib/currency";
 import {
   Select,
   SelectContent,
@@ -247,14 +248,23 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
                       : "text-[#0D2137]",
                   )}
                 >
-                  {room.status === "occupied"
-                    ? room.bookingRef || room.guestName || "Occupied"
+                  {room.status === "occupied" || room.status === "reserved"
+                    ? room.guestName || room.bookingRef || config.text
                     : room.status === "dirty"
                       ? "Needs Cleaning"
                       : room.status === "out_of_order"
                         ? "Out of Order"
                         : "Available"}
                 </p>
+                {room.balanceDue > 0 ? (
+                  <p className="text-[11px] font-bold text-[#E65100] pt-1">
+                    Balance: {formatMoney(room.balanceDue)}
+                  </p>
+                ) : room.refundDue > 0 ? (
+                  <p className="text-[11px] font-bold text-emerald-600 pt-1">
+                    Refund: {formatMoney(room.refundDue)}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center justify-between">
                 <Badge
@@ -266,7 +276,19 @@ export default function RoomsClient({ rooms: initialRooms }: RoomsClientProps) {
                 >
                   {config.text}
                 </Badge>
-                <div className={cn("w-2.5 h-2.5 rounded-full", config.color)} />
+                {room.balanceDue > 0 ? (
+                  <span className="text-[8px] font-black uppercase tracking-widest text-[#E65100] bg-[#FFF3E0] px-2 py-1 rounded-md">
+                    Owing
+                  </span>
+                ) : room.refundDue > 0 ? (
+                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                    Refund
+                  </span>
+                ) : (
+                  <div
+                    className={cn("w-2.5 h-2.5 rounded-full", config.color)}
+                  />
+                )}
               </div>
             </div>
           );

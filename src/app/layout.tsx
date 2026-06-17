@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Jagamn Hotel Palace",
@@ -25,6 +26,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col font-manrope"
       >
         {children}
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/auth/staff-session";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabase-server";
+import { supabaseAdmin, ensureBucket } from "@/lib/supabase-server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage (ensure the bucket exists first)
+    await ensureBucket("avatars");
     const fileName = `${auth.session.id}-${Date.now()}.${file.name.split(".").pop()}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("avatars")
